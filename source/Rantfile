@@ -1,0 +1,62 @@
+# -*- mode: ruby encoding: UTF-8 -*-
+
+#  Groovy -- A native launcher for Groovy
+#
+#  Copyright © 2006 Russel Winder
+#
+#  This program is free software; you can redistribute it and/or modify it under the terms of
+#  the GNU General Public License as published by the Free Software Foundation; either version 2,
+#  or (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+#  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+#  the GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License along with this program; if
+#  not, write to the Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+#  02111-1307 USA
+#
+#  Author : Russel Winder <russel@russel.org.uk>
+#  $Revision $
+#  $Date $
+
+import 'c/dependencies'
+
+BuildDirectory = Environment[ 'BuildDirectory' ] + '/' + rant.current_subdir
+Program = BuildDirectory + '/' + Environment[ 'Name' ]
+Source = sys[ '*.c' ]
+
+$cppFlags = ''
+$cFlags = ''
+$libs = ''
+
+if Environment[ 'Architecture' ] == Solaris
+  $cppFlags += ' -Dsls '
+elsif Environment[ 'Architecture' ] == Linux
+  $cppFlags += ' -Dlnx '
+end
+
+if Environment[ 'Architecture' ] == Solaris || Environment[ 'Architecture' ] == Linux
+  $cppFlags += "-I#{ENV[ 'JAVA_HOME' ]}/include/#{Environment[ 'Architecture' ]} -I#{ENV[ 'JAVA_HOME' ]}/include"
+  $cFlags += '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
+  $libs += '-ldl'
+  def compile( target , sources ) ; "gcc #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
+  def link( target , sources ) ; "gcc #{$cFlags} -o #{target} #{sources} #{$libs}" end
+end
+
+task :default => [ :initialize , Program ]
+
+task :initialize do
+  if ! File.directory?( BuildDirectory ) then sys.mkdir_p( BuildDirectory ) end
+  DependenciesFile = BuildDirectory + '/dependencies'
+  gen C::Dependencies , DependenciesFile , :search => 'source'
+  gen Action do source DependenciesFile end
+end
+
+def object( source ) ; BuildDirectory + '/' + source.sub( '.c' , '.o' ) end
+
+file Program => Source.map { | source | object( source ) } do | target | sys.sh( link( target.name , target.prerequisites ) ) end
+
+Source.each { | source |
+  file object( source ) => source do | target | sys.sh( compile( target.name , target.prerequisites ) ) end
+}
