@@ -22,5 +22,5 @@ NOTES:
 
 
 Author:  Antti Karanta (Antti dot Karanta (at) iki dot fi) 
-$Revision: 38 $
+$Revision$
 $Date$
