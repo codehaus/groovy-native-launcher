@@ -13,7 +13,7 @@ NOTES:
    - the func contains platform specific calls to load a dynamic library and find a method from therein
    - define path separator and file separator for the platform
 
- TODO:
+ TODO::
  - test more
  - try at least on win, lnx, sls, osx
  - find out why long dir names / spaces in dirnames make dll loading fail on win
