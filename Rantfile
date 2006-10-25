@@ -22,6 +22,7 @@ import 'clean'
 
 Linux = 'linux'
 Solaris = 'solaris'
+Cygwin = 'cygwin'
 
 Environment = {}
 
@@ -29,10 +30,13 @@ Environment[ 'Name' ] = 'groovyLauncher'
 Environment[ 'BuildDirectory' ] = ENV['PWD'] + '/build'
 
 Architecture = ENV[ 'OSTYPE' ]
-if Architecture =~ /solaris/ then Environment[ 'Architecture' ] = Solaris
-elsif Architecture =~ /linux/ then Environment[ 'Architecture' ] = Linux
-else raise "Unrecognized architecture -- #{Architecture}"
-end
+
+Environment[ 'Architecture' ] = case Architecture
+                                when /solaris/ then Solaris
+                                when /linux/ then Linux
+                                when /ygwin/ then Cygwin
+                                else raise "Unrecognized architecture -- #{Architecture}"
+                                end
 
 desc 'Clean everything.'
 gen Clean , :clean

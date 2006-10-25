@@ -27,15 +27,19 @@ Source = sys[ '*.c' ]
 $cppFlags = ''
 $cFlags = ''
 $libs = ''
+$javaHome = ENV[ 'JAVA_HOME' ]
 
-if Environment[ 'Architecture' ] == Solaris
+case Environment[ 'Architecture' ]
+when Solaris
   $cppFlags += ' -Dsls '
-elsif Environment[ 'Architecture' ] == Linux
+when Linux
   $cppFlags += ' -Dlnx '
+when Cygwin
+  $cppFlags += ' -Dwin '
 end
 
-if Environment[ 'Architecture' ] == Solaris || Environment[ 'Architecture' ] == Linux
-  $cppFlags += "-I#{ENV[ 'JAVA_HOME' ]}/include/#{Environment[ 'Architecture' ]} -I#{ENV[ 'JAVA_HOME' ]}/include"
+if Environment[ 'Architecture' ] == Solaris || Environment[ 'Architecture' ] == Linux || Environment[ 'Architecture' ] == Cygwin
+  $cppFlags += "-I'#{$javaHome}/include/#{Environment[ 'Architecture' ]}' -I'#{$javaHome}/include'"
   $cFlags += '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
   $libs += '-ldl'
   def compile( target , sources ) ; "gcc #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
