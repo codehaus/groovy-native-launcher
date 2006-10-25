@@ -33,6 +33,8 @@
 
 #define GROOVY_START_CLASS "groovy.ui.GroovyMain"
 
+#define MAX_GROOVY_PARAM_DEFS 20
+
 
 int main(int argc, char** argv) {
 
@@ -41,14 +43,14 @@ int main(int argc, char** argv) {
   JavaVMOption extraJvmOptions[10];
   int          extraJvmOptionsCount = 0;
   
-  ParamInfo paramInfos[20]; // big enough, make larger if necessary
+  ParamInfo paramInfos[MAX_GROOVY_PARAM_DEFS]; // big enough, make larger if necessary
   int       paramInfoCount = 0;
 
   char *groovyLaunchJar = NULL, 
        *groovyConfFile  = NULL, 
-       *groovyDConf     = NULL,
+       *groovyDConf     = NULL, // the -Dgroovy.conf=something to pass to the jvm
        *groovyHome      = NULL, 
-       *groovyDHome     = NULL;
+       *groovyDHome     = NULL; // the -Dgroovy.home=something to pass to the jvm
         
   char *terminatingSuffixes[] = {".groovy", NULL},
        *extraProgramOptions[] = {"--main", GROOVY_START_CLASS, "--conf", NULL, NULL}, 
@@ -59,70 +61,22 @@ int main(int argc, char** argv) {
 
   
   // the parameters accepted by groovy
-
-  paramInfos[paramInfoCount].name = "-cp";
-  paramInfos[paramInfoCount].type = DOUBLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 0;
-
-  paramInfos[paramInfoCount].name = "-classpath";
-  paramInfos[paramInfoCount].type = DOUBLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 0;
-
-  paramInfos[paramInfoCount].name = "--classpath";
-  paramInfos[paramInfoCount].type = DOUBLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 0;
-
-  paramInfos[paramInfoCount].name = "-c";
-  paramInfos[paramInfoCount].type = DOUBLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 0;
-
-  paramInfos[paramInfoCount].name = "--encoding";
-  paramInfos[paramInfoCount].type = DOUBLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 0;
-
-  paramInfos[paramInfoCount].name = "-h";
-  paramInfos[paramInfoCount].type = SINGLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 1;
-
-  paramInfos[paramInfoCount].name = "--help";
-  paramInfos[paramInfoCount].type = SINGLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 1;
-
-  paramInfos[paramInfoCount].name = "-d";
-  paramInfos[paramInfoCount].type = SINGLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 0;
-
-  paramInfos[paramInfoCount].name = "--debug";
-  paramInfos[paramInfoCount].type = SINGLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 0;
-
-  paramInfos[paramInfoCount].name = "-e";
-  paramInfos[paramInfoCount].type = DOUBLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 1;
-
-  paramInfos[paramInfoCount].name = "-i";
-  paramInfos[paramInfoCount].type = DOUBLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 0;
-
-  paramInfos[paramInfoCount].name = "-l";
-  paramInfos[paramInfoCount].type = DOUBLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 0;
-
-  paramInfos[paramInfoCount].name = "-n";
-  paramInfos[paramInfoCount].type = SINGLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 0;
-
-  paramInfos[paramInfoCount].name = "-p";
-  paramInfos[paramInfoCount].type = SINGLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 0;
-
-  paramInfos[paramInfoCount].name = "-v";
-  paramInfos[paramInfoCount].type = SINGLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 0;
-
-  paramInfos[paramInfoCount].name = "--version";
-  paramInfos[paramInfoCount].type = SINGLE_PARAM;
-  paramInfos[paramInfoCount++].terminating = 0;
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-cp",         DOUBLE_PARAM, 0);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-classpath",  DOUBLE_PARAM, 0);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--classpath", DOUBLE_PARAM, 0);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-c",          DOUBLE_PARAM, 0);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--encoding",  DOUBLE_PARAM, 0);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-h",          SINGLE_PARAM, 1);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--help",      SINGLE_PARAM, 1);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-d",          SINGLE_PARAM, 0);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--debug",     SINGLE_PARAM, 0);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-e",          DOUBLE_PARAM, 1);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-i",          DOUBLE_PARAM, 0);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-l",          DOUBLE_PARAM, 0);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-n",          SINGLE_PARAM, 0);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-p",          SINGLE_PARAM, 0);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-v",          SINGLE_PARAM, 0);
+  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--version",   SINGLE_PARAM, 0);
 
   // add groovy's lib dir as the sole dir from where to append all jars
 
@@ -132,24 +86,19 @@ int main(int argc, char** argv) {
     goto end;
   }
   
-                           // len + nul char + "lib" + 2 file seps + file name len
+                           // ghome path len + nul char + "lib" + 2 file seps + file name len
   if(!(groovyLaunchJar = malloc(len + 1 + 3 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_START_JAR)))
     ) {
     fprintf(stderr, "error: out of memory when allocating space for directory name\n");
     goto end;
   }
 
-  groovyLaunchJar[0] = 0;
-  strcat(groovyLaunchJar, groovyHome);
-  strcat(groovyLaunchJar, FILE_SEPARATOR);
-  strcat(groovyLaunchJar, "lib");
-  strcat(groovyLaunchJar, FILE_SEPARATOR);
-  strcat(groovyLaunchJar, GROOVY_START_JAR);
+  strcpy(groovyLaunchJar, groovyHome);
+  strcat(groovyLaunchJar, FILE_SEPARATOR "lib" FILE_SEPARATOR GROOVY_START_JAR);
 
   jars[0] = groovyLaunchJar;
-
-  if(!(groovyConfFile = malloc(len + 1 + 4 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_CONF)))
-    ) {
+                        // ghome path len + nul + "conf" + 2 file seps + file name len
+  if( !( groovyConfFile = malloc(len + 1 + 4 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_CONF)) )    ) {
     fprintf(stderr, "error: out of memory when allocating space for directory name\n");
     goto end;
   }
@@ -157,28 +106,24 @@ int main(int argc, char** argv) {
   
   // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
   
-  groovyConfFile[0] = 0;
-  strcat(groovyConfFile, groovyHome);
-  strcat(groovyConfFile, FILE_SEPARATOR);
-  strcat(groovyConfFile, "conf");
-  strcat(groovyConfFile, FILE_SEPARATOR);
-  strcat(groovyConfFile, GROOVY_CONF);
+  strcpy(groovyConfFile, groovyHome);
+  strcat(groovyConfFile, FILE_SEPARATOR "conf" FILE_SEPARATOR GROOVY_CONF);
   extraProgramOptions[3] = groovyConfFile;
-
-  if(!(groovyDConf = malloc(22 + strlen(groovyConfFile) + 1))
-    || !(groovyDHome = malloc(15 + strlen(groovyHome))) ) {
+         // "-Dgroovy.starter.conf=" => 22 + 1 for nul char 
+  if(!(groovyDConf = malloc( 22 + 1 + strlen(groovyConfFile) ) )
+         // "-Dgroovy.home=" => 14 + 1 for nul char 
+    || !(groovyDHome = malloc( 14 + 1 + strlen(groovyHome) ) ) 
+    ) {
     fprintf(stderr, "error: out of memory when allocating space for params\n");
     goto end;
   }
-  groovyDConf[0] = 0;
-  strcat(groovyDConf, "-Dgroovy.starter.conf=");
+  strcpy(groovyDConf, "-Dgroovy.starter.conf=");
   strcat(groovyDConf, groovyConfFile);
 
   extraJvmOptions[extraJvmOptionsCount].optionString = groovyDConf; 
   extraJvmOptions[extraJvmOptionsCount++].extraInfo = NULL;
 
-  groovyDHome[0] = 0;
-  strcat(groovyDHome, "-Dgroovy.home=");
+  strcpy(groovyDHome, "-Dgroovy.home=");
   strcat(groovyDHome, groovyHome);
 
   extraJvmOptions[extraJvmOptionsCount].optionString = groovyDHome; 
@@ -205,12 +150,13 @@ int main(int argc, char** argv) {
   options.terminatingSuffixes = terminatingSuffixes;
 
 
-   rval = launchJavaApp(&options);
+  rval = launchJavaApp(&options);
 
 end:
-    if(groovyLaunchJar) free(groovyLaunchJar);
-    if(groovyConfFile)  free(groovyConfFile);
-    if(groovyDConf)     free(groovyDConf);
-    if(groovyDHome)     free(groovyDHome);
-    return rval;
+  if(groovyLaunchJar) free(groovyLaunchJar);
+  if(groovyConfFile)  free(groovyConfFile);
+  if(groovyDConf)     free(groovyDConf);
+  if(groovyDHome)     free(groovyDHome);
+  return rval;
 }
+

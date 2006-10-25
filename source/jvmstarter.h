@@ -104,3 +104,6 @@ typedef struct {
 
 
 extern int launchJavaApp(JavaLauncherOptions* options);
+
+void setParameterDescription(ParamInfo* paramInfo, int index, int size, char* name, ParamClass type, short terminating);
+

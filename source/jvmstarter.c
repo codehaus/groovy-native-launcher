@@ -1,4 +1,4 @@
-//  Groovy -- A native launcher for Groovy
+//  A library for easy creation of native launcher for Java applications.
 //
 //  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) iki dot fi) 
 //
@@ -20,6 +20,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <assert.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -36,7 +38,9 @@
 #  include "Windows.h"
 #    if defined(DIRSUPPORT)
          // uppercase win symbol expected by dirent.h we're using
-#        define WIN
+#        ifndef(WIN)
+#          define WIN
+#        endif
 #        include "dirent.h"
 
 #    endif
@@ -143,6 +147,15 @@ int fileExists(const char* fileName) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+void setParameterDescription(ParamInfo* paramInfo, int index, int size, char* name, ParamClass type, short terminating) {
+  assert(index < size);
+  paramInfo[index].name = name;
+  paramInfo[index].type = type;
+  paramInfo[index].terminating = terminating;  
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 /** To be called when there is a pending exception that is the result of some
  * irrecoverable error in this startup program. Clears the exception and prints its description. */
 void clearException(JNIEnv* env) {
@@ -192,7 +205,7 @@ jboolean appendJarsFromDir(char* dirName, char** targetPtr, size_t* targetSize) 
   char          *target = *targetPtr;
 
   len = strlen(dirName);
-  dirNameEndsWithSeparator = (strcmp(dirName + len - 1, FILE_SEPARATOR) == 0);
+  dirNameEndsWithSeparator = ( strcmp(dirName + len - strlen(FILE_SEPARATOR), FILE_SEPARATOR) == 0 );
 
   dir = opendir(dirName);
   if(!dir) {
@@ -200,12 +213,12 @@ jboolean appendJarsFromDir(char* dirName, char** targetPtr, size_t* targetSize) 
     return JNI_FALSE;
   }
 
-  while(entry = readdir(dir)) {
+  while( (entry = readdir(dir)) ) {
     len = strlen(entry->d_name);
     if(len > 5 && (strcmp(".jar", (entry->d_name) + len - 4) == 0)) {
       if(!(target = append(target, targetSize, PATH_SEPARATOR))  // this if and the contained ||s are used so that if any of the
       || !(target = append(target, targetSize, dirName))         // calls fail, we jump to the end
-      || (!dirNameEndsWithSeparator && !(target = append(target, targetSize, FILE_SEPARATOR))) 
+      || (dirNameEndsWithSeparator ?  JNI_FALSE : !(target = append(target, targetSize, FILE_SEPARATOR)) ) 
       || !(target = append(target, targetSize, entry->d_name))) goto end;
     }
   }
@@ -221,7 +234,7 @@ end:
 
 #else
   fprintf(stderr, "To have reading jars from dirs supported on windows you need to compile w/ option -DDIRSUPPORT\n"
-                  "and have the header dirent.h available. Please see the comments in the source for details.\n");
+                  "and have the header dirent.h available. Please see the comments in the source / README file for details.\n");
   exit(1);
 #endif
 
@@ -271,15 +284,15 @@ jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrA
   jstring arg = (*env)->NewStringUTF(env, strToAdd);
 
   if(!arg) {
-    clearException(env);
     fprintf(stderr, "error: could not convert %s to java string\n", strToAdd);
+    clearException(env);
     return JNI_TRUE;        
   }
 
   (*env)->SetObjectArrayElement(env, jstrArr, index, arg);
   if((*env)->ExceptionCheck(env)) {
-    clearException(env);
     fprintf(stderr, "error: error when writing %dth element %s to Java String[]\n", index, strToAdd);
+    clearException(env);
     rval = JNI_TRUE;
   }
   (*env)->DeleteLocalRef(env, arg);
@@ -291,11 +304,11 @@ jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrA
 /** See the header file for information.
  */
 extern int launchJavaApp(JavaLauncherOptions *options) {
-  int            rval = 1;
-  JavaVM         *javavm = NULL;
+  int            rval = -1;
+  JavaVM         *javavm        = NULL;
+  JNIEnv         *env           = NULL;
   JVMCreatorFunc jvmCreatorFunc = NULL;
   jint           result, optNr = 0;
-  JNIEnv         *env = NULL;
   JavaVMInitArgs vm_args;
   JavaVMOption*  jvmOptions; 
   jobjectArray   launcheeJOptions = NULL;
@@ -309,7 +322,7 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
   size_t    cpsize      = 2000; // just the initial size, expanded if necessary
   jboolean  *isLauncheeOption;
   jint      launcheeParamCount = 0;
-  char*     javaHome = NULL, *toolsJarD = NULL;
+  char      *javaHome = NULL, *toolsJarD = NULL;
   char      toolsJarFile[2000];
 
 
@@ -325,11 +338,12 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
 
   for(i = 0; i < options->numArguments; i++) isLauncheeOption[i] = JNI_FALSE;
 
-  // find out the argument index after which all the params are launchee params 
+  // find out the argument index after which all the params are launchee (prg being launched) params 
   for(i = 0; i < options->numArguments; i++) {
     char* arg = options->arguments[i];
-
-    if(arrayContainsString(options->terminatingSuffixes, arg, SUFFIX_SEARCH)) {
+    
+    if((arg[0] == 0) || (arg[0] != '-') // empty strs and ones not beginning w/ - are considered to be terminating args to the launchee
+     || arrayContainsString(options->terminatingSuffixes, arg, SUFFIX_SEARCH)) {
       launcheeParamBeginIndex = i;
       break;
     }
@@ -341,7 +355,7 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
           case DOUBLE_PARAM :
             if(strcmp(options->paramInfos[j].name, arg) == 0) {
               launcheeParamBeginIndex = i;
-              goto endindexcheck;
+              goto endindexcheck; // break out of two nested for loops
             }
             break;
           case PREFIX_PARAM :
@@ -670,6 +684,7 @@ next_arg:
   // The jvm side of the program could ensure that System.exit() does not end the process 
   // (by catching that throwable? there is some way)
   if((*env)->ExceptionCheck(env)) {
+    // TODO: provide an option which allows the caller to indicate whether to print the stack trace
     (*env)->ExceptionClear(env);
   } else {
     rval = 0;
@@ -678,11 +693,16 @@ next_arg:
 
 end:
   // cleanup
-  if(javavm)         (*javavm)->DestroyJavaVM(javavm);
-  if(classpath)      free(classpath);
+  if(javavm) {
+    if( (*javavm)->DetachCurrentThread(javavm) ) {
+      fprintf(stderr, "Warning: could not detach main thread from the jvm at shutdown (please report this as a bug)\n");
+    }
+    (*javavm)->DestroyJavaVM(javavm);
+  }
+  if(classpath)        free(classpath);
   if(isLauncheeOption) free(isLauncheeOption);
-  if(jvmOptions)     free(jvmOptions);
-  if(toolsJarD)      free(toolsJarD);
+  if(jvmOptions)       free(jvmOptions);
+  if(toolsJarD)        free(toolsJarD);
 
   return rval;
 
