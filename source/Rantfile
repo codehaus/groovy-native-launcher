@@ -24,6 +24,7 @@ BuildDirectory = Environment[ 'BuildDirectory' ] + '/' + rant.current_subdir
 Program = BuildDirectory + '/' + Environment[ 'Name' ]
 Source = sys[ '*.c' ]
 
+$gcc = ''
 $cppFlags = ''
 $cFlags = ''
 $libs = ''
@@ -31,19 +32,34 @@ $javaHome = ENV[ 'JAVA_HOME' ]
 
 case Environment[ 'Architecture' ]
 when Solaris
-  $cppFlags += ' -Dsls '
-when Linux
-  $cppFlags += ' -Dlnx '
-when Cygwin
-  $cppFlags += ' -Dwin '
-end
-
-if Environment[ 'Architecture' ] == Solaris || Environment[ 'Architecture' ] == Linux || Environment[ 'Architecture' ] == Cygwin
-  $cppFlags += "-I'#{$javaHome}/include/#{Environment[ 'Architecture' ]}' -I'#{$javaHome}/include'"
+  $gcc = 'gcc'
+  $cppFlags += " -Dsls -I'#{$javaHome}/include/#{Environment[ 'Architecture' ]}' -I'#{$javaHome}/include'"
   $cFlags += '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
   $libs += '-ldl'
-  def compile( target , sources ) ; "gcc #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-  def link( target , sources ) ; "gcc #{$cFlags} -o #{target} #{sources} #{$libs}" end
+  def compile( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
+  def link( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
+when Linux
+  $gcc = 'gcc'
+  $cppFlags += " -Dlnx -I'#{$javaHome}/include/#{Environment[ 'Architecture' ]}' -I'#{$javaHome}/include'"
+  $cFlags += '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
+  $libs += '-ldl'
+  def compile( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
+  def link( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
+when Cygwin
+  $gcc = '/cygdrive/c/MinGW/bin/mingw32-gcc'
+  $cppFlags += " -Dwin -I'#{$javaHome}\\include\\win32' -I'#{$javaHome}\\include'"
+  $cFlags += '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
+  $libs += '-ldl'
+  def compile( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o `cygpath -w #{target}` #{sources}" end
+  def link( target , sources ) ; "#{$gcc} #{$cFlags} -o `cygpath -w #{target}` `cygpath -w #{sources}` #{$libs}" end
+when MSYS
+  $javaHome = $javaHome.sub( 'Program/' , 'Program' )
+  $gcc = 'gcc'
+  $cppFlags += " -Dwin -I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
+  $cFlags += '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
+  $libs += '-ldl'
+  def compile( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
+  def link( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
 end
 
 task :default => [ :initialize , Program ]

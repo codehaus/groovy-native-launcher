@@ -23,6 +23,7 @@ import 'clean'
 Linux = 'linux'
 Solaris = 'solaris'
 Cygwin = 'cygwin'
+MSYS = 'msys'
 
 Environment = {}
 
@@ -35,6 +36,7 @@ Environment[ 'Architecture' ] = case Architecture
                                 when /solaris/ then Solaris
                                 when /linux/ then Linux
                                 when /ygwin/ then Cygwin
+				when /msys/ then MSYS  
                                 else raise "Unrecognized architecture -- #{Architecture}"
                                 end
 
