@@ -38,12 +38,12 @@ Architecture = ENV[ 'OSTYPE' ]
 Environment[ 'Architecture' ] = case Architecture
                                 when /solaris/ then Solaris
                                 when /linux/ then Linux
-                                when /ygwin/ then Cygwin
+                                when /cygwin/ then Cygwin
                                 when /msys/ then MSYS  
                                 else
-				  if ENV[ 'WINDIR' ] != nil then Windows
-				  else raise "Unrecognized architecture -- #{Architecture}"
-				  end
+                                  if ENV[ 'WINDIR' ] != nil then Windows
+                                  else raise "Unrecognized architecture -- #{Architecture}"
+                                  end
                                 end
 
 desc 'Clean everything.'

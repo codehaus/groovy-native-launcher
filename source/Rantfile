@@ -24,46 +24,34 @@ BuildDirectory = '../' + Environment[ 'BuildDirectory' ] + '/' + rant.current_su
 Program = BuildDirectory + '/' + Environment[ 'Name' ]
 Source = sys[ '*.c' ]
 
-$gcc = ''
-$cppFlags = ''
-$cFlags = ''
-$libs = ''
 $javaHome = ENV[ 'JAVA_HOME' ]
-
 if $javaHome == nil || $javaHome == '' then raise "JAVA_HOME not defined." end
+
+# Assume a default of GCC since most of the systems we are checking use this.
+
+$gcc = 'gcc'
+$cppFlags = "-I'#{$javaHome}/include/#{Environment[ 'Architecture' ]}' -I'#{$javaHome}/include'"
+$cFlags = '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
+$libs = '-ldl'
+
+def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
+def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
 
 case Environment[ 'Architecture' ]
 when Solaris
-  $gcc = 'gcc'
-  $cppFlags += " -Dsls -I'#{$javaHome}/include/#{Environment[ 'Architecture' ]}' -I'#{$javaHome}/include'"
-  $cFlags += '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
-  $libs += '-ldl'
-  def compile( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-  def link( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
+  $cppFlags += ' -Dsls '
 when Linux
-  $gcc = 'gcc'
-  $cppFlags += " -Dlnx -I'#{$javaHome}/include/#{Environment[ 'Architecture' ]}' -I'#{$javaHome}/include'"
-  $cFlags += '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
-  $libs += '-ldl'
-  def compile( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-  def link( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
+  $cppFlags += ' -Dlnx '
 when Cygwin
   $gcc = '/cygdrive/c/MinGW/bin/mingw32-gcc'
-  $cppFlags += " -Dwin -I'#{$javaHome}\\include\\win32' -I'#{$javaHome}\\include'"
-  $cFlags += '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
-  $libs += '-ldl'
-  def compile( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o `cygpath -w #{target}` #{sources}" end
-  def link( target , sources ) ; "#{$gcc} #{$cFlags} -o `cygpath -w #{target}` `cygpath -w #{sources}` #{$libs}" end
+  $cppFlags = " -Dwin -I'#{$javaHome}\\include\\win32' -I'#{$javaHome}\\include'"
+  def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o `cygpath -w #{target}` #{sources}" end
+  def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o `cygpath -w #{target}` `cygpath -w #{sources}` #{$libs}" end
 when MSYS
   $javaHome = $javaHome.sub( 'Program/' , 'Program' )
-  $gcc = 'gcc'
   $cppFlags += " -Dwin -I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
-  $cFlags += '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
-  $libs += '-ldl'
-  def compile( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-  def link( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
 when Windows
-  def compile( target , source ) ; raise 'Windows compilation not yet configures.' end
+  def compileCommand( target , source ) ; raise 'Windows compilation not yet configures.' end
 end
 
 task :default => [ :initialize , Program ]
@@ -77,8 +65,8 @@ end
 
 def object( source ) ; BuildDirectory + '/' + source.sub( '.c' , '.o' ) end
 
-file Program => Source.map { | source | object( source ) } do | target | sys.sh( link( target.name , target.prerequisites ) ) end
+file Program => Source.map { | source | object( source ) } do | target | sys.sh( linkCommand( target.name , target.prerequisites ) ) end
 
 Source.each { | source |
-  file object( source ) => source do | target | sys.sh( compile( target.name , target.prerequisites ) ) end
+  file object( source ) => source do | target | sys.sh( compileCommand( target.name , target.prerequisites ) ) end
 }
