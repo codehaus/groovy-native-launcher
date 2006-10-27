@@ -24,11 +24,14 @@ Linux = 'linux'
 Solaris = 'solaris'
 Cygwin = 'cygwin'
 MSYS = 'msys'
+Windows = 'windows'
 
 Environment = {}
 
 Environment[ 'Name' ] = 'groovyLauncher'
 Environment[ 'BuildDirectory' ] = 'build'
+
+#  Environmnet variable is probably not defined on standard windows, assume a value of nil.
 
 Architecture = ENV[ 'OSTYPE' ]
 
@@ -37,7 +40,10 @@ Environment[ 'Architecture' ] = case Architecture
                                 when /linux/ then Linux
                                 when /ygwin/ then Cygwin
                                 when /msys/ then MSYS  
-                                else raise "Unrecognized architecture -- #{Architecture}"
+                                else
+				  if ENV[ 'WINDIR' ] != nil then Windows
+				  else raise "Unrecognized architecture -- #{Architecture}"
+				  end
                                 end
 
 desc 'Clean everything.'

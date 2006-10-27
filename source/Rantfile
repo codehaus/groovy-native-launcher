@@ -30,6 +30,8 @@ $cFlags = ''
 $libs = ''
 $javaHome = ENV[ 'JAVA_HOME' ]
 
+if $javaHome == nil || $javaHome == '' then raise "JAVA_HOME not defined." end
+
 case Environment[ 'Architecture' ]
 when Solaris
   $gcc = 'gcc'
@@ -60,6 +62,8 @@ when MSYS
   $libs += '-ldl'
   def compile( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
   def link( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
+when Windows
+  def compile( target , source ) ; raise 'Windows compilation not yet configures.' end
 end
 
 task :default => [ :initialize , Program ]
