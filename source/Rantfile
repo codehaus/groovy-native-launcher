@@ -20,7 +20,7 @@
 
 import 'c/dependencies'
 
-BuildDirectory = Environment[ 'BuildDirectory' ] + '/' + rant.current_subdir
+BuildDirectory = '../' + Environment[ 'BuildDirectory' ] + '/' + rant.current_subdir
 Program = BuildDirectory + '/' + Environment[ 'Name' ]
 Source = sys[ '*.c' ]
 
