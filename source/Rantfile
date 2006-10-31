@@ -51,7 +51,10 @@ when MSYS
   $javaHome = $javaHome.sub( 'Program/' , 'Program' )
   $cppFlags += " -Dwin -I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
 when Windows
-  def compileCommand( target , source ) ; raise 'Windows compilation not yet configures.' end
+  $cppFlags = " -Dwin -I'#{$javaHome}\\include\\win32' -I'#{$javaHome}\\include'"
+  def compileCommand( target , sources) ; "cl /MD #{$cppFlags} /O1 /Wall #{sources}" end
+# TODO
+  def linkCommand( target , sources ) ; "link /NOLOGO /OUT:groovy.exe #{sources}" end
 end
 
 task :default => [ :initialize , Program ]

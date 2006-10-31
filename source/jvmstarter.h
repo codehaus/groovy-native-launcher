@@ -105,5 +105,7 @@ typedef struct {
 
 extern int launchJavaApp(JavaLauncherOptions* options);
 
+extern int fileExists(const char* fileName);
+
 void setParameterDescription(ParamInfo* paramInfo, int index, int size, char* name, ParamClass type, short terminating);
 

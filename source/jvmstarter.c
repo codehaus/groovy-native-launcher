@@ -1,4 +1,4 @@
-//  A library for easy creation of native launcher for Java applications.
+//  A library for easy creation of a native launcher for Java applications.
 //
 //  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) iki dot fi) 
 //
@@ -46,57 +46,66 @@
 #    endif
 
 //#  define DLHandle HINSTANCE
-typedef HINSTANCE DLHandle;
+   typedef HINSTANCE DLHandle;
 #  define openDynLib(path) LoadLibrary(path)
 #  define findFunction(libraryhandle, funcname) GetProcAddress(libraryhandle, funcname)
+#  define closeDynLib(handle) FreeLibrary(handle)
 
 #else
 
-#  if defined(lnx)
+#  if defined(linux)
 #    define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
-#  elif defined(sls)
+#  elif defined(sun)
 #    define PATHS_TO_SERVER_JVM "lib/sparc/server/libjvm.so", "lib/sparcv9/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/sparc/client/libjvm.so", "lib/sparc/libjvm.so"
 #  else   
 #    error "Your OS is not currently supported. Support should be easy to add - please see the source (look for #if defined stuff)."
+#  endif
 
-#endif
-
-// let's see if this compiles on unixes, i.e. dirent.h is present
-//#  if defined(DIRSUPPORT)
-#    include <dirent.h>
-//#  endif
+#  include <dirent.h>
 
 // stuff for loading a dynamic library
 #  include <dlfcn.h>
 #  include <link.h>
   
 //#  define DLHandle void*
-typedef void *DLHandle;
+   typedef void *DLHandle;
 #  define openDynLib(path) dlopen(path, RTLD_LAZY)
+#  define closeDynLib(handle) dlclose(handle)
 #  define findFunction(libraryhandle, funcname) dlsym(libraryhandle, funcname)
 
 #endif
 
+
 #define PATH_TO_JVM_DLL_MAX_LEN 2000
 
 
-
+// The pointer to the JNI_CreateJavaVM function needs to be called w/ JNICALL calling convention. Using this typedef
+// takes care of that.
 typedef jint (JNICALL *JVMCreatorFunc)(JavaVM**,void**,void*);
+
+typedef struct {
+  JVMCreatorFunc creatorFunc;
+  DLHandle       dynLibHandle;
+} JavaDynLib;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static JVMCreatorFunc findJVMCreatorFunc(char* java_home, jboolean useServerVm) {
+/** In case there are errors, the returned struct contains only NULLs. */
+static JavaDynLib findJVMDynamicLibrary(char* java_home, jboolean useServerVm) {
   
   char path[PATH_TO_JVM_DLL_MAX_LEN], *mode;
-  JVMCreatorFunc rval = NULL;
+  JavaDynLib rval;
   int i = 0, j = 0;
   DLHandle jvmLib = (DLHandle)0;
   char* potentialPathsToServerJVM[]   = { PATHS_TO_SERVER_JVM, NULL};
   char*   potentialPathsToClientJVM[] = { PATHS_TO_CLIENT_JVM, NULL};
   char** lookupDirs = NULL;
   char*  dynLibFile;
+
+  rval.creatorFunc  = NULL;
+  rval.dynLibHandle = NULL;
 
   if(useServerVm) {
     mode = "server";
@@ -114,30 +123,38 @@ static JVMCreatorFunc findJVMCreatorFunc(char* java_home, jboolean useServerVm) 
         strcat(path, "jre" FILE_SEPARATOR);
       }
       strcat(path, dynLibFile);
-      if( (jvmLib = openDynLib(path)) ) goto exitlookup; // just break out of 2 nested loops
+      if(fileExists(path)) {
+        if(!(jvmLib = openDynLib(path)) )  {
+          fprintf(stderr, "error: dynamic library %s exists but could not be loaded!\n", path);
+        } 
+        goto exitlookup; // just break out of 2 nested loops
+      }
     }
   }
 exitlookup:
   
   if(!jvmLib) {
-    fprintf(stderr, "error: could not find %s jvm under %s\n", mode, java_home);
-    return NULL;
+    fprintf(stderr, "error: could not find %s jvm under %s\n"
+                    "       please check that it is a valid jdk / jre containing the desired type of jvm\n", 
+                    mode, java_home);
+    return rval;
   }
 
-  rval = (JVMCreatorFunc)findFunction(jvmLib, "JNI_CreateJavaVM");
+  rval.creatorFunc = (JVMCreatorFunc)findFunction(jvmLib, "JNI_CreateJavaVM");
 
   // TODO: look into freeLibrary func and GetLastError to find out why path w/ spaces fails on windows
 
-  if(!rval) {
+  if(rval.creatorFunc) {
+    rval.dynLibHandle = jvmLib;
+  } else {
     fprintf(stderr, "strange bug: jvm creator function not found in jvm dynamic library %s\n", path);
-    return NULL;
   }
   return rval;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-int fileExists(const char* fileName) {
+/** Returns != 0 if the given file exists. */
+extern int fileExists(const char* fileName) {
   struct stat buf;
   int i = stat ( fileName, &buf );
 
@@ -307,7 +324,7 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
   int            rval = -1;
   JavaVM         *javavm        = NULL;
   JNIEnv         *env           = NULL;
-  JVMCreatorFunc jvmCreatorFunc = NULL;
+  JavaDynLib     javaLib;
   jint           result, optNr = 0;
   JavaVMInitArgs vm_args;
   JavaVMOption*  jvmOptions; 
@@ -475,8 +492,8 @@ next_arg:
   }
 
   // fetch the pointer to jvm creator func
-  jvmCreatorFunc = findJVMCreatorFunc(javaHome, serverVMRequested);
-  if(!jvmCreatorFunc) goto end; // error message already printed
+  javaLib = findJVMDynamicLibrary(javaHome, serverVMRequested);
+  if(!javaLib.creatorFunc) goto end; // error message already printed
   
   if(!(classpath = malloc(cpsize))
   ||  (classpath[0] = 0)
@@ -570,7 +587,7 @@ next_arg:
   vm_args.ignoreUnrecognized = JNI_FALSE;
 
 
-  result = (*jvmCreatorFunc)(&javavm, (void**)&env, &vm_args);
+  result = (*(javaLib.creatorFunc))(&javavm, (void**)&env, &vm_args);
 
   if(result) {
     char* errMsg;
@@ -699,6 +716,7 @@ end:
     }
     (*javavm)->DestroyJavaVM(javavm);
   }
+  if(javaLib.dynLibHandle) closeDynLib(javaLib.dynLibHandle);
   if(classpath)        free(classpath);
   if(isLauncheeOption) free(isLauncheeOption);
   if(jvmOptions)       free(jvmOptions);

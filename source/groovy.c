@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
        *groovyHome      = NULL, 
        *groovyDHome     = NULL; // the -Dgroovy.home=something to pass to the jvm
         
-  char *terminatingSuffixes[] = {".groovy", NULL},
+  char *terminatingSuffixes[] = {".groovy", ".gvy", ".gy", ".gsh", NULL},
        *extraProgramOptions[] = {"--main", GROOVY_START_CLASS, "--conf", NULL, NULL}, 
        *jars[]                = {NULL, NULL};
 
