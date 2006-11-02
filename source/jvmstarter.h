@@ -16,16 +16,15 @@
 //  $Revision$
 //  $Date$
 
-#if defined(win)
+#if defined(_WIN32) || defined(_WIN64)
 
-#define FILE_SEPARATOR "\\"
-#define PATH_SEPARATOR ";"
-
+#  define FILE_SEPARATOR "\\"
+#  define PATH_SEPARATOR ";"
 
 #else
 
-#define FILE_SEPARATOR "/"
-#define PATH_SEPARATOR ":"
+#  define FILE_SEPARATOR "/"
+#  define PATH_SEPARATOR ":"
 
 #endif
 
@@ -39,9 +38,9 @@ typedef enum {
 } ParamClass;
 
 typedef struct {
-  char *name;
+  char       *name;
   /** If != 0, the actual parameters followed by this one are passed on to the launchee. */
-  short  terminating;  
+  short      terminating;  
   ParamClass type;
 } ParamInfo;
 

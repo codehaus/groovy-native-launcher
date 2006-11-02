@@ -29,7 +29,7 @@
 
 #include "jvmstarter.h"
 
-#if defined(win)
+#if defined(_WIN32) || defined(_WIN64)
 
 // as appended to JAVA_HOME + FILE_SEPARATOR
 #  define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll"
@@ -53,14 +53,17 @@
 
 #else
 
-#  if defined(linux)
+#  if defined(__linux__) && defined(__i386__)
 #    define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
-#  elif defined(sun)
+#  elif defined(__sun__)
 #    define PATHS_TO_SERVER_JVM "lib/sparc/server/libjvm.so", "lib/sparcv9/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/sparc/client/libjvm.so", "lib/sparc/libjvm.so"
+#  elif defined(__CYGWIN__)
+#    define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll"
+#    define PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
 #  else   
-#    error "Your OS is not currently supported. Support should be easy to add - please see the source (look for #if defined stuff)."
+#    error "Either your OS and/or architecture is not currently supported. Support should be easy to add - please see the source (look for #if defined stuff)."
 #  endif
 
 #  include <dirent.h>
@@ -213,7 +216,7 @@ char* append(char* target, size_t* size, char* stringToAppend) {
 /** returns JNI_FALSE on failure. May change the target to point to a new location */
 jboolean appendJarsFromDir(char* dirName, char** targetPtr, size_t* targetSize) {
 
-#if !defined(win) || defined(DIRSUPPORT)
+#if !(defined(_WIN32) || defined(_WIN64)) || defined(DIRSUPPORT)
 
   DIR           *dir;
   struct dirent *entry;

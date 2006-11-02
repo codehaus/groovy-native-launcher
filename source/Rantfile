@@ -39,20 +39,21 @@ def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources
 
 case Environment[ 'Architecture' ]
 when Solaris
-  $cppFlags += ' -Dsls '
+#  $cppFlags += ' -Dsls '
 when Linux
-  $cppFlags += ' -Dlnx '
+#  $cppFlags += ' -Dlnx '
 when Cygwin
   $gcc = '/cygdrive/c/MinGW/bin/mingw32-gcc'
-  $cppFlags = " -Dwin -I'#{$javaHome}\\include\\win32' -I'#{$javaHome}\\include'"
+  $cppFlags = " -I'#{$javaHome}\\include' -I'#{$javaHome}\\include\\win32'"
   def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o `cygpath -w #{target}` #{sources}" end
   def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o `cygpath -w #{target}` `cygpath -w #{sources}` #{$libs}" end
 when MSYS
   $javaHome = $javaHome.sub( 'Program/' , 'Program' )
   $cppFlags += " -Dwin -I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
 when Windows
-  $cppFlags = " -Dwin -I'#{$javaHome}\\include\\win32' -I'#{$javaHome}\\include'"
-  def compileCommand( target , sources) ; "cl /MD #{$cppFlags} /O1 /Wall #{sources}" end
+  $gcc = 'cl'
+  $cppFlags = " -Dwin -I#{$javaHome}\\include -I#{$javaHome}\\include\\win32"
+  def compileCommand( target , sources) ; "#{$gcc} /MD #{$cppFlags} /O1 /Wall #{sources}" end
 # TODO
   def linkCommand( target , sources ) ; "link /NOLOGO /OUT:groovy.exe #{sources}" end
 end
