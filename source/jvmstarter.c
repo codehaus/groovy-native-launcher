@@ -159,9 +159,9 @@ exitlookup:
 /** Returns != 0 if the given file exists. */
 extern int fileExists(const char* fileName) {
   struct stat buf;
-  int i = stat ( fileName, &buf );
+  int i = stat(fileName, &buf);
 
-  return ( i == 0 );
+  return (i == 0);
 
 }
 
@@ -321,6 +321,18 @@ jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrA
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+/** Appends the given entry to the jvm classpath being constructed (begins w/ -Djava.class.path=). Adds path separator
+ * before the given entry, unless this is the first entry.
+ * Returns JNI_TRUE on error (err msg already printed). */
+static jboolean appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
+  size_t cplen = strlen(cp);
+  if(cplen > 18) ;
+  // TBD
+  return JNI_TRUE;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 /** See the header file for information.
  */
 extern int launchJavaApp(JavaLauncherOptions *options) {
@@ -345,6 +357,8 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
   char      *javaHome = NULL, *toolsJarD = NULL;
   char      toolsJarFile[2000];
 
+  javaLib.creatorFunc  = NULL;
+  javaLib.dynLibHandle = NULL;  
 
   // here only numArguments is needed, but numArguments can be 0 and mallocing that is not good...
   isLauncheeOption = malloc((options->numArguments + 1) * sizeof(jboolean));
@@ -462,7 +476,7 @@ endindexcheck:
     }
 // this label is needed to be able to break out of nested for and switch (with a goto)
 next_arg: 
-   ;  // at least w/ ms compiler, the tag needs a statement after it before the closing brace. Thus, an empty statement.
+   ;  // at least w/ ms compiler, the tag needs a statement after it before the closing brace. Thus, an empty statement here.
   } // end looping over arguments and classifying them for the jvm
 
 
@@ -497,14 +511,16 @@ next_arg:
   // fetch the pointer to jvm creator func
   javaLib = findJVMDynamicLibrary(javaHome, serverVMRequested);
   if(!javaLib.creatorFunc) goto end; // error message already printed
+
+  // construct the startup classpath
   
-  if(!(classpath = malloc(cpsize))
-  ||  (classpath[0] = 0)
-  ||  !(classpath = append(classpath, &cpsize, "-Djava.class.path="))) {
+  if( !(classpath = malloc(cpsize)) ) {
     fprintf(stderr, "error: out of memory when allocating space for classpath\n");
     goto end;
   }
 
+  strcpy(classpath, "-Djava.class.path=");
+  
   // add the jars from the given dirs
   i = 0;
   if(options->jarDirs) {
@@ -523,53 +539,48 @@ next_arg:
   }
 
   if(envCLASSPATH && !(classpath = append(classpath, &cpsize, envCLASSPATH))) {
-    fprintf(stderr, "error: out of memory when adding CLASSPATH to classpath\n");
+    fprintf(stderr, "error: out of memory when adding env CLASSPATH to startup classpath\n");
     goto end;
   }
 
+  // add the provided single jars
+  
   if(options->jars) {
     char* jarName;
-    i = 0; // FIXME add path separator
-    while(jarName = options->jars[i++]) {
-      if(!(classpath = append(classpath, &cpsize, jarName))) {
-        fprintf(stderr, "out of memory when adding %s to classpath\n", jarName);
+    i = 0;
+    while( (jarName = options->jars[i++]) ) {
+      if(!(classpath = append(classpath, &cpsize, PATH_SEPARATOR))
+      || !(classpath = append(classpath, &cpsize, jarName)) ) {
+        fprintf(stderr, "error: out of memory when adding %s to classpath\n", jarName);
         goto end;
       }
     }
   }
 
-  toolsJarFile[0] = 0;
-  strcat(toolsJarFile, javaHome);
-  strcat(toolsJarFile, FILE_SEPARATOR);
-  strcat(toolsJarFile, "lib");
-  strcat(toolsJarFile, FILE_SEPARATOR);
-  strcat(toolsJarFile, "tools.jar");
+  // tools.jar handling
+  
+  strcpy(toolsJarFile, javaHome);
+  strcat(toolsJarFile, FILE_SEPARATOR "lib" FILE_SEPARATOR "tools.jar");
 
-  if(fileExists(toolsJarFile)) {
-    // add as env property if requested
+  if(fileExists(toolsJarFile)) { // tools.jar is not present on a jre
+    // add as java env property if requested
     if((options->toolsJarHandling) & TOOLS_JAR_TO_SYSPROP) {
       toolsJarD = malloc(strlen(toolsJarFile) + 12 + 1);
       if(!toolsJarD) {
         fprintf(stderr, "error: could not allocate memory for -Dtools.jar sys prop\n");
         goto end;
       }
-      toolsJarD[0] = 0;
-      strcat(toolsJarD, "-Dtools.jar=");
+      strcpy(toolsJarD, "-Dtools.jar=");
       strcat(toolsJarD, toolsJarFile);
 
       jvmOptions[optNr].optionString = toolsJarD; 
       jvmOptions[optNr++].extraInfo = NULL;
     }
+    // add tools.jar to startup classpath if requested
     if(((options->toolsJarHandling) & TOOLS_JAR_TO_CLASSPATH) 
-     && (
-         !(classpath = append(classpath, &cpsize, javaHome))
-      || !(classpath = append(classpath, &cpsize, FILE_SEPARATOR)) 
-      || !(classpath = append(classpath, &cpsize, "lib")) 
-      || !(classpath = append(classpath, &cpsize, FILE_SEPARATOR)) 
-      || !(classpath = append(classpath, &cpsize, "tools.jar")) 
-        )
-     ) {
-      fprintf(stderr, "out of memory when adding tools.jar to classpath\n");
+     && !(classpath = append(classpath, &cpsize, toolsJarFile))
+      ) {
+      fprintf(stderr, "error: out of memory when adding tools.jar to classpath\n");
       goto end;
     }
 
@@ -658,11 +669,11 @@ next_arg:
     goto end;
   }
 
-  j = 0;
+  j = 0; // index in java String[] (args to main)
   if(options->extraProgramOptions) {
     char *carg;
     i = 0;
-    while(carg = options->extraProgramOptions[i++]) {
+    while( (carg = options->extraProgramOptions[i++]) ) {
       if(addStringToJStringArray(env, carg, launcheeJOptions, j++)
          ) {
         goto end; // error msg already printed
@@ -672,8 +683,8 @@ next_arg:
 
   for(i = 0; i < options->numArguments; i++) {
     if(isLauncheeOption[i]
-       && addStringToJStringArray(env, options->arguments[i], launcheeJOptions, j++)
-         ) {
+    && addStringToJStringArray(env, options->arguments[i], launcheeJOptions, j++)
+       ) {
         goto end; // error msg already printed
     }
   }
@@ -728,3 +739,4 @@ end:
   return rval;
 
 }
+
