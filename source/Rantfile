@@ -52,11 +52,14 @@ when MSYS
   $cppFlags += " -Dwin -I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
 when Windows
   $gcc = 'cl'
-  $cppFlags = " -Dwin -I#{$javaHome}\\include -I#{$javaHome}\\include\\win32"
-  def compileCommand( target , sources) ; "#{$gcc} /MD #{$cppFlags} /O1 /Wall #{sources}" end
-# TODO
-  def linkCommand( target , sources ) ; "link /NOLOGO /OUT:groovy.exe #{sources}" end
-end
+  $cppFlags = "-nologo -c -Wall -MD -O1 -I #{$javaHome}\\include"
+  def compileCommand( target , sources)
+    "#{$gcc} -Fo#{target} #{$cppFlags} #{sources}"
+  end
+  def linkCommand( target , sources ) 
+    "link -NOLOGO -SUBSYSTEM:CONSOLE -OUT:#{target} #{sources}" 
+  end
+end # TODO: groovyw.exe with /SUBSYSTEM:WINDOWS
 
 task :default => [ :initialize , Program ]
 
@@ -69,8 +72,13 @@ end
 
 def object( source ) ; BuildDirectory + '/' + source.sub( '.c' , '.o' ) end
 
-file Program => Source.map { | source | object( source ) } do | target | sys.sh( linkCommand( target.name , target.prerequisites ) ) end
+file Program => Source.map { | source | object( source ) } do | target | 
+  sys.sh( linkCommand( target.name , target.prerequisites ) ) 
+end
 
 Source.each { | source |
-  file object( source ) => source do | target | sys.sh( compileCommand( target.name , target.prerequisites ) ) end
+  file object( source ) => source do | target | 
+    sys.sh( compileCommand( target.name , target.prerequisites ) ) 
+  end
 }
+

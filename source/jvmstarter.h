@@ -56,6 +56,7 @@ typedef struct {
 
 
 // javahome handling constants
+#define USE_ONLY_GIVEN_JAVA_HOME 0
 /** If given java_home == null, try to look it up from JAVA_HOME environment variable. */
 #define ALLOW_JH_ENV_VAR_LOOKUP 1
 /** Allow giving java home as -jh / --javahome parameter. The precedence is 

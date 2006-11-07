@@ -119,7 +119,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, jboolean useServerVm) {
   }
   
   for(i = 0; i < 2; i++) { // try both jdk and jre style paths
-    for(j = 0; (dynLibFile = lookupDirs[j]); j++) {
+    for(j = 0; ( dynLibFile = lookupDirs[j] ); j++) {
       strcpy(path, java_home);
       strcat(path, FILE_SEPARATOR);
       if(i == 0) { // on a jdk, we need to add jre at this point of the path
@@ -127,7 +127,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, jboolean useServerVm) {
       }
       strcat(path, dynLibFile);
       if(fileExists(path)) {
-        if(!(jvmLib = openDynLib(path)) )  {
+        if(!( jvmLib = openDynLib(path) ) )  {
           fprintf(stderr, "error: dynamic library %s exists but could not be loaded!\n", path);
         } 
         goto exitlookup; // just break out of 2 nested loops
@@ -192,7 +192,7 @@ void clearException(JNIEnv* env) {
 /** Appends the given string to target. size param tells the current size of target (target must have been
  * dynamically allocated, i.e. not from stack). If necessary, target is reallocated into a bigger space. 
  * Return the new location of target, and modifies the size inout parameter accordingly. */
-char* append(char* target, size_t* size, char* stringToAppend) {
+char* append(char* target, size_t* size, const char* stringToAppend) {
   size_t targetLen, staLen, newLen;
 
   targetLen = strlen(target);
@@ -207,8 +207,21 @@ char* append(char* target, size_t* size, char* stringToAppend) {
     }
   }
 
-  strcat(target, stringToAppend);
-  return target;
+  return strcat(target, stringToAppend);
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+/** Appends the given entry to the jvm classpath being constructed (begins w/ "-Djava.class.path=", which the given
+ * cp needs to contain before calling this func). Adds path separator
+ * before the given entry, unless this is the first entry. Returns the cp buffer (which may be moved)
+ * Returns 0 on error (err msg already printed). */
+static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
+  // "-Djava.class.path=" == 18 chars -> if 18th char is not a null char, we have more than that and need to append path separator
+  if(cp[18]
+    && !(cp = append(cp, cpsize, PATH_SEPARATOR)) ) return NULL;
+ 
+  return append(cp, cpsize, entry);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -235,10 +248,11 @@ jboolean appendJarsFromDir(char* dirName, char** targetPtr, size_t* targetSize) 
 
   while( (entry = readdir(dir)) ) {
     len = strlen(entry->d_name);
-    if(len > 5 && (strcmp(".jar", (entry->d_name) + len - 4) == 0)) {
-      if(!(target = append(target, targetSize, PATH_SEPARATOR))  // this if and the contained ||s are used so that if any of the
-      || !(target = append(target, targetSize, dirName))         // calls fail, we jump to the end
-      || (dirNameEndsWithSeparator ?  JNI_FALSE : !(target = append(target, targetSize, FILE_SEPARATOR)) ) 
+    if(len >= 5 && (strcmp(".jar", (entry->d_name) + len - 4) == 0)) {
+      // this if and the contained ||s are used so that if any of the
+      // calls fail, we jump to the end
+      if(!(target = appendCPEntry(target, targetSize, dirName))         
+      ||  (dirNameEndsWithSeparator ?  JNI_FALSE : !(target = append(target, targetSize, FILE_SEPARATOR)) ) 
       || !(target = append(target, targetSize, entry->d_name))) goto end;
     }
   }
@@ -274,20 +288,20 @@ jboolean arrayContainsString(char** nullTerminatedArray, char* searchString, Sea
   if(nullTerminatedArray) {
     switch(mode) {
       case PREFIX_SEARCH : 
-        while(str = nullTerminatedArray[i++]) {
+        while( str = nullTerminatedArray[i++] ) {
           len = strlen(str);
           if(memcmp(str, searchString, len) == 0) return JNI_TRUE;
         }
         break;
       case SUFFIX_SEARCH : 
         sslen = strlen(searchString);        
-        while(str = nullTerminatedArray[i++]) {
+        while( str = nullTerminatedArray[i++] ) {
           len = strlen(str);
           if(len <= sslen && memcmp(searchString + sslen - len, str, len) == 0) return JNI_TRUE;
         }
         break;
       case EXACT_SEARCH : 
-        while(str = nullTerminatedArray[i++]) {
+        while( str = nullTerminatedArray[i++] ) {
           if(strcmp(str, searchString) == 0) return JNI_TRUE;
         }
         break;
@@ -321,24 +335,12 @@ jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrA
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-/** Appends the given entry to the jvm classpath being constructed (begins w/ -Djava.class.path=). Adds path separator
- * before the given entry, unless this is the first entry.
- * Returns JNI_TRUE on error (err msg already printed). */
-static jboolean appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
-  size_t cplen = strlen(cp);
-  if(cplen > 18) ;
-  // TBD
-  return JNI_TRUE;
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 /** See the header file for information.
  */
 extern int launchJavaApp(JavaLauncherOptions *options) {
   int            rval = -1;
-  JavaVM         *javavm        = NULL;
-  JNIEnv         *env           = NULL;
+  JavaVM         *javavm = NULL;
+  JNIEnv         *env    = NULL;
   JavaDynLib     javaLib;
   jint           result, optNr = 0;
   JavaVMInitArgs vm_args;
@@ -348,29 +350,31 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
   int            i, j, launcheeParamBeginIndex = options->numArguments; 
   jboolean  serverVMRequested = JNI_FALSE;
   jclass    launcheeMainClassHandle  = NULL;
-  jclass    strClass;
+  jclass    strClass          = NULL;
   jmethodID launcheeMainMethodID = NULL;
-  char      *userClasspath = NULL, *envCLASSPATH = NULL, *classpath = NULL, *dirName = NULL;
+  char      *userClasspath = NULL, 
+            *envCLASSPATH  = NULL, 
+            *classpath     = NULL, 
+            *dirName       = NULL;
   size_t    cpsize      = 2000; // just the initial size, expanded if necessary
-  jboolean  *isLauncheeOption;
+  jboolean  *isLauncheeOption = NULL;
   jint      launcheeParamCount = 0;
-  char      *javaHome = NULL, *toolsJarD = NULL;
+  char      *javaHome = NULL, 
+            *toolsJarD = NULL;
   char      toolsJarFile[2000];
 
   javaLib.creatorFunc  = NULL;
   javaLib.dynLibHandle = NULL;  
 
-  // here only numArguments is needed, but numArguments can be 0 and mallocing that is not good...
-  isLauncheeOption = malloc((options->numArguments + 1) * sizeof(jboolean));
+  // calloc effectively sets all elems to JNI_FALSE. at this stage launcheeParamBeginIndex = options->numArguments 
+  if(launcheeParamBeginIndex) isLauncheeOption = calloc(options->numArguments, sizeof(jboolean));
   // worst case : all command line options are jvm options -> thus numArguments + 2
-  // we need space for at least -Djava.class.path
-  jvmOptions       = malloc( ((options->numArguments) + (options->numJvmOptions) + 2) * sizeof(JavaVMOption) ); 
-  if(!isLauncheeOption || !jvmOptions) {
+  // +2 as we need space for at least -Djava.class.path and possibly for -Dtools.jar
+  jvmOptions = calloc( (options->numArguments) + (options->numJvmOptions) + 2, sizeof(JavaVMOption) ); 
+  if((launcheeParamBeginIndex && !isLauncheeOption) || !jvmOptions) {
     fprintf(stderr, "error: out of memory at startup!");
     goto end;
   }
-
-  for(i = 0; i < options->numArguments; i++) isLauncheeOption[i] = JNI_FALSE;
 
   // find out the argument index after which all the params are launchee (prg being launched) params 
   for(i = 0; i < options->numArguments; i++) {
@@ -382,11 +386,12 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
       break;
     }
 
+     // FIXME - if a double param is found, do not check the param that comes after it
     for(j = 0; j < options->paramInfosCount; j++) {
       if(options->paramInfos[j].terminating) {
         switch(options->paramInfos[j].type) {
-          case SINGLE_PARAM : 
-          case DOUBLE_PARAM :
+          case SINGLE_PARAM : // deliberate fallthrough, no break
+          case DOUBLE_PARAM : 
             if(strcmp(options->paramInfos[j].name, arg) == 0) {
               launcheeParamBeginIndex = i;
               goto endindexcheck; // break out of two nested for loops
@@ -400,7 +405,10 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
             }
             break;
         } // switch
-      } // if
+      } else if(((options->paramInfos[j].type) == DOUBLE_PARAM)
+        && (strcmp(options->paramInfos[j].name, arg) == 0) ) {
+          i++;
+        }
     } // for
 
   }
@@ -461,10 +469,11 @@ endindexcheck:
       serverVMRequested = JNI_TRUE;
     } else if(strcmp("-client", argument) == 0) {
       // do nothing - client jvm is the default
-    } else if((strcmp("-jh", argument) == 0)
-           || (strcmp("--javahome", argument) == 0)
-           // TODO: check what the javaHomeHandling contains and act accordingly
-      ) {
+    } else if( ((options->javahomeHandling) & ALLOW_JH_PARAMETER) &&  
+               ( (strcmp("-jh", argument) == 0)
+              || (strcmp("--javahome", argument) == 0) 
+               )
+              ) {
         if(i == (options->numArguments - 1)) { // check that this is not the last param as it requires additional info
           fprintf(stderr, "erroneous use of %s\n", argument);
           goto end;
@@ -480,10 +489,10 @@ next_arg:
   } // end looping over arguments and classifying them for the jvm
 
 
-  javaHome = options->java_home;
+  if(!javaHome) javaHome = options->java_home;
   if(!javaHome && ((options->javahomeHandling) & ALLOW_JH_ENV_VAR_LOOKUP)) javaHome = getenv("JAVA_HOME");
 
-  if(!javaHome || strcmp(javaHome, "") == 0) {
+  if(!javaHome || !javaHome[0]) { // not found or an empty string
     fprintf(stderr, ((options->javahomeHandling) & ALLOW_JH_ENV_VAR_LOOKUP) ? "error: JAVA_HOME not set\n" : 
                                                                               "error: java home not provided\n");
     goto end;
@@ -491,7 +500,6 @@ next_arg:
 
   // TODO: support or raise error if -Djava.class.path=something is given as a param ???
 
-//      IGNORE_GLOBAL_CP, IGNORE_GLOBAL_CP_IF_PARAM_GIVEN, 
   if(!(IGNORE_GLOBAL_CP & (options->classpathHandling))) { // first check if CLASSPATH is ignored altogether
     if(IGNORE_GLOBAL_CP_IF_PARAM_GIVEN & (options->classpathHandling)) { // use CLASSPATH only if -cp not provided
       if(!userClasspath) envCLASSPATH = getenv("CLASSPATH");
@@ -524,36 +532,24 @@ next_arg:
   // add the jars from the given dirs
   i = 0;
   if(options->jarDirs) {
-    while(dirName = options->jarDirs[i++]) {
+    while( dirName = options->jarDirs[i++] ) {
       if(!appendJarsFromDir(dirName, &classpath, &cpsize)) goto end; // error msg already printed
     }
   }
 
   if(userClasspath && ((options->classpathHandling) & CP_PARAM_TO_JVM)) {
-    if(!(classpath = append(classpath, &cpsize, PATH_SEPARATOR))
-    || !(classpath = append(classpath, &cpsize, userClasspath))
-    ) {
-      fprintf(stderr, "error: out of memory when adding usercp to classpath\n");
-      goto end;
-    }
+    if( !( classpath = appendCPEntry(classpath, &cpsize, userClasspath) ) ) goto end;
   }
 
-  if(envCLASSPATH && !(classpath = append(classpath, &cpsize, envCLASSPATH))) {
-    fprintf(stderr, "error: out of memory when adding env CLASSPATH to startup classpath\n");
-    goto end;
-  }
+  if(envCLASSPATH && !( classpath = appendCPEntry(classpath, &cpsize, envCLASSPATH) ) ) goto end;
 
   // add the provided single jars
   
   if(options->jars) {
     char* jarName;
     i = 0;
-    while( (jarName = options->jars[i++]) ) {
-      if(!(classpath = append(classpath, &cpsize, PATH_SEPARATOR))
-      || !(classpath = append(classpath, &cpsize, jarName)) ) {
-        fprintf(stderr, "error: out of memory when adding %s to classpath\n", jarName);
-        goto end;
-      }
+    while( jarName = options->jars[i++] ) {
+      if(!( classpath = appendCPEntry(classpath, &cpsize, jarName) ) ) goto end;
     }
   }
 
@@ -565,7 +561,7 @@ next_arg:
   if(fileExists(toolsJarFile)) { // tools.jar is not present on a jre
     // add as java env property if requested
     if((options->toolsJarHandling) & TOOLS_JAR_TO_SYSPROP) {
-      toolsJarD = malloc(strlen(toolsJarFile) + 12 + 1);
+      toolsJarD = malloc(strlen(toolsJarFile) + 12 + 1); // "-Dtools.jar=" == 12 chars + null char
       if(!toolsJarD) {
         fprintf(stderr, "error: could not allocate memory for -Dtools.jar sys prop\n");
         goto end;
@@ -578,12 +574,7 @@ next_arg:
     }
     // add tools.jar to startup classpath if requested
     if(((options->toolsJarHandling) & TOOLS_JAR_TO_CLASSPATH) 
-     && !(classpath = append(classpath, &cpsize, toolsJarFile))
-      ) {
-      fprintf(stderr, "error: out of memory when adding tools.jar to classpath\n");
-      goto end;
-    }
-
+     && !( classpath = appendCPEntry(classpath, &cpsize, toolsJarFile) ) ) goto end;
   }
 
   jvmOptions[optNr].optionString = classpath;
@@ -648,14 +639,14 @@ next_arg:
     launcheeParamCount += i;
   }
    
-  if(result = (*env)->EnsureLocalCapacity(env, launcheeParamCount + 1)) { // + 1 for the String[] to hold the params
+  if( result = (*env)->EnsureLocalCapacity(env, launcheeParamCount + 1) ) { // + 1 for the String[] to hold the params
     clearException(env);
     fprintf(stderr, "error: could not allocate memory for groovy parameters (how much params did you give, dude?)\n");
     rval = result;
     goto end;
   }
 
-  if(! (strClass = (*env)->FindClass(env, "java/lang/String")) ) {
+  if(! ( strClass = (*env)->FindClass(env, "java/lang/String") ) ) {
     clearException(env);
     fprintf(stderr, "error: could not find java.lang.String class\n");
     goto end;

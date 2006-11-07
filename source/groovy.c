@@ -86,10 +86,13 @@ int main(int argc, char** argv) {
     goto end;
   }
   
-                           // ghome path len + nul char + "lib" + 2 file seps + file name len
-  if(!(groovyLaunchJar = malloc(len + 1 + 3 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_START_JAR)))
-    ) {
-    fprintf(stderr, "error: out of memory when allocating space for directory name\n");
+
+           // ghome path len + nul char + "lib" + 2 file seps + file name len
+  groovyLaunchJar = malloc(len + 1 + 3 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_START_JAR));
+          // ghome path len + nul + "conf" + 2 file seps + file name len
+  groovyConfFile = malloc(len + 1 + 4 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_CONF));
+  if( !groovyLaunchJar || !groovyConfFile ) {
+    fprintf(stderr, "error: out of memory when allocating space for directory names\n");
     goto end;
   }
 
@@ -97,23 +100,18 @@ int main(int argc, char** argv) {
   strcat(groovyLaunchJar, FILE_SEPARATOR "lib" FILE_SEPARATOR GROOVY_START_JAR);
 
   jars[0] = groovyLaunchJar;
-                        // ghome path len + nul + "conf" + 2 file seps + file name len
-  if( !( groovyConfFile = malloc(len + 1 + 4 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_CONF)) )    ) {
-    fprintf(stderr, "error: out of memory when allocating space for directory name\n");
-    goto end;
-  }
-
   
   // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
   
   strcpy(groovyConfFile, groovyHome);
   strcat(groovyConfFile, FILE_SEPARATOR "conf" FILE_SEPARATOR GROOVY_CONF);
   extraProgramOptions[3] = groovyConfFile;
-         // "-Dgroovy.starter.conf=" => 22 + 1 for nul char 
-  if(!(groovyDConf = malloc( 22 + 1 + strlen(groovyConfFile) ) )
-         // "-Dgroovy.home=" => 14 + 1 for nul char 
-    || !(groovyDHome = malloc( 14 + 1 + strlen(groovyHome) ) ) 
-    ) {
+  
+  // "-Dgroovy.starter.conf=" => 22 + 1 for nul char
+  groovyDConf = malloc(          22 + 1 + strlen(groovyConfFile) );
+  // "-Dgroovy.home=" => 14 + 1 for nul char 
+  groovyDHome = malloc(  14 + 1 + strlen(groovyHome) );
+  if( !groovyDConf || !groovyDHome ) {
     fprintf(stderr, "error: out of memory when allocating space for params\n");
     goto end;
   }
