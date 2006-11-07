@@ -52,7 +52,8 @@ when MSYS
   $cppFlags += " -Dwin -I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
 when Windows
   $gcc = 'cl'
-  $cppFlags = "-nologo -c -Wall -MD -O1 -I #{$javaHome}\\include"
+  # -Wall produces screenfulls of warnings about win header files, therefor omitted
+  $cppFlags = "-nologo -c -MD -O1 -I #{$javaHome}\\include"  
   def compileCommand( target , sources)
     "#{$gcc} -Fo#{target} #{$cppFlags} #{sources}"
   end

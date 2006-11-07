@@ -24,7 +24,6 @@ NOTES:
  TODO:
  - test more
  - find out path to jvm dyn lib on os-x
- - find out predefined platform specifiers (e.g. WIN32) that different compilers define automagically
  - correct classpath handling
 
 

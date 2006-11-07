@@ -28,7 +28,7 @@ Windows = 'windows'
 
 Environment = {}
 
-Environment[ 'Name' ] = 'groovyLauncher'
+Environment[ 'Name' ] = 'groovy'
 Environment[ 'BuildDirectory' ] = 'build'
 
 #  Environmnet variable is probably not defined on standard windows, assume a value of nil.
@@ -46,6 +46,9 @@ Environment[ 'Architecture' ] = case Architecture
                                   end
                                 end
 
+Environment[ 'Name' ] = 'groovy.exe' if Environment[ 'Architecture' ] == Windows
+                                
+                                
 desc 'Clean everything.'
 gen Clean , :clean
 var[ :clean ].include( [ Environment[ 'BuildDirectory' ] , '**/*~' ] )
