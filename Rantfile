@@ -20,15 +20,15 @@
 
 import 'clean'
 
-Linux = 'linux'
+Linux   = 'linux'
 Solaris = 'solaris'
-Cygwin = 'cygwin'
-MSYS = 'msys'
+Cygwin  = 'cygwin'
+MSYS    = 'msys'
 Windows = 'windows'
 
 Environment = {}
 
-Environment[ 'Name' ] = 'groovy'
+Environment[ 'Name' ]           = 'groovy'
 Environment[ 'BuildDirectory' ] = 'build'
 
 #  Environmnet variable is probably not defined on standard windows, assume a value of nil.
@@ -56,3 +56,4 @@ var[ :clean ].include( [ Environment[ 'BuildDirectory' ] , '**/*~' ] )
 subdirs [ 'source' ]
 
 task :default => 'source/default'
+

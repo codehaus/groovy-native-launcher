@@ -31,11 +31,11 @@ if $javaHome == nil || $javaHome == '' then raise "JAVA_HOME not defined." end
 
 $gcc = 'gcc'
 $cppFlags = "-I'#{$javaHome}/include/#{Environment[ 'Architecture' ]}' -I'#{$javaHome}/include'"
-$cFlags = '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
-$libs = '-ldl'
+$cFlags   = '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
+$libs     = '-ldl'
 
 def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
+def linkCommand(    target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
 
 case Environment[ 'Architecture' ]
 when Solaris
@@ -52,7 +52,7 @@ when MSYS
   $cppFlags += " -Dwin -I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
 when Windows
   $gcc = 'cl'
-  # -Wall produces screenfulls of warnings about win header files, therefor omitted
+  # -Wall produces screenfulls of useless warnings about win header files, therefor omitted
   $cppFlags = "-nologo -c -MD -O1 -I #{$javaHome}\\include"  
   def compileCommand( target , sources)
     "#{$gcc} -Fo#{target} #{$cppFlags} #{sources}"
@@ -60,7 +60,11 @@ when Windows
   def linkCommand( target , sources ) 
     "link -NOLOGO -SUBSYSTEM:CONSOLE -OUT:#{target} #{sources}" 
   end
-end # TODO: groovyw.exe with /SUBSYSTEM:WINDOWS
+  def linkWCommand( target, sources )
+    target = target.gsub(/\.exe$/, 'w.exe')
+    "link -NOLOGO /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup -OUT:#{target} #{sources}"
+  end
+end 
 
 task :default => [ :initialize , Program ]
 
@@ -74,7 +78,8 @@ end
 def object( source ) ; BuildDirectory + '/' + source.sub( '.c' , '.o' ) end
 
 file Program => Source.map { | source | object( source ) } do | target | 
-  sys.sh( linkCommand( target.name , target.prerequisites ) ) 
+  sys.sh( linkCommand( target.name , target.prerequisites ) )
+  sys.sh( linkWCommand( target.name , target.prerequisites ) ) if Environment[ 'Architecture' ] == Windows
 end
 
 Source.each { | source |
