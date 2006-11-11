@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "jni.h"
+#include <jni.h>
 #include "jvmstarter.h"
 
 #define GROOVY_MAIN_CLASS "org/codehaus/groovy/tools/GroovyStarter"
@@ -30,8 +30,6 @@
 
 #define GROOVY_START_JAR "groovy-starter.jar"
 #define GROOVY_CONF "groovy-starter.conf"
-
-#define GROOVY_START_CLASS "groovy.ui.GroovyMain"
 
 #define MAX_GROOVY_PARAM_DEFS 20
 
@@ -50,20 +48,29 @@ int main(int argc, char** argv) {
        *groovyConfFile  = NULL, 
        *groovyDConf     = NULL, // the -Dgroovy.conf=something to pass to the jvm
        *groovyHome      = NULL, 
-       *groovyDHome     = NULL; // the -Dgroovy.home=something to pass to the jvm
+       *groovyDHome     = NULL, // the -Dgroovy.home=something to pass to the jvm
+       *classpath       = NULL,
+       *temp;
         
   char *terminatingSuffixes[] = {".groovy", ".gvy", ".gy", ".gsh", NULL},
-       *extraProgramOptions[] = {"--main", GROOVY_START_CLASS, "--conf", NULL, NULL}, 
-       *jars[]                = {NULL, NULL};
+       *extraProgramOptions[] = {"--main", "groovy.ui.GroovyMain", "--conf", NULL, "--classpath", NULL, NULL}, 
+       *jars[]                = {NULL, NULL}, 
+       *cpaliases[]           = {"-cp", "-classpath", "--classpath", NULL};
+  jboolean error                  = JNI_FALSE, 
+           groovyConfGivenAsParam = JNI_FALSE;
 
   size_t len;
-  int    rval = -1; 
+  int    i,
+         numParamsToCheck,
+         numParamsToCheckOriginal,
+         rval = -1; 
 
-  
-  // the parameters accepted by groovy
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-cp",         DOUBLE_PARAM, 0);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-classpath",  DOUBLE_PARAM, 0);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--classpath", DOUBLE_PARAM, 0);
+  // skip the program name
+  argc--;
+  argv++;
+
+  // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
+  // are handled separately below
   setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-c",          DOUBLE_PARAM, 0);
   setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--encoding",  DOUBLE_PARAM, 0);
   setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-h",          SINGLE_PARAM, 1);
@@ -78,20 +85,51 @@ int main(int argc, char** argv) {
   setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-v",          SINGLE_PARAM, 0);
   setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--version",   SINGLE_PARAM, 0);
 
-  // add groovy's lib dir as the sole dir from where to append all jars
+  // look up the first terminating launchee param and only search for --classpath and --conf up to that   
+  numParamsToCheck = numParamsToCheckOriginal = findFirstLauncheeParamIndex(argv, argc, terminatingSuffixes, paramInfos, paramInfoCount);
+
+  // look for classpath param
+  // - If -cp is not given, then the value of CLASSPATH is given in groovy starter param --classpath. 
+  // And if not even that is given, then groovy starter param --classpath is omitted.
+  i = 0;
+  while( (temp = cpaliases[i++]) ) {
+    classpath = valueOfParam(argv, &numParamsToCheck, temp, DOUBLE_PARAM, JNI_TRUE, &error);
+    if(error) {
+      fprintf(stderr, "error: %s option must have a value\n", temp);
+      goto end;
+    }
+    if(classpath) break;
+  }
+
+  if(!classpath) classpath = getenv("CLASSPATH");
+
+  if(classpath) {
+    extraProgramOptions[5] = classpath;
+  } else {
+    extraProgramOptions[4] = NULL; // omit the --classpath param
+  }
+  
+  groovyConfFile = valueOfParam(argv, &numParamsToCheck, "--conf", DOUBLE_PARAM, JNI_TRUE, &error);
+  if(error) {
+    fprintf(stderr, "error: --conf must have a value\n");
+    goto end;
+  }
+  
+  argc -= (numParamsToCheckOriginal - numParamsToCheck);
+
+  if(groovyConfFile) groovyConfGivenAsParam = JNI_TRUE;
 
   groovyHome = getenv("GROOVY_HOME");
   if(!groovyHome || (len = strlen(groovyHome)) == 0) {
     fprintf(stderr, "GROOVY_HOME is not set\n");
     goto end;
   }
-  
-
+ 
            // ghome path len + nul char + "lib" + 2 file seps + file name len
   groovyLaunchJar = malloc(len + 1 + 3 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_START_JAR));
           // ghome path len + nul + "conf" + 2 file seps + file name len
-  groovyConfFile = malloc(len + 1 + 4 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_CONF));
-  if( !groovyLaunchJar || !groovyConfFile ) {
+  if(!groovyConfGivenAsParam) groovyConfFile = malloc(len + 1 + 4 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_CONF));
+  if( !groovyLaunchJar || (!groovyConfGivenAsParam && !groovyConfFile) ) {
     fprintf(stderr, "error: out of memory when allocating space for directory names\n");
     goto end;
   }
@@ -102,9 +140,11 @@ int main(int argc, char** argv) {
   jars[0] = groovyLaunchJar;
   
   // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
-  
-  strcpy(groovyConfFile, groovyHome);
-  strcat(groovyConfFile, FILE_SEPARATOR "conf" FILE_SEPARATOR GROOVY_CONF);
+
+  if(!groovyConfGivenAsParam) { // set the default groovy conf file if it was not given as a parameter
+    strcpy(groovyConfFile, groovyHome);
+    strcat(groovyConfFile, FILE_SEPARATOR "conf" FILE_SEPARATOR GROOVY_CONF);
+  }
   extraProgramOptions[3] = groovyConfFile;
   
   // "-Dgroovy.starter.conf=" => 22 + 1 for nul char
@@ -133,9 +173,9 @@ int main(int argc, char** argv) {
   options.java_home           = NULL; // let the launcher func figure it out
   options.toolsJarHandling    = TOOLS_JAR_TO_SYSPROP;
   options.javahomeHandling    = ALLOW_JH_ENV_VAR_LOOKUP|ALLOW_JH_PARAMETER; 
-  options.classpathHandling   = IGNORE_GLOBAL_CP|CP_PARAM_TO_APP; 
-  options.arguments           = argv + 1;
-  options.numArguments        = argc - 1;
+  options.classpathHandling   = IGNORE_GLOBAL_CP; 
+  options.arguments           = argv;
+  options.numArguments        = argc;
   options.jvmOptions          = extraJvmOptions;
   options.numJvmOptions       = extraJvmOptionsCount;
   options.extraProgramOptions = extraProgramOptions;
@@ -152,7 +192,7 @@ int main(int argc, char** argv) {
 
 end:
   if(groovyLaunchJar) free(groovyLaunchJar);
-  if(groovyConfFile)  free(groovyConfFile);
+  if(groovyConfFile && !groovyConfGivenAsParam)  free(groovyConfFile);
   if(groovyDConf)     free(groovyDConf);
   if(groovyDHome)     free(groovyDHome);
   return rval;

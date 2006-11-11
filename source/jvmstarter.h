@@ -63,6 +63,7 @@ typedef struct {
  * -jh command line parameter, java_home argument and then JAVA_HOME env var (if allowed). */
 #define ALLOW_JH_PARAMETER 2
 
+// these can be or:d together w/ |
 #define IGNORE_TOOLS_JAR 0
 #define TOOLS_JAR_TO_CLASSPATH 1
 #define TOOLS_JAR_TO_SYSPROP 2
@@ -108,4 +109,19 @@ extern int launchJavaApp(JavaLauncherOptions* options);
 extern int fileExists(const char* fileName);
 
 void setParameterDescription(ParamInfo* paramInfo, int index, int size, char* name, ParamClass type, short terminating);
+
+/** Returns the index of the given str in the given str array, -1 if not found. 
+ * Modifies args and numargs if removeIfFound == true */
+int contains(char** args, int* numargs, const char* option, const jboolean removeIfFound);
+
+/** may return argc if none of the presented params are "terminating", i.e. indicate that it and all the rest of the params
+ * go to the launchee. */
+int findFirstLauncheeParamIndex(const char** argv, int argc, const char** terminatingSuffixes, ParamInfo* paramInfos, int paramInfosCount);
+
+
+/** returns null if not found. For prefix params, returns the value w/out the prefix.
+ * paramType is double or prefix.
+ * In case of double param w/ no value, error out param is set to true. */
+char* valueOfParam(char** args, int* numargs, const char* option, const ParamClass paramType, const jboolean removeIfFound, jboolean* error);
+
 

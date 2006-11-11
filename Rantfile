@@ -46,7 +46,7 @@ Environment[ 'Architecture' ] = case Architecture
                                   end
                                 end
 
-Environment[ 'Name' ] = 'groovy.exe' if Environment[ 'Architecture' ] == Windows
+Environment[ 'Name' ] = Environment[ 'Name' ] + '.exe' if Environment[ 'Architecture' ] == Windows
                                 
                                 
 desc 'Clean everything.'
@@ -56,4 +56,4 @@ var[ :clean ].include( [ Environment[ 'BuildDirectory' ] , '**/*~' ] )
 subdirs [ 'source' ]
 
 task :default => 'source/default'
-
+task :debug   => 'source/debug'

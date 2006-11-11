@@ -38,35 +38,45 @@ def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o 
 def linkCommand(    target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
 
 case Environment[ 'Architecture' ]
-when Solaris
-#  $cppFlags += ' -Dsls '
-when Linux
-#  $cppFlags += ' -Dlnx '
-when Cygwin
-  $gcc = '/cygdrive/c/MinGW/bin/mingw32-gcc'
-  $cppFlags = " -I'#{$javaHome}\\include' -I'#{$javaHome}\\include\\win32'"
-  def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o `cygpath -w #{target}` #{sources}" end
-  def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o `cygpath -w #{target}` `cygpath -w #{sources}` #{$libs}" end
-when MSYS
-  $javaHome = $javaHome.sub( 'Program/' , 'Program' )
-  $cppFlags += " -Dwin -I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
-when Windows
-  $gcc = 'cl'
-  # -Wall produces screenfulls of useless warnings about win header files, therefor omitted
-  $cppFlags = "-nologo -c -MD -O1 -I #{$javaHome}\\include"  
-  def compileCommand( target , sources)
-    "#{$gcc} -Fo#{target} #{$cppFlags} #{sources}"
-  end
-  def linkCommand( target , sources ) 
-    "link -NOLOGO -SUBSYSTEM:CONSOLE -OUT:#{target} #{sources}" 
-  end
-  def linkWCommand( target, sources )
-    target = target.gsub(/\.exe$/, 'w.exe')
-    "link -NOLOGO /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup -OUT:#{target} #{sources}"
-  end
+  when Solaris
+  #  $cppFlags += ' -Dsls '
+  when Linux
+  #  $cppFlags += ' -Dlnx '
+  when Cygwin
+    $gcc = '/cygdrive/c/MinGW/bin/mingw32-gcc'
+    $cppFlags = " -I'#{$javaHome}\\include' -I'#{$javaHome}\\include\\win32'"
+    def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o `cygpath -w #{target}` #{sources}" end
+    def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o `cygpath -w #{target}` `cygpath -w #{sources}` #{$libs}" end
+  when MSYS
+    $javaHome = $javaHome.sub( 'Program/' , 'Program' )
+    $cppFlags += " -Dwin -I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
+  when Windows
+    $gcc = 'cl'
+    # -Wall produces screenfulls of useless warnings about win header files, therefor omitted
+    # -Wall -wd4706 -wd4820
+    # c4706 == assignment in conditional expression, c4820 == padding added into a struct
+    $cppFlags = "-nologo -c -MD -O1 -I #{$javaHome}\\include"  
+    def compileCommand( target , sources)
+      "#{$gcc} -Fo#{target} #{$cppFlags} #{sources}" # add -Zi here and -debug to link params to debug
+    end
+    def linkCommand( target , sources ) 
+      "link -nologo -subsystem:console -out:#{target} #{sources}" 
+    end
+    # links "windows app", i.e. an app that has no console. Thus we have groovy.exe and groovyw.exe, just like there is java.exe and javaw.exe
+    def linkWCommand( target, sources )
+      target = target.gsub(/\.exe$/, 'w.exe')
+      "link -nologo -subsystem:windows -entry:mainCRTStartup -out:#{target} #{sources}"
+    end
+    file Program.gsub(/\.exe$/, 'w.exe') => Source.map { | source | object( source ) } do | target | 
+      sys.sh( linkWCommand( target.name , target.prerequisites ) ) if Environment[ 'Architecture' ] == Windows
+    end
+    
 end 
 
-task :default => [ :initialize , Program ]
+default_tasks = [ :initialize , Program ]
+default_tasks << Program.gsub(/\.exe$/, 'w.exe') if Environment[ 'Architecture' ] == Windows
+
+task :default => default_tasks
 
 task :initialize do
   if ! File.directory?( BuildDirectory ) then sys.mkdir_p( BuildDirectory ) end
@@ -76,6 +86,10 @@ task :initialize do
 end
 
 def object( source ) ; BuildDirectory + '/' + source.sub( '.c' , '.o' ) end
+
+task :debug => :initialize do |t| 
+  $debug = true
+end
 
 file Program => Source.map { | source | object( source ) } do | target | 
   sys.sh( linkCommand( target.name , target.prerequisites ) )

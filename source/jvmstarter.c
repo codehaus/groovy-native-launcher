@@ -25,9 +25,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "jni.h"
+#include <jni.h>
 
 #include "jvmstarter.h"
+
 
 #if defined(_WIN32) || defined(_WIN64)
 
@@ -35,17 +36,17 @@
 #  define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll"
 #  define PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
 
-#  include "Windows.h"
-#    if defined(DIRSUPPORT)
+#  if defined(DIRSUPPORT)
          // uppercase win symbol expected by dirent.h we're using
-#        ifndef(WIN)
-#          define WIN
-#        endif
-#        include "dirent.h"
-
+#    ifndef(WIN)
+#      define WIN
 #    endif
+#    include "dirent.h"
 
-//#  define DLHandle HINSTANCE
+#  endif
+
+// Windows.h contains protos for funcs to handle dlls
+#  include "Windows.h"
    typedef HINSTANCE DLHandle;
 #  define openDynLib(path) LoadLibrary(path)
 #  define findFunction(libraryhandle, funcname) GetProcAddress(libraryhandle, funcname)
@@ -92,6 +93,66 @@ typedef struct {
   JVMCreatorFunc creatorFunc;
   DLHandle       dynLibHandle;
 } JavaDynLib;
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+int contains(char** args, int* numargs, const char* option, const jboolean removeIfFound) {
+  int i       = 0, 
+      foundAt = -1;
+  for(; i < *numargs; i++) {
+    if(strcmp(option, args[i]) == 0) {
+      foundAt = i;
+      break;
+    }
+  }
+  if(foundAt != -1) return -1;
+  if(removeIfFound) {
+    (*numargs)--;
+    for(; i < *numargs; i++) {
+      args[i] = args[i + i];
+    }
+  }
+  return foundAt;
+}
+
+char* valueOfParam(char** args, int* numargs, const char* option, const ParamClass paramType, const jboolean removeIfFound, jboolean* error) {
+  int i    = 0, 
+      step = 1;
+  size_t len;
+  char* retVal = NULL;
+  switch(paramType) {
+    case DOUBLE_PARAM :
+      step = 2;
+      for(; i < *numargs; i++) {
+        if(strcmp(option, args[i]) == 0) {
+          if(i == (*numargs - 1)) {
+            *error = JNI_TRUE;
+            return NULL;
+          }
+          retVal = args[i];
+          break;
+        }
+      }
+      break;
+    case PREFIX_PARAM :
+      len = strlen(option);
+      for(; i < *numargs; i++) {
+        if(memcmp(option, args[i], len) == 0) {
+          retVal = args[i] + len;
+          break;
+        }
+      }
+      break;
+  }
+  if(retVal && removeIfFound) {
+    for(;i < (*numargs - step); i++) {
+      args[i] = args[i + step];
+    }
+    *numargs -= step;
+  }
+  return retVal;  
+  
+}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -167,11 +228,11 @@ extern int fileExists(const char* fileName) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void setParameterDescription(ParamInfo* paramInfo, int index, int size, char* name, ParamClass type, short terminating) {
-  assert(index < size);
-  paramInfo[index].name = name;
-  paramInfo[index].type = type;
-  paramInfo[index].terminating = terminating;  
+void setParameterDescription(ParamInfo* paramInfo, int ind, int size, char* name, ParamClass type, short terminating) {
+  assert(ind < size);
+  paramInfo[ind].name = name;
+  paramInfo[ind].type = type;
+  paramInfo[ind].terminating = terminating;  
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -280,10 +341,10 @@ end:
 typedef enum { PREFIX_SEARCH, SUFFIX_SEARCH, EXACT_SEARCH } SearchMode;
 
 /** The first param may be NULL, it is considered an empty array. */
-jboolean arrayContainsString(char** nullTerminatedArray, char* searchString, SearchMode mode) {
+jboolean arrayContainsString(const char** nullTerminatedArray, const char* searchString, SearchMode mode) {
   int    i = 0;
   size_t sslen, len;
-  char   *str;
+  const char   *str;
 
   if(nullTerminatedArray) {
     switch(mode) {
@@ -313,9 +374,9 @@ jboolean arrayContainsString(char** nullTerminatedArray, char* searchString, Sea
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 /** Returns true on error. */
-jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrArr, jint index) {
+jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrArr, jint ind) {
   jboolean rval = JNI_FALSE;
-  jstring arg = (*env)->NewStringUTF(env, strToAdd);
+  jstring  arg  = (*env)->NewStringUTF(env, strToAdd);
 
   if(!arg) {
     fprintf(stderr, "error: could not convert %s to java string\n", strToAdd);
@@ -323,9 +384,9 @@ jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrA
     return JNI_TRUE;        
   }
 
-  (*env)->SetObjectArrayElement(env, jstrArr, index, arg);
+  (*env)->SetObjectArrayElement(env, jstrArr, ind, arg);
   if((*env)->ExceptionCheck(env)) {
-    fprintf(stderr, "error: error when writing %dth element %s to Java String[]\n", index, strToAdd);
+    fprintf(stderr, "error: error when writing %dth element %s to Java String[]\n", ind, strToAdd);
     clearException(env);
     rval = JNI_TRUE;
   }
@@ -335,85 +396,99 @@ jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrA
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-/** See the header file for information.
- */
-extern int launchJavaApp(JavaLauncherOptions *options) {
-  int            rval = -1;
-  JavaVM         *javavm = NULL;
-  JNIEnv         *env    = NULL;
-  JavaDynLib     javaLib;
-  jint           result, optNr = 0;
-  JavaVMInitArgs vm_args;
-  JavaVMOption*  jvmOptions; 
-  jobjectArray   launcheeJOptions = NULL;
-  size_t         len;
-  int            i, j, launcheeParamBeginIndex = options->numArguments; 
-  jboolean  serverVMRequested = JNI_FALSE;
-  jclass    launcheeMainClassHandle  = NULL;
-  jclass    strClass          = NULL;
-  jmethodID launcheeMainMethodID = NULL;
-  char      *userClasspath = NULL, 
-            *envCLASSPATH  = NULL, 
-            *classpath     = NULL, 
-            *dirName       = NULL;
-  size_t    cpsize      = 2000; // just the initial size, expanded if necessary
-  jboolean  *isLauncheeOption = NULL;
-  jint      launcheeParamCount = 0;
-  char      *javaHome = NULL, 
-            *toolsJarD = NULL;
-  char      toolsJarFile[2000];
-
-  javaLib.creatorFunc  = NULL;
-  javaLib.dynLibHandle = NULL;  
-
-  // calloc effectively sets all elems to JNI_FALSE. at this stage launcheeParamBeginIndex = options->numArguments 
-  if(launcheeParamBeginIndex) isLauncheeOption = calloc(options->numArguments, sizeof(jboolean));
-  // worst case : all command line options are jvm options -> thus numArguments + 2
-  // +2 as we need space for at least -Djava.class.path and possibly for -Dtools.jar
-  jvmOptions = calloc( (options->numArguments) + (options->numJvmOptions) + 2, sizeof(JavaVMOption) ); 
-  if((launcheeParamBeginIndex && !isLauncheeOption) || !jvmOptions) {
-    fprintf(stderr, "error: out of memory at startup!");
-    goto end;
-  }
-
-  // find out the argument index after which all the params are launchee (prg being launched) params 
-  for(i = 0; i < options->numArguments; i++) {
-    char* arg = options->arguments[i];
+int findFirstLauncheeParamIndex(const char** argv, int argc, const char** terminatingSuffixes, ParamInfo* paramInfos, int paramInfosCount) {
+  int i, j;
+  size_t len;
+  
+  for(i = 0; i < argc; i++) {
+    const char* arg = argv[i];
     
     if((arg[0] == 0) || (arg[0] != '-') // empty strs and ones not beginning w/ - are considered to be terminating args to the launchee
-     || arrayContainsString(options->terminatingSuffixes, arg, SUFFIX_SEARCH)) {
-      launcheeParamBeginIndex = i;
-      break;
+     || arrayContainsString(terminatingSuffixes, arg, SUFFIX_SEARCH)) {
+      return i;
     }
 
-     // FIXME - if a double param is found, do not check the param that comes after it
-    for(j = 0; j < options->paramInfosCount; j++) {
-      if(options->paramInfos[j].terminating) {
-        switch(options->paramInfos[j].type) {
+    for(j = 0; j < paramInfosCount; j++) {
+      if(paramInfos[j].terminating) {
+        switch(paramInfos[j].type) {
           case SINGLE_PARAM : // deliberate fallthrough, no break
           case DOUBLE_PARAM : 
-            if(strcmp(options->paramInfos[j].name, arg) == 0) {
-              launcheeParamBeginIndex = i;
-              goto endindexcheck; // break out of two nested for loops
+            if(strcmp(paramInfos[j].name, arg) == 0) {
+              return i;
             }
             break;
           case PREFIX_PARAM :
-            len = strlen(options->paramInfos[j].name);
-            if((strlen(arg) >= len) && (memcmp(options->paramInfos[j].name, arg, len) == 0)) {
-              launcheeParamBeginIndex = i;
-              goto endindexcheck;
+            len = strlen(paramInfos[j].name);
+            if((strlen(arg) >= len) && (memcmp(paramInfos[j].name, arg, len) == 0)) {
+              return i;
             }
             break;
         } // switch
-      } else if(((options->paramInfos[j].type) == DOUBLE_PARAM)
-        && (strcmp(options->paramInfos[j].name, arg) == 0) ) {
+      } else if((paramInfos[j].type == DOUBLE_PARAM)
+        && (strcmp(paramInfos[j].name, arg) == 0) ) {
           i++;
         }
     } // for
 
   }
-endindexcheck:
+  // not found - none of the params are launchee params
+  return argc;
+  
+}
 
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+/** See the header file for information.
+ */
+extern int launchJavaApp(JavaLauncherOptions *options) {
+  int            rval    = -1;
+  
+  JavaVM         *javavm = NULL;
+  JNIEnv         *env    = NULL;
+  JavaDynLib     javaLib;
+  jint           result, 
+                 optNr   = 0;
+  JavaVMInitArgs vm_args;
+  JavaVMOption*  jvmOptions; 
+  size_t         len;
+  int            i, j, 
+                 launcheeParamBeginIndex = options->numArguments; 
+
+  jboolean     serverVMRequested        = JNI_FALSE;
+  jclass       launcheeMainClassHandle  = NULL;
+  jclass       strClass                 = NULL;
+  jmethodID    launcheeMainMethodID     = NULL;
+  jobjectArray launcheeJOptions         = NULL;
+  
+  char      *userClasspath = NULL, 
+            *envCLASSPATH  = NULL, 
+            *classpath     = NULL, 
+            *dirName       = NULL;
+  size_t    cpsize         = 1000; // just the initial size, expanded if necessary
+  jboolean  *isLauncheeOption  = NULL;
+  jint      launcheeParamCount = 0;
+  char      *javaHome  = NULL, 
+            *toolsJarD = NULL;
+  char      toolsJarFile[1000];
+
+  
+  javaLib.creatorFunc  = NULL;
+  javaLib.dynLibHandle = NULL;  
+
+  // calloc effectively sets all elems to JNI_FALSE.  
+  if(options->numArguments) isLauncheeOption = calloc(options->numArguments, sizeof(jboolean));
+  // worst case : all command line options are jvm options -> thus numArguments + 2
+  // +2 as we need space for at least -Djava.class.path and possibly for -Dtools.jar
+  jvmOptions = calloc( (options->numArguments) + (options->numJvmOptions) + 2, sizeof(JavaVMOption) ); 
+  if((launcheeParamBeginIndex && !isLauncheeOption) || !jvmOptions) {
+    fprintf(stderr, "error: out of memory at startup!\n");
+    goto end;
+  }
+
+  // find out the argument index after which all the params are launchee (prg being launched) params 
+
+  launcheeParamBeginIndex = findFirstLauncheeParamIndex(options->arguments, options->numArguments, options->terminatingSuffixes, options->paramInfos, options->paramInfosCount);
+  
   // classify the arguments
   for(i = 0; i < launcheeParamBeginIndex; i++) {
     char* argument = options->arguments[i];
@@ -592,7 +667,7 @@ next_arg:
   vm_args.ignoreUnrecognized = JNI_FALSE;
 
 
-  result = (*(javaLib.creatorFunc))(&javavm, (void**)&env, &vm_args);
+  result = (javaLib.creatorFunc)(&javavm, (void**)&env, &vm_args);
 
   if(result) {
     char* errMsg;
