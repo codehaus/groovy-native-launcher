@@ -120,7 +120,16 @@ char* valueOfParam(char** args, int* numargs, int* checkUpto, const char* option
       step = 1;
   size_t len;
   char* retVal = NULL;
+
   switch(paramType) {
+    case SINGLE_PARAM :
+	for(;i < *checkUpto; i++) {
+          if(strcmp(option, args[i]) == 0) {
+            retVal = args[i];
+            break;
+          }
+	}
+      break;
     case DOUBLE_PARAM :
       step = 2;
       for(; i < *checkUpto; i++) {
@@ -350,20 +359,20 @@ jboolean arrayContainsString(const char** nullTerminatedArray, const char* searc
   if(nullTerminatedArray) {
     switch(mode) {
       case PREFIX_SEARCH : 
-        while( str = nullTerminatedArray[i++] ) {
+        while( (str = nullTerminatedArray[i++]) ) {
           len = strlen(str);
           if(memcmp(str, searchString, len) == 0) return JNI_TRUE;
         }
         break;
       case SUFFIX_SEARCH : 
         sslen = strlen(searchString);        
-        while( str = nullTerminatedArray[i++] ) {
+        while( (str = nullTerminatedArray[i++]) ) {
           len = strlen(str);
           if(len <= sslen && memcmp(searchString + sslen - len, str, len) == 0) return JNI_TRUE;
         }
         break;
       case EXACT_SEARCH : 
-        while( str = nullTerminatedArray[i++] ) {
+        while( (str = nullTerminatedArray[i++]) ) {
           if(strcmp(str, searchString) == 0) return JNI_TRUE;
         }
         break;
@@ -608,7 +617,7 @@ next_arg:
   // add the jars from the given dirs
   i = 0;
   if(options->jarDirs) {
-    while( dirName = options->jarDirs[i++] ) {
+    while( (dirName = options->jarDirs[i++]) ) {
       if(!appendJarsFromDir(dirName, &classpath, &cpsize)) goto end; // error msg already printed
     }
   }
@@ -624,7 +633,7 @@ next_arg:
   if(options->jars) {
     char* jarName;
     i = 0;
-    while( jarName = options->jars[i++] ) {
+    while( (jarName = options->jars[i++]) ) {
       if(!( classpath = appendCPEntry(classpath, &cpsize, jarName) ) ) goto end;
     }
   }
@@ -715,7 +724,7 @@ next_arg:
     launcheeParamCount += i;
   }
    
-  if( result = (*env)->EnsureLocalCapacity(env, launcheeParamCount + 1) ) { // + 1 for the String[] to hold the params
+  if( (result = (*env)->EnsureLocalCapacity(env, launcheeParamCount + 1)) ) { // + 1 for the String[] to hold the params
     clearException(env);
     fprintf(stderr, "error: could not allocate memory for groovy parameters (how much params did you give, dude?)\n");
     rval = result;

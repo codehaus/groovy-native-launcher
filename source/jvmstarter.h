@@ -108,7 +108,7 @@ extern int launchJavaApp(JavaLauncherOptions* options);
 
 extern int fileExists(const char* fileName);
 
-void setParameterDescription(ParamInfo* paramInfo, int index, int size, char* name, ParamClass type, short terminating);
+void setParameterDescription(ParamInfo* paramInfo, int indx, int size, char* name, ParamClass type, short terminating);
 
 /** Returns the index of the given str in the given str array, -1 if not found.  
  * Modifies args, numargs and checkUpto if removeIfFound == true */

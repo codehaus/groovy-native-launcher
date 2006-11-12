@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
   setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--version",   SINGLE_PARAM, 0);
 
   // look up the first terminating launchee param and only search for --classpath and --conf up to that   
-  numParamsToCheck = findFirstLauncheeParamIndex(argv, argc, terminatingSuffixes, paramInfos, paramInfoCount);
+  numParamsToCheck = findFirstLauncheeParamIndex(argv, argc, (char**)terminatingSuffixes, paramInfos, paramInfoCount);
 
   // look for classpath param
   // - If -cp is not given, then the value of CLASSPATH is given in groovy starter param --classpath. 
