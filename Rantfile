@@ -41,13 +41,12 @@ Environment[ 'Architecture' ] = case Architecture
                                 when /cygwin/ then Cygwin
                                 when /msys/ then MSYS  
                                 else
-                                  if ENV[ 'WINDIR' ] != nil then Windows
+                                  if ENV[ 'WINDIR' ] != nil
+                                    Environment[ 'Name' ] += '.exe' 
+                                    Windows
                                   else raise "Unrecognized architecture -- #{Architecture}"
                                   end
                                 end
-
-Environment[ 'Name' ] = Environment[ 'Name' ] + '.exe' if Environment[ 'Architecture' ] == Windows
-                                
                                 
 desc 'Clean everything.'
 gen Clean , :clean

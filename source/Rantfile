@@ -35,21 +35,19 @@ $cFlags   = '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -W
 $libs     = '-ldl'
 
 def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-def linkCommand(    target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
+def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
 
 case Environment[ 'Architecture' ]
   when Solaris
-  #  $cppFlags += ' -Dsls '
   when Linux
-  #  $cppFlags += ' -Dlnx '
   when Cygwin
-    $gcc = '/cygdrive/c/MinGW/bin/mingw32-gcc'
+    $gcc = 'mingw32-gcc'
     $cppFlags = " -I'#{$javaHome}\\include' -I'#{$javaHome}\\include\\win32'"
     def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o `cygpath -w #{target}` #{sources}" end
     def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o `cygpath -w #{target}` `cygpath -w #{sources}` #{$libs}" end
   when MSYS
     $javaHome = $javaHome.sub( 'Program/' , 'Program' )
-    $cppFlags += " -Dwin -I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
+    $cppFlags = "-I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
   when Windows
     $gcc = 'cl'
     # -Wall produces screenfulls of useless warnings about win header files, therefor omitted
@@ -93,7 +91,9 @@ end
 
 file Program => Source.map { | source | object( source ) } do | target | 
   sys.sh( linkCommand( target.name , target.prerequisites ) )
-  sys.sh( linkWCommand( target.name , target.prerequisites ) ) if Environment[ 'Architecture' ] == Windows
+   if Environment[ 'Architecture' ] == Windows
+     sys.sh( linkWCommand( target.name , target.prerequisites ) )
+   end
 end
 
 Source.each { | source |
