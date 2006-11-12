@@ -110,8 +110,8 @@ extern int fileExists(const char* fileName);
 
 void setParameterDescription(ParamInfo* paramInfo, int index, int size, char* name, ParamClass type, short terminating);
 
-/** Returns the index of the given str in the given str array, -1 if not found. 
- * Modifies args and numargs if removeIfFound == true */
+/** Returns the index of the given str in the given str array, -1 if not found.  
+ * Modifies args, numargs and checkUpto if removeIfFound == true */
 int contains(char** args, int* numargs, const char* option, const jboolean removeIfFound);
 
 /** may return argc if none of the presented params are "terminating", i.e. indicate that it and all the rest of the params
@@ -122,6 +122,6 @@ int findFirstLauncheeParamIndex(const char** argv, int argc, const char** termin
 /** returns null if not found. For prefix params, returns the value w/out the prefix.
  * paramType is double or prefix.
  * In case of double param w/ no value, error out param is set to true. */
-char* valueOfParam(char** args, int* numargs, const char* option, const ParamClass paramType, const jboolean removeIfFound, jboolean* error);
+char* valueOfParam(char** args, int* numargs, int* checkUpto, const char* option, const ParamClass paramType, const jboolean removeIfFound, jboolean* error);
 
 

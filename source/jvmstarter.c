@@ -115,7 +115,7 @@ int contains(char** args, int* numargs, const char* option, const jboolean remov
   return foundAt;
 }
 
-char* valueOfParam(char** args, int* numargs, const char* option, const ParamClass paramType, const jboolean removeIfFound, jboolean* error) {
+char* valueOfParam(char** args, int* numargs, int* checkUpto, const char* option, const ParamClass paramType, const jboolean removeIfFound, jboolean* error) {
   int i    = 0, 
       step = 1;
   size_t len;
@@ -123,20 +123,20 @@ char* valueOfParam(char** args, int* numargs, const char* option, const ParamCla
   switch(paramType) {
     case DOUBLE_PARAM :
       step = 2;
-      for(; i < *numargs; i++) {
+      for(; i < *checkUpto; i++) {
         if(strcmp(option, args[i]) == 0) {
           if(i == (*numargs - 1)) {
             *error = JNI_TRUE;
             return NULL;
           }
-          retVal = args[i];
+          retVal = args[i + 1];
           break;
         }
       }
       break;
     case PREFIX_PARAM :
       len = strlen(option);
-      for(; i < *numargs; i++) {
+      for(; i < *checkUpto; i++) {
         if(memcmp(option, args[i], len) == 0) {
           retVal = args[i] + len;
           break;
@@ -148,7 +148,8 @@ char* valueOfParam(char** args, int* numargs, const char* option, const ParamCla
     for(;i < (*numargs - step); i++) {
       args[i] = args[i + step];
     }
-    *numargs -= step;
+    *numargs   -= step;
+    *checkUpto -= step;
   }
   return retVal;  
   
@@ -397,7 +398,7 @@ jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrA
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 int findFirstLauncheeParamIndex(const char** argv, int argc, const char** terminatingSuffixes, ParamInfo* paramInfos, int paramInfosCount) {
-  int i, j;
+  int    i, j;
   size_t len;
   
   for(i = 0; i < argc; i++) {
