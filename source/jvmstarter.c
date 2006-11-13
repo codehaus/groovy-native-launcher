@@ -676,8 +676,11 @@ next_arg:
   vm_args.nOptions           = optNr;
   vm_args.ignoreUnrecognized = JNI_FALSE;
 
-
-  result = (javaLib.creatorFunc)(&javavm, (void**)&env, &vm_args);
+  // the cast to void* before void** serves to remove a gcc warning
+  // "dereferencing type-punned pointer will break strict-aliasing rules"
+  // found the fix from
+  // http://mail.opensolaris.org/pipermail/tools-gcc/2005-August/000048.html
+  result = (javaLib.creatorFunc)(&javavm, (void**)(void*)&env, &vm_args);
 
   if(result) {
     char* errMsg;
