@@ -612,21 +612,21 @@ next_arg:
   strcpy(classpath, "-Djava.class.path=");
   
   // add the jars from the given dirs
-  i = 0;
   if(options->jarDirs) {
 
     // this is taken w/ conditional compilation as dirent.h does not come w/ windows' standard header files - it needs to be fetched from somewhere
 #   if !(defined(_WIN32) || defined(_WIN64)) || defined(DIRSUPPORT)
+
     char *dirName;
 
-    while( (dirName = options->jarDirs[i++]) ) {
+    for(i = 0; (dirName = options->jarDirs[i++]); ) {
       if(!appendJarsFromDir(dirName, &classpath, &cpsize)) goto end; // error msg already printed
     }
     
 #   else
 
     fprintf(stderr, "To have reading jars from dirs supported on windows you need to compile w/ option -DDIRSUPPORT\n"
-                  "and have the header dirent.h available. Please see the comments in the source / README file for details.\n");
+                    "and have the header dirent.h available. Please see the comments in the source / README file for details.\n");
     exit(1);
     
 #   endif
@@ -642,10 +642,11 @@ next_arg:
   
   if(options->jars) {
     char* jarName;
-    i = 0;
-    while( (jarName = options->jars[i++]) ) {
+    
+    for(i = 0; (jarName = options->jars[i++]); ) {
       if(!( classpath = appendCPEntry(classpath, &cpsize, jarName) ) ) goto end;
     }
+    
   }
 
   // tools.jar handling
@@ -717,7 +718,7 @@ next_arg:
         errMsg = "unknown exit code";
         break;
     }
-    fprintf(stderr, "jvm creation failed with code %d: %s\n", result, errMsg);
+    fprintf(stderr, "error: jvm creation failed with code %d: %s\n", result, errMsg);
     rval = result;
     goto end;
   } 
