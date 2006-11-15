@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include <jni.h>
 
@@ -33,13 +34,13 @@
 #define GROOVY_CONF "groovy-starter.conf"
 
 #define MAX_GROOVY_PARAM_DEFS 20
-
+#define MAX_GROOVY_JVM_EXTRA_ARGS 3
 
 int main(int argc, char** argv) {
 
   JavaLauncherOptions options;
 
-  JavaVMOption extraJvmOptions[4];
+  JavaVMOption extraJvmOptions[MAX_GROOVY_JVM_EXTRA_ARGS];
   int          extraJvmOptionsCount = 0;
   
   ParamInfo paramInfos[MAX_GROOVY_PARAM_DEFS]; // big enough, make larger if necessary
@@ -86,6 +87,8 @@ int main(int argc, char** argv) {
   setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-v",          SINGLE_PARAM, 0);
   setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--version",   SINGLE_PARAM, 0);
 
+  assert(paramInfoCount <= MAX_GROOVY_PARAM_DEFS);
+  
   if( !( args = malloc( numArgs * sizeof(char*) ) ) ) {
     fprintf(stderr, "error: out of memory at startup\n");
     goto end;
@@ -120,7 +123,7 @@ int main(int argc, char** argv) {
 
   groovyHome = getenv("GROOVY_HOME");
   if(!groovyHome || (len = strlen(groovyHome)) == 0) {
-    fprintf(stderr, "GROOVY_HOME is not set\n");
+    fprintf(stderr, "GROOVY_HOME not set\n");
     goto end;
   }
  
@@ -129,7 +132,7 @@ int main(int argc, char** argv) {
           // ghome path len + nul + "conf" + 2 file seps + file name len
   if(!groovyConfGivenAsParam) groovyConfFile = malloc(len + 1 + 4 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_CONF));
   if( !groovyLaunchJar || (!groovyConfGivenAsParam && !groovyConfFile) ) {
-    fprintf(stderr, "error: out of memory when allocating space for directory names\n");
+    fprintf(stderr, "error: out of memory when allocating space for dir names\n");
     goto end;
   }
 
@@ -151,7 +154,7 @@ int main(int argc, char** argv) {
   // "-Dgroovy.home=" => 14 + 1 for nul char 
   groovyDHome = malloc(  14 + 1 + strlen(groovyHome) );
   if( !groovyDConf || !groovyDHome ) {
-    fprintf(stderr, "error: out of memory when allocating space for params\n");
+    fprintf(stderr, "error: out of memory when allocating space for groovy jvm params\n");
     goto end;
   }
   strcpy(groovyDConf, "-Dgroovy.starter.conf=");
@@ -166,6 +169,7 @@ int main(int argc, char** argv) {
   extraJvmOptions[extraJvmOptionsCount].optionString = groovyDHome; 
   extraJvmOptions[extraJvmOptionsCount++].extraInfo = NULL;
 
+  assert(extraJvmOptionsCount <= MAX_GROOVY_JVM_EXTRA_ARGS);
   
   // populate the startup parameters
 

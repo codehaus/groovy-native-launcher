@@ -32,7 +32,7 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 
-// as appended to JAVA_HOME + FILE_SEPARATOR
+// as appended to JAVA_HOME + FILE_SEPARATOR (when a jre) or JAVA_HOME + FILE_SEPARATOR + "jre" + FILE_SEPARATOR (when a jdk) 
 #  define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll"
 #  define PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
 
