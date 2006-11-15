@@ -297,10 +297,11 @@ static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+// this is taken w/ conditional compilation as dirent.h does not come w/ windows' standard header files - it needs to be fetched from somewhere
+#if !(defined(_WIN32) || defined(_WIN64)) || defined(DIRSUPPORT)
+
 /** returns JNI_FALSE on failure. May change the target to point to a new location */
 jboolean appendJarsFromDir(char* dirName, char** targetPtr, size_t* targetSize) {
-
-#if !(defined(_WIN32) || defined(_WIN64)) || defined(DIRSUPPORT)
 
   DIR           *dir;
   struct dirent *entry;
@@ -337,13 +338,9 @@ end:
   closedir(dir);
   return rval;
 
-#else
-  fprintf(stderr, "To have reading jars from dirs supported on windows you need to compile w/ option -DDIRSUPPORT\n"
-                  "and have the header dirent.h available. Please see the comments in the source / README file for details.\n");
-  exit(1);
-#endif
-
 }
+
+#endif
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -472,8 +469,8 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
   
   char      *userClasspath = NULL, 
             *envCLASSPATH  = NULL, 
-            *classpath     = NULL, 
-            *dirName       = NULL;
+            *classpath     = NULL; 
+
   size_t    cpsize         = 1000; // just the initial size, expanded if necessary
   jboolean  *isLauncheeOption  = NULL;
   jint      launcheeParamCount = 0;
@@ -617,9 +614,22 @@ next_arg:
   // add the jars from the given dirs
   i = 0;
   if(options->jarDirs) {
+
+    // this is taken w/ conditional compilation as dirent.h does not come w/ windows' standard header files - it needs to be fetched from somewhere
+#   if !(defined(_WIN32) || defined(_WIN64)) || defined(DIRSUPPORT)
+    char *dirName;
+
     while( (dirName = options->jarDirs[i++]) ) {
       if(!appendJarsFromDir(dirName, &classpath, &cpsize)) goto end; // error msg already printed
     }
+    
+#   else
+
+    fprintf(stderr, "To have reading jars from dirs supported on windows you need to compile w/ option -DDIRSUPPORT\n"
+                  "and have the header dirent.h available. Please see the comments in the source / README file for details.\n");
+    exit(1);
+    
+#   endif
   }
 
   if(userClasspath && ((options->classpathHandling) & CP_PARAM_TO_JVM)) {
