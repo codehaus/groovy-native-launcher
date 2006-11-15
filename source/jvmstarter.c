@@ -349,7 +349,7 @@ end:
 typedef enum { PREFIX_SEARCH, SUFFIX_SEARCH, EXACT_SEARCH } SearchMode;
 
 /** The first param may be NULL, it is considered an empty array. */
-jboolean arrayContainsString(const char** nullTerminatedArray, const char* searchString, SearchMode mode) {
+jboolean arrayContainsString(char** nullTerminatedArray, const char* searchString, SearchMode mode) {
   int    i = 0;
   size_t sslen, len;
   const char   *str;
