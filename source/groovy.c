@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include <jni.h>
+
 #include "jvmstarter.h"
 
 #define GROOVY_MAIN_CLASS "org/codehaus/groovy/tools/GroovyStarter"
@@ -38,7 +39,7 @@ int main(int argc, char** argv) {
 
   JavaLauncherOptions options;
 
-  JavaVMOption extraJvmOptions[10];
+  JavaVMOption extraJvmOptions[4];
   int          extraJvmOptionsCount = 0;
   
   ParamInfo paramInfos[MAX_GROOVY_PARAM_DEFS]; // big enough, make larger if necessary
@@ -57,6 +58,7 @@ int main(int argc, char** argv) {
        *jars[]                = {NULL, NULL}, 
        *cpaliases[]           = {"-cp", "-classpath", "--classpath", NULL};
 
+  // the argv will be copied into this - we don't modify the param, we modify a local copy
   char **args = NULL;
   int  numArgs = argc - 1;
        
@@ -96,13 +98,9 @@ int main(int argc, char** argv) {
   // look for classpath param
   // - If -cp is not given, then the value of CLASSPATH is given in groovy starter param --classpath. 
   // And if not even that is given, then groovy starter param --classpath is omitted.
-  i = 0;
-  while( (temp = cpaliases[i++]) ) {
+  for(i = 0; (temp = cpaliases[i++]); ) {
     classpath = valueOfParam(args, &numArgs, &numParamsToCheck, temp, DOUBLE_PARAM, JNI_TRUE, &error);
-    if(error) {
-      fprintf(stderr, "error: %s option must have a value\n", temp);
-      goto end;
-    }
+    if(error) goto end;
     if(classpath) break;
   }
 
@@ -115,10 +113,8 @@ int main(int argc, char** argv) {
   }
   
   groovyConfFile = valueOfParam(args, &numArgs, &numParamsToCheck, "--conf", DOUBLE_PARAM, JNI_TRUE, &error);
-  if(error) {
-    fprintf(stderr, "error: --conf must have a value\n");
-    goto end;
-  }
+  if(error) goto end;
+  
   
   if(groovyConfFile) groovyConfGivenAsParam = JNI_TRUE;
 

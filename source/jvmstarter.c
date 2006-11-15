@@ -136,6 +136,7 @@ char* valueOfParam(char** args, int* numargs, int* checkUpto, const char* option
         if(strcmp(option, args[i]) == 0) {
           if(i == (*numargs - 1)) {
             *error = JNI_TRUE;
+            fprintf(stderr, "error: %s must have a value\n", option);
             return NULL;
           }
           retVal = args[i + 1];
