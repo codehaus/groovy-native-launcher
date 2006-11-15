@@ -1,18 +1,9 @@
 
-To compile on windows:
-
-cl /MD /Dwin /I%JAVA_HOME%\inlude /I%JAVA_HOME%\inlude\win32 groovy.c jvmstarter.c
-
-Note: the /MD option is important - the program will compile w/out it, but it may not function properly. 
-
-TODO: compilation instructions on other platforms
-
-NOTES:
 
  * This is still work in progress - there are some bugs, support for some oses is lacking etc. Feel free to contribute.
 
  * If you wish to use the jvmstarter.c to launch you own app and want to provide directories from which all jar
-   files need to be included in the startup class path, on windows you need to pass -DDIRSUPPORT and get 
+   files need to be included in the startup class path, on windows you need to pass -DDIRSUPPORT to the compiler and get 
    dirent.h from somewhere; cygwin seems to provide it, another one that works is 
    this one: http:www.uku.fi/~tronkko/dirent.h
 
@@ -24,7 +15,6 @@ NOTES:
  TODO:
  - test more
  - find out path to jvm dyn lib on os-x
- - correct classpath handling
 
 
 

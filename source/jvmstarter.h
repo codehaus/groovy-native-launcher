@@ -16,6 +16,10 @@
 //  $Revision$
 //  $Date$
 
+
+#ifndef _JVMSTARTER_H_
+#define _JVMSTARTER_H_
+
 #if defined(_WIN32) || defined(_WIN64)
 
 #  define FILE_SEPARATOR "\\"
@@ -124,4 +128,5 @@ int findFirstLauncheeParamIndex(const char** argv, int argc, const char** termin
  * In case of double param w/ no value, error out param is set to true. */
 char* valueOfParam(char** args, int* numargs, int* checkUpto, const char* option, const ParamClass paramType, const jboolean removeIfFound, jboolean* error);
 
+#endif // ifndef _JVMSTARTER_H_
 

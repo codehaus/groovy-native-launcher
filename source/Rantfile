@@ -53,20 +53,24 @@ case Environment[ 'Architecture' ]
     # -Wall produces screenfulls of useless warnings about win header files, therefor omitted
     # -Wall -wd4706 -wd4820
     # c4706 == assignment in conditional expression, c4820 == padding added into a struct
-    $cppFlags = "-nologo -c -MD -O1 -I #{$javaHome}\\include"  
+    # the -MD option is important - it is required when using JNI. 
+    # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
+    #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
+    # the -O1 is there just to reduce the size of the executable - it is not mandatory
+    $cppFlags = "-nologo -c -MD -I #{$javaHome}\\include"
     def compileCommand( target , sources)
-      "#{$gcc} -Fo#{target} #{$cppFlags} #{sources}" # add -Zi here and -debug to link params to debug
+      "#{$gcc} #{$debug ? '-Zi -Wall -wd4706 -wd4820 ' : '-O1'} -Fo#{target} #{$cppFlags} #{sources}"
     end
     def linkCommand( target , sources ) 
-      "link -nologo -subsystem:console -out:#{target} #{sources}" 
+      "link #{'-debug ' if($debug)}-nologo -subsystem:console -out:#{target} #{sources}"
     end
     # links "windows app", i.e. an app that has no console. Thus we have groovy.exe and groovyw.exe, just like there is java.exe and javaw.exe
     def linkWCommand( target, sources )
       target = target.gsub(/\.exe$/, 'w.exe')
-      "link -nologo -subsystem:windows -entry:mainCRTStartup -out:#{target} #{sources}"
+      "link #{'-debug' if($debug)} -nologo -subsystem:windows -entry:mainCRTStartup -out:#{target} #{sources}"
     end
     file Program.gsub(/\.exe$/, 'w.exe') => Source.map { | source | object( source ) } do | target | 
-      sys.sh( linkWCommand( target.name , target.prerequisites ) ) if Environment[ 'Architecture' ] == Windows
+      sys.sh( linkWCommand( target.name , target.prerequisites ) )
     end
     
 end 
@@ -85,9 +89,13 @@ end
 
 def object( source ) ; BuildDirectory + '/' + source.sub( '.c' , '.o' ) end
 
-task :debug => :initialize do |t| 
+task :set_debug do
+  puts "asetetaan tepukkilipuke"
   $debug = true
 end
+
+task :debug => [:set_debug] + default_tasks 
+
 
 file Program => Source.map { | source | object( source ) } do | target | 
   sys.sh( linkCommand( target.name , target.prerequisites ) )
