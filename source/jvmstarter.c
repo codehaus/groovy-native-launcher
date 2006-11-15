@@ -406,12 +406,12 @@ jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrA
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-int findFirstLauncheeParamIndex(const char** argv, int argc, const char** terminatingSuffixes, ParamInfo* paramInfos, int paramInfosCount) {
+int findFirstLauncheeParamIndex(char** args, int numArgs, char** terminatingSuffixes, ParamInfo* paramInfos, int paramInfosCount) {
   int    i, j;
   size_t len;
   
-  for(i = 0; i < argc; i++) {
-    const char* arg = argv[i];
+  for(i = 0; i < numArgs; i++) {
+    char* arg = args[i];
     
     if((arg[0] == 0) || (arg[0] != '-') // empty strs and ones not beginning w/ - are considered to be terminating args to the launchee
      || arrayContainsString(terminatingSuffixes, arg, SUFFIX_SEARCH)) {
@@ -442,7 +442,7 @@ int findFirstLauncheeParamIndex(const char** argv, int argc, const char** termin
 
   }
   // not found - none of the params are launchee params
-  return argc;
+  return numArgs;
   
 }
 

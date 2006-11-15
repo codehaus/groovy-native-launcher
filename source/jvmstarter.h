@@ -120,7 +120,7 @@ int contains(char** args, int* numargs, const char* option, const jboolean remov
 
 /** may return argc if none of the presented params are "terminating", i.e. indicate that it and all the rest of the params
  * go to the launchee. */
-int findFirstLauncheeParamIndex(const char** argv, int argc, const char** terminatingSuffixes, ParamInfo* paramInfos, int paramInfosCount);
+int findFirstLauncheeParamIndex(char** argv, int argc, char** terminatingSuffixes, ParamInfo* paramInfos, int paramInfosCount);
 
 
 /** returns null if not found. For prefix params, returns the value w/out the prefix.

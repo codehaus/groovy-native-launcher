@@ -56,6 +56,10 @@ int main(int argc, char** argv) {
        *extraProgramOptions[] = {"--main", "groovy.ui.GroovyMain", "--conf", NULL, "--classpath", NULL, NULL}, 
        *jars[]                = {NULL, NULL}, 
        *cpaliases[]           = {"-cp", "-classpath", "--classpath", NULL};
+
+  char **args = NULL;
+  int  numArgs = argc - 1;
+       
   jboolean error                  = JNI_FALSE, 
            groovyConfGivenAsParam = JNI_FALSE;
 
@@ -63,10 +67,6 @@ int main(int argc, char** argv) {
   int    i,
          numParamsToCheck,
          rval = -1; 
-
-  // skip the program name
-  argc--;
-  argv++;
 
   // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
   // are handled separately below
@@ -84,15 +84,21 @@ int main(int argc, char** argv) {
   setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-v",          SINGLE_PARAM, 0);
   setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--version",   SINGLE_PARAM, 0);
 
+  if( !( args = malloc( numArgs * sizeof(char*) ) ) ) {
+    fprintf(stderr, "error: out of memory at startup\n");
+    goto end;
+  }
+  for(i = 0; i < numArgs; i++) args[i] = argv[i + 1]; // skip the program name
+  
   // look up the first terminating launchee param and only search for --classpath and --conf up to that   
-  numParamsToCheck = findFirstLauncheeParamIndex(argv, argc, (char**)terminatingSuffixes, paramInfos, paramInfoCount);
+  numParamsToCheck = findFirstLauncheeParamIndex(args, numArgs, (char**)terminatingSuffixes, paramInfos, paramInfoCount);
 
   // look for classpath param
   // - If -cp is not given, then the value of CLASSPATH is given in groovy starter param --classpath. 
   // And if not even that is given, then groovy starter param --classpath is omitted.
   i = 0;
   while( (temp = cpaliases[i++]) ) {
-    classpath = valueOfParam(argv, &argc, &numParamsToCheck, temp, DOUBLE_PARAM, JNI_TRUE, &error);
+    classpath = valueOfParam(args, &numArgs, &numParamsToCheck, temp, DOUBLE_PARAM, JNI_TRUE, &error);
     if(error) {
       fprintf(stderr, "error: %s option must have a value\n", temp);
       goto end;
@@ -108,7 +114,7 @@ int main(int argc, char** argv) {
     extraProgramOptions[4] = NULL; // omit the --classpath param
   }
   
-  groovyConfFile = valueOfParam(argv, &argc, &numParamsToCheck, "--conf", DOUBLE_PARAM, JNI_TRUE, &error);
+  groovyConfFile = valueOfParam(args, &numArgs, &numParamsToCheck, "--conf", DOUBLE_PARAM, JNI_TRUE, &error);
   if(error) {
     fprintf(stderr, "error: --conf must have a value\n");
     goto end;
@@ -171,8 +177,8 @@ int main(int argc, char** argv) {
   options.toolsJarHandling    = TOOLS_JAR_TO_SYSPROP;
   options.javahomeHandling    = ALLOW_JH_ENV_VAR_LOOKUP|ALLOW_JH_PARAMETER; 
   options.classpathHandling   = IGNORE_GLOBAL_CP; 
-  options.arguments           = argv;
-  options.numArguments        = argc;
+  options.arguments           = args;
+  options.numArguments        = numArgs;
   options.jvmOptions          = extraJvmOptions;
   options.numJvmOptions       = extraJvmOptionsCount;
   options.extraProgramOptions = extraProgramOptions;
@@ -188,6 +194,7 @@ int main(int argc, char** argv) {
   rval = launchJavaApp(&options);
 
 end:
+  if(args)            free(args);
   if(groovyLaunchJar) free(groovyLaunchJar);
   if(groovyConfFile && !groovyConfGivenAsParam)  free(groovyConfFile);
   if(groovyDConf)     free(groovyDConf);

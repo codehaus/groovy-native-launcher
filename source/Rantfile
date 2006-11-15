@@ -49,29 +49,38 @@ case Environment[ 'Architecture' ]
     $javaHome = $javaHome.sub( 'Program/' , 'Program' )
     $cppFlags = "-I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
   when Windows
+  
     $gcc = 'cl'
+
     # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
-    # c4820 == padding added into a struct 
-    # c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
     # c4255 == 'function' : no function prototype given: converting '()' to '(void)'
+    # c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
+    # c4820 == padding added into a struct 
     # This one is disabled as there's a lot of this done intentionally (and there seems to be no way to tell cl that it's intentional):
     # c4706 == assignment in conditional expression
+
     # the -MD option is important - it is required when using JNI. 
     # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
     #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
+
     # the -O1 is there just to reduce the size of the executable - it is not mandatory
+
     $cppFlags = "-nologo -c -MD -I #{$javaHome}\\include"
+
     def compileCommand( target , sources)
       "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4706 -wd4820 -wd4668 -wd4255 -Fo#{target} #{$cppFlags} #{sources}"
     end
+
     def linkCommand( target , sources ) 
       "link #{'-debug ' if $debug}-nologo -subsystem:console -out:#{target} #{sources}"
     end
+
     # links "windows app", i.e. an app that has no console. Thus we have groovy.exe and groovyw.exe, just like there is java.exe and javaw.exe
     def linkWCommand( target, sources )
       target = target.gsub(/\.exe$/, 'w.exe')
       "link #{'-debug ' if $debug}-nologo -subsystem:windows -entry:mainCRTStartup -out:#{target} #{sources}"
     end
+
     file Program.gsub(/\.exe$/, 'w.exe') => Source.map { | source | object( source ) } do | target | 
       sys.sh( linkWCommand( target.name , target.prerequisites ) )
     end
