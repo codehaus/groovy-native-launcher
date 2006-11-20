@@ -30,7 +30,7 @@
 #include "jvmstarter.h"
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 
 // as appended to JAVA_HOME + FILE_SEPARATOR (when a jre) or JAVA_HOME + FILE_SEPARATOR + "jre" + FILE_SEPARATOR (when a jdk) 
 #  define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll"
@@ -82,7 +82,7 @@
 #endif
 
 
-#define PATH_TO_JVM_DLL_MAX_LEN 2000
+#define PATH_TO_DLL_OR_EXECUTABLE_MAX_LEN 2000
 
 
 // The pointer to the JNI_CreateJavaVM function needs to be called w/ JNICALL calling convention. Using this typedef
@@ -93,6 +93,48 @@ typedef struct {
   JVMCreatorFunc creatorFunc;
   DLHandle       dynLibHandle;
 } JavaDynLib;
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+char* jst_getExecutableHome() {
+  static char* _execHome = NULL;
+  
+  char*  execHome = NULL;
+  size_t len,
+         currentBufSize = 0;
+  
+  if(_execHome) return _execHome;
+  
+# if defined(_WIN32)
+
+  do {
+    if(currentBufSize == 0) {
+      currentBufSize = PATH_TO_DLL_OR_EXECUTABLE_MAX_LEN;
+      execHome = malloc(currentBufSize * sizeof(char));
+    } else {
+      execHome = realloc(execHome, currentBufSize += 100);
+    }
+    
+    if(!execHome) {
+      fprintf(stderr, "error: out of memory when figuring out executable home dir\n");
+      return NULL; 
+    }
+    
+    len = (size_t)GetModuleFileNameA(NULL, execHome, currentBufSize);
+  } while(len == currentBufSize);
+
+  // cut off the executable name
+  *(strrchr(execHome, FILE_SEPARATOR[0]) + 1) = '\0';   
+  len = strlen(execHome);
+  execHome = realloc(execHome, len + 1); // should not fail as we are shrinking the buffer
+  assert(execHome);
+  return _execHome = execHome;
+  
+# else
+  // FIXME
+  return "";
+# endif
+}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -170,7 +212,7 @@ char* valueOfParam(char** args, int* numargs, int* checkUpto, const char* option
 /** In case there are errors, the returned struct contains only NULLs. */
 static JavaDynLib findJVMDynamicLibrary(char* java_home, jboolean useServerVm) {
   
-  char path[PATH_TO_JVM_DLL_MAX_LEN], *mode;
+  char path[PATH_TO_DLL_OR_EXECUTABLE_MAX_LEN], *mode;
   JavaDynLib rval;
   int i = 0, j = 0;
   DLHandle jvmLib = (DLHandle)0;
@@ -217,8 +259,6 @@ exitlookup:
 
   rval.creatorFunc = (JVMCreatorFunc)findFunction(jvmLib, "JNI_CreateJavaVM");
 
-  // TODO: look into freeLibrary func and GetLastError to find out why path w/ spaces fails on windows
-
   if(rval.creatorFunc) {
     rval.dynLibHandle = jvmLib;
   } else {
@@ -258,23 +298,25 @@ void clearException(JNIEnv* env) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-#define INCREMENT 1000
+#define INCREMENT 50
 
 
 /** Appends the given string to target. size param tells the current size of target (target must have been
  * dynamically allocated, i.e. not from stack). If necessary, target is reallocated into a bigger space. 
  * Return the new location of target, and modifies the size inout parameter accordingly. */
 char* append(char* target, size_t* size, const char* stringToAppend) {
-  size_t targetLen, staLen, newLen;
+  size_t targetLen, staLen, newLen, originalSize = *size;
 
   targetLen = strlen(target);
   staLen    = strlen(stringToAppend);
-  newLen    = targetLen + staLen;
+  newLen    = targetLen + staLen + 1;
 
-  while(((size_t)*size) <= newLen) {
-    target = realloc(target, *size += INCREMENT);
+  if(newLen > *size) *size = newLen + INCREMENT;
+  
+  if(*size != originalSize) {
+    target = realloc(target, *size);
     if(!target) {
-      fprintf(stderr, "error: out of memory when allocating space for strings");
+      fprintf(stderr, "error: out of memory when allocating space for strings\n");
       return NULL;
     }
   }
@@ -299,7 +341,7 @@ static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 // this is taken w/ conditional compilation as dirent.h does not come w/ windows' standard header files - it needs to be fetched from somewhere
-#if !(defined(_WIN32) || defined(_WIN64)) || defined(DIRSUPPORT)
+#if !defined(_WIN32) || defined(DIRSUPPORT)
 
 /** returns JNI_FALSE on failure. May change the target to point to a new location */
 jboolean appendJarsFromDir(char* dirName, char** targetPtr, size_t* targetSize) {
@@ -616,7 +658,7 @@ next_arg:
   if(options->jarDirs) {
 
     // this is taken w/ conditional compilation as dirent.h does not come w/ windows' standard header files - it needs to be fetched from somewhere
-#   if !(defined(_WIN32) || defined(_WIN64)) || defined(DIRSUPPORT)
+#   if !defined(_WIN32) || defined(DIRSUPPORT)
 
     char *dirName;
 

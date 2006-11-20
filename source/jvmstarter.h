@@ -20,7 +20,7 @@
 #ifndef _JVMSTARTER_H_
 #define _JVMSTARTER_H_
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 
 #  define FILE_SEPARATOR "\\"
 #  define PATH_SEPARATOR ";"
@@ -111,6 +111,12 @@ typedef struct {
 extern int launchJavaApp(JavaLauncherOptions* options);
 
 extern int fileExists(const char* fileName);
+
+/** Returns the path to the directory where the current executable lives, including the last path separator, e.g.
+ * c:\programs\groovy\bin\ or /usr/loca/groovy/bin/ 
+ * Do NOT modify the returned string, make a copy. */
+extern char* jst_getExecutableHome();
+
 
 void setParameterDescription(ParamInfo* paramInfo, int indx, int size, char* name, ParamClass type, short terminating);
 

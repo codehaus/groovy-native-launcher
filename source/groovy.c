@@ -36,6 +36,58 @@
 #define MAX_GROOVY_PARAM_DEFS 20
 #define MAX_GROOVY_JVM_EXTRA_ARGS 3
 
+/** returns null on error, otherwise pointer to groovy home. 
+ * First tries to see if the current executable is located in a groovy installation's bin directory. If not, groovy
+ * home is looked up. If neither succeed, an error msg is printed.
+ * Do NOT modify the returned string, make a copy. */
+char* getGroovyHome() {
+  static char *ghome = NULL;
+  char *appHome, *gstarterJar = NULL;
+  size_t len;
+       
+  if(ghome) return ghome;
+  
+  appHome = jst_getExecutableHome();
+  if(!appHome) return NULL;
+  
+  len = strlen(appHome);
+  // "bin" == 3 chars
+  if(len > (3 + 2 * strlen(FILE_SEPARATOR))) {
+    jboolean starterJarExists; 
+    
+    ghome = malloc((len + 1) * sizeof(char));
+    if(!ghome) {
+      fprintf(stderr, "error: out of memory when figuring out groovy home\n");
+      return NULL;
+    }
+    strcpy(ghome, appHome);
+    ghome[len - 2 * strlen(FILE_SEPARATOR) - 3] = '\0';
+    // check that lib/groovy-starter.jar exists
+    gstarterJar = malloc(len + 22);
+    if(!gstarterJar) {
+      fprintf(stderr, "error: out of memory when figuring out groovy home\n");
+      return NULL;
+    }
+    strcpy(gstarterJar, ghome);
+    strcat(gstarterJar, FILE_SEPARATOR "lib" FILE_SEPARATOR GROOVY_START_JAR);
+    starterJarExists = fileExists(gstarterJar);
+    free(gstarterJar);
+    if(starterJarExists) {
+      return ghome = realloc(ghome, len + 1); // shrink the buffer as there is extra space
+    } else {
+      free(ghome);
+    }
+  }
+  
+  ghome = getenv("GROOVY_HOME");
+  if(!ghome) {
+    fprintf(stderr, "GROOVY_HOME is not set\n");
+    return NULL;
+  }
+
+  return ghome;
+}
+
 int main(int argc, char** argv) {
 
   JavaLauncherOptions options;
@@ -121,11 +173,10 @@ int main(int argc, char** argv) {
   
   if(groovyConfFile) groovyConfGivenAsParam = JNI_TRUE;
 
-  groovyHome = getenv("GROOVY_HOME");
-  if(!groovyHome || (len = strlen(groovyHome)) == 0) {
-    fprintf(stderr, "GROOVY_HOME not set\n");
-    goto end;
-  }
+  groovyHome = getGroovyHome();
+  if(!groovyHome) goto end;
+  
+  len = strlen(groovyHome);
  
            // ghome path len + nul char + "lib" + 2 file seps + file name len
   groovyLaunchJar = malloc(len + 1 + 3 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_START_JAR));
@@ -201,4 +252,7 @@ end:
   if(groovyDHome)     free(groovyDHome);
   return rval;
 }
+
+
+
 
