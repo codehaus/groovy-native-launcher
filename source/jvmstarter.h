@@ -22,55 +22,55 @@
 
 #if defined(_WIN32)
 
-#  define FILE_SEPARATOR "\\"
-#  define PATH_SEPARATOR ";"
+#  define JST_FILE_SEPARATOR "\\"
+#  define JST_PATH_SEPARATOR ";"
 
 #else
 
-#  define FILE_SEPARATOR "/"
-#  define PATH_SEPARATOR ":"
+#  define JST_FILE_SEPARATOR "/"
+#  define JST_PATH_SEPARATOR ":"
 
 #endif
 
 typedef enum { 
   /** a standalone parameter, such as -v */
-  SINGLE_PARAM,
+  JST_SINGLE_PARAM,
   /** a parameter followed by some additional info, e.g. --endcoding UTF8 */
-  DOUBLE_PARAM,
+  JST_DOUBLE_PARAM,
   /** a parameter that its value attached, e.g. param name "-D", that could be given on command line as -Dfoo */
-  PREFIX_PARAM
-} ParamClass;
+  JST_PREFIX_PARAM
+} JstParamClass;
 
 typedef struct {
-  char       *name;
+  char          *name;
   /** If != 0, the actual parameters followed by this one are passed on to the launchee. */
-  short      terminating;  
-  ParamClass type;
-} ParamInfo;
+  short         terminating;  
+  JstParamClass type;
+} JstParamInfo;
 
 // classpath handling constants
 /** if neiyher of these first two is given, CLASSPATH value is always appended to jvm classpath */
-#define IGNORE_GLOBAL_CP 1
+#define JST_IGNORE_GLOBAL_CP 1
 /** global CLASSPATH is appended to jvm startup classpath only if -cp / --classpath is not given */
-#define IGNORE_GLOBAL_CP_IF_PARAM_GIVEN 2
+#define JST_IGNORE_GLOBAL_CP_IF_PARAM_GIVEN 2
 /** this can be given w/ the following */
-#define CP_PARAM_TO_APP 4
+#define JST_CP_PARAM_TO_APP 4
 /**  */
-#define CP_PARAM_TO_JVM 8
+#define JST_CP_PARAM_TO_JVM 8
 
 
 // javahome handling constants
-#define USE_ONLY_GIVEN_JAVA_HOME 0
+#define JST_USE_ONLY_GIVEN_JAVA_HOME 0
 /** If given java_home == null, try to look it up from JAVA_HOME environment variable. */
-#define ALLOW_JH_ENV_VAR_LOOKUP 1
+#define JST_ALLOW_JH_ENV_VAR_LOOKUP 1
 /** Allow giving java home as -jh / --javahome parameter. The precedence is 
  * -jh command line parameter, java_home argument and then JAVA_HOME env var (if allowed). */
-#define ALLOW_JH_PARAMETER 2
+#define JST_ALLOW_JH_PARAMETER 2
 
 // these can be or:d together w/ |
-#define IGNORE_TOOLS_JAR 0
-#define TOOLS_JAR_TO_CLASSPATH 1
-#define TOOLS_JAR_TO_SYSPROP 2
+#define JST_IGNORE_TOOLS_JAR 0
+#define JST_TOOLS_JAR_TO_CLASSPATH 1
+#define JST_TOOLS_JAR_TO_SYSPROP 2
 
  /** Note that if you tell that -cp / --classpath and/or -jh / --javahome params are handled automatically. 
   * If you do not want the user to be able to affect 
@@ -100,39 +100,42 @@ typedef struct {
   char** jarDirs;
   char** jars;
   /** parameterInfos is an array containing info about all the possible program params. */
-  ParamInfo* paramInfos;
-  int        paramInfosCount;
+  JstParamInfo* paramInfos;
+  int           paramInfosCount;
   /** terminatingSuffixes contains the suffixes that, if matched, indicate that the matching param and all the rest of the params 
    * are launcheeParams, e.g. {".groovy", "-e", "-v", NULL} */
   char** terminatingSuffixes;
 } JavaLauncherOptions;
 
 
-extern int launchJavaApp(JavaLauncherOptions* options);
+extern int jst_launchJavaApp(JavaLauncherOptions* options);
 
-extern int fileExists(const char* fileName);
+extern int jst_fileExists(const char* fileName);
 
 /** Returns the path to the directory where the current executable lives, including the last path separator, e.g.
  * c:\programs\groovy\bin\ or /usr/loca/groovy/bin/ 
+ * The trailing file separator is included, even though this is a little inconsistent w/ how e.g. dir names are usually stored
+ * in environment variables (w/out the trailing file separator). This is because in the worst case the directory the executable
+ * resides in may be the root dir, and in that case stripping the trailing file separator would be confusing. 
  * Do NOT modify the returned string, make a copy. */
 extern char* jst_getExecutableHome();
 
 
-void setParameterDescription(ParamInfo* paramInfo, int indx, int size, char* name, ParamClass type, short terminating);
+void jst_setParameterDescription(JstParamInfo* paramInfo, int indx, int size, char* name, JstParamClass type, short terminating);
 
 /** Returns the index of the given str in the given str array, -1 if not found.  
  * Modifies args, numargs and checkUpto if removeIfFound == true */
-int contains(char** args, int* numargs, const char* option, const jboolean removeIfFound);
+int jst_contains(char** args, int* numargs, const char* option, const jboolean removeIfFound);
 
 /** may return argc if none of the presented params are "terminating", i.e. indicate that it and all the rest of the params
  * go to the launchee. */
-int findFirstLauncheeParamIndex(char** argv, int argc, char** terminatingSuffixes, ParamInfo* paramInfos, int paramInfosCount);
+int jst_findFirstLauncheeParamIndex(char** argv, int argc, char** terminatingSuffixes, JstParamInfo* paramInfos, int paramInfosCount);
 
 
 /** returns null if not found. For prefix params, returns the value w/out the prefix.
  * paramType is double or prefix.
  * In case of double param w/ no value, error out param is set to true. */
-char* valueOfParam(char** args, int* numargs, int* checkUpto, const char* option, const ParamClass paramType, const jboolean removeIfFound, jboolean* error);
+char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const char* option, const JstParamClass paramType, const jboolean removeIfFound, jboolean* error);
 
 #endif // ifndef _JVMSTARTER_H_
 

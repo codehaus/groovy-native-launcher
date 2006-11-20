@@ -58,6 +58,8 @@ case Environment[ 'Architecture' ]
     # c4820 == padding added into a struct 
     # This one is disabled as there's a lot of this done intentionally (and there seems to be no way to tell cl that it's intentional):
     # c4706 == assignment in conditional expression
+    # this one's disabled as it does not seem very interesting:
+    # c4711 == function 'function' selected for inline expansion
 
     # the -MD option is important - it is required when using JNI. 
     # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
@@ -68,7 +70,7 @@ case Environment[ 'Architecture' ]
     $cppFlags = "-nologo -c -MD -I #{$javaHome}\\include"
 
     def compileCommand( target , sources)
-      "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4706 -wd4820 -wd4668 -wd4255 -Fo#{target} #{$cppFlags} #{sources}"
+      "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"
     end
 
     def linkCommand( target , sources ) 

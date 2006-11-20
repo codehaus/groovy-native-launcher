@@ -41,51 +41,50 @@
  * home is looked up. If neither succeed, an error msg is printed.
  * Do NOT modify the returned string, make a copy. */
 char* getGroovyHome() {
-  static char *ghome = NULL;
+  static char *_ghome = NULL;
   char *appHome, *gstarterJar = NULL;
   size_t len;
        
-  if(ghome) return ghome;
+  if(_ghome) return _ghome;
   
   appHome = jst_getExecutableHome();
   if(!appHome) return NULL;
   
   len = strlen(appHome);
   // "bin" == 3 chars
-  if(len > (3 + 2 * strlen(FILE_SEPARATOR))) {
-    jboolean starterJarExists; 
+  if(len > (3 + 2 * strlen(JST_FILE_SEPARATOR))) {
+    int starterJarExists; 
     
-    ghome = malloc((len + 1) * sizeof(char));
-    if(!ghome) {
+    _ghome = malloc((len + 1) * sizeof(char));
+    if(!_ghome) {
       fprintf(stderr, "error: out of memory when figuring out groovy home\n");
       return NULL;
     }
-    strcpy(ghome, appHome);
-    ghome[len - 2 * strlen(FILE_SEPARATOR) - 3] = '\0';
-    // check that lib/groovy-starter.jar exists
+    strcpy(_ghome, appHome);
+    _ghome[len - 2 * strlen(JST_FILE_SEPARATOR) - 3] = '\0';
+    // check that lib/groovy-starter.jar (== 22 chars) exists
     gstarterJar = malloc(len + 22);
     if(!gstarterJar) {
       fprintf(stderr, "error: out of memory when figuring out groovy home\n");
       return NULL;
     }
-    strcpy(gstarterJar, ghome);
-    strcat(gstarterJar, FILE_SEPARATOR "lib" FILE_SEPARATOR GROOVY_START_JAR);
-    starterJarExists = fileExists(gstarterJar);
+    strcpy(gstarterJar, _ghome);
+    strcat(gstarterJar, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR GROOVY_START_JAR);
+    starterJarExists = jst_fileExists(gstarterJar);
     free(gstarterJar);
     if(starterJarExists) {
-      return ghome = realloc(ghome, len + 1); // shrink the buffer as there is extra space
+      return _ghome = realloc(_ghome, len + 1); // shrink the buffer as there is extra space
     } else {
-      free(ghome);
+      free(_ghome);
     }
   }
   
-  ghome = getenv("GROOVY_HOME");
-  if(!ghome) {
-    fprintf(stderr, "GROOVY_HOME is not set\n");
-    return NULL;
+  _ghome = getenv("GROOVY_HOME");
+  if(!_ghome) {
+    fprintf(stderr, "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n");
   }
 
-  return ghome;
+  return _ghome;
 }
 
 int main(int argc, char** argv) {
@@ -95,7 +94,7 @@ int main(int argc, char** argv) {
   JavaVMOption extraJvmOptions[MAX_GROOVY_JVM_EXTRA_ARGS];
   int          extraJvmOptionsCount = 0;
   
-  ParamInfo paramInfos[MAX_GROOVY_PARAM_DEFS]; // big enough, make larger if necessary
+  JstParamInfo paramInfos[MAX_GROOVY_PARAM_DEFS]; // big enough, make larger if necessary
   int       paramInfoCount = 0;
 
   char *groovyLaunchJar = NULL, 
@@ -125,19 +124,19 @@ int main(int argc, char** argv) {
 
   // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
   // are handled separately below
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-c",          DOUBLE_PARAM, 0);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--encoding",  DOUBLE_PARAM, 0);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-h",          SINGLE_PARAM, 1);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--help",      SINGLE_PARAM, 1);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-d",          SINGLE_PARAM, 0);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--debug",     SINGLE_PARAM, 0);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-e",          DOUBLE_PARAM, 1);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-i",          DOUBLE_PARAM, 0);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-l",          DOUBLE_PARAM, 0);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-n",          SINGLE_PARAM, 0);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-p",          SINGLE_PARAM, 0);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-v",          SINGLE_PARAM, 0);
-  setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--version",   SINGLE_PARAM, 0);
+  jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-c",          JST_DOUBLE_PARAM, 0);
+  jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--encoding",  JST_DOUBLE_PARAM, 0);
+  jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-h",          JST_SINGLE_PARAM, 1);
+  jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--help",      JST_SINGLE_PARAM, 1);
+  jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-d",          JST_SINGLE_PARAM, 0);
+  jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--debug",     JST_SINGLE_PARAM, 0);
+  jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-e",          JST_DOUBLE_PARAM, 1);
+  jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-i",          JST_DOUBLE_PARAM, 0);
+  jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-l",          JST_DOUBLE_PARAM, 0);
+  jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-n",          JST_SINGLE_PARAM, 0);
+  jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-p",          JST_SINGLE_PARAM, 0);
+  jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-v",          JST_SINGLE_PARAM, 0);
+  jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--version",   JST_SINGLE_PARAM, 0);
 
   assert(paramInfoCount <= MAX_GROOVY_PARAM_DEFS);
   
@@ -148,13 +147,13 @@ int main(int argc, char** argv) {
   for(i = 0; i < numArgs; i++) args[i] = argv[i + 1]; // skip the program name
   
   // look up the first terminating launchee param and only search for --classpath and --conf up to that   
-  numParamsToCheck = findFirstLauncheeParamIndex(args, numArgs, (char**)terminatingSuffixes, paramInfos, paramInfoCount);
+  numParamsToCheck = jst_findFirstLauncheeParamIndex(args, numArgs, (char**)terminatingSuffixes, paramInfos, paramInfoCount);
 
   // look for classpath param
   // - If -cp is not given, then the value of CLASSPATH is given in groovy starter param --classpath. 
   // And if not even that is given, then groovy starter param --classpath is omitted.
   for(i = 0; (temp = cpaliases[i++]); ) {
-    classpath = valueOfParam(args, &numArgs, &numParamsToCheck, temp, DOUBLE_PARAM, JNI_TRUE, &error);
+    classpath = jst_valueOfParam(args, &numArgs, &numParamsToCheck, temp, JST_DOUBLE_PARAM, JNI_TRUE, &error);
     if(error) goto end;
     if(classpath) break;
   }
@@ -167,7 +166,7 @@ int main(int argc, char** argv) {
     extraProgramOptions[4] = NULL; // omit the --classpath param
   }
   
-  groovyConfFile = valueOfParam(args, &numArgs, &numParamsToCheck, "--conf", DOUBLE_PARAM, JNI_TRUE, &error);
+  groovyConfFile = jst_valueOfParam(args, &numArgs, &numParamsToCheck, "--conf", JST_DOUBLE_PARAM, JNI_TRUE, &error);
   if(error) goto end;
   
   
@@ -179,16 +178,16 @@ int main(int argc, char** argv) {
   len = strlen(groovyHome);
  
            // ghome path len + nul char + "lib" + 2 file seps + file name len
-  groovyLaunchJar = malloc(len + 1 + 3 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_START_JAR));
+  groovyLaunchJar = malloc(len + 1 + 3 + 2 * strlen(JST_FILE_SEPARATOR) + strlen(GROOVY_START_JAR));
           // ghome path len + nul + "conf" + 2 file seps + file name len
-  if(!groovyConfGivenAsParam) groovyConfFile = malloc(len + 1 + 4 + 2 * strlen(FILE_SEPARATOR) + strlen(GROOVY_CONF));
+  if(!groovyConfGivenAsParam) groovyConfFile = malloc(len + 1 + 4 + 2 * strlen(JST_FILE_SEPARATOR) + strlen(GROOVY_CONF));
   if( !groovyLaunchJar || (!groovyConfGivenAsParam && !groovyConfFile) ) {
     fprintf(stderr, "error: out of memory when allocating space for dir names\n");
     goto end;
   }
 
   strcpy(groovyLaunchJar, groovyHome);
-  strcat(groovyLaunchJar, FILE_SEPARATOR "lib" FILE_SEPARATOR GROOVY_START_JAR);
+  strcat(groovyLaunchJar, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR GROOVY_START_JAR);
 
   jars[0] = groovyLaunchJar;
   
@@ -196,7 +195,7 @@ int main(int argc, char** argv) {
 
   if(!groovyConfGivenAsParam) { // set the default groovy conf file if it was not given as a parameter
     strcpy(groovyConfFile, groovyHome);
-    strcat(groovyConfFile, FILE_SEPARATOR "conf" FILE_SEPARATOR GROOVY_CONF);
+    strcat(groovyConfFile, JST_FILE_SEPARATOR "conf" JST_FILE_SEPARATOR GROOVY_CONF);
   }
   extraProgramOptions[3] = groovyConfFile;
   
@@ -225,9 +224,9 @@ int main(int argc, char** argv) {
   // populate the startup parameters
 
   options.java_home           = NULL; // let the launcher func figure it out
-  options.toolsJarHandling    = TOOLS_JAR_TO_SYSPROP;
-  options.javahomeHandling    = ALLOW_JH_ENV_VAR_LOOKUP|ALLOW_JH_PARAMETER; 
-  options.classpathHandling   = IGNORE_GLOBAL_CP; 
+  options.toolsJarHandling    = JST_TOOLS_JAR_TO_SYSPROP;
+  options.javahomeHandling    = JST_ALLOW_JH_ENV_VAR_LOOKUP|JST_ALLOW_JH_PARAMETER; 
+  options.classpathHandling   = JST_IGNORE_GLOBAL_CP; 
   options.arguments           = args;
   options.numArguments        = numArgs;
   options.jvmOptions          = extraJvmOptions;
@@ -242,7 +241,7 @@ int main(int argc, char** argv) {
   options.terminatingSuffixes = terminatingSuffixes;
 
 
-  rval = launchJavaApp(&options);
+  rval = jst_launchJavaApp(&options);
 
 end:
   if(args)            free(args);

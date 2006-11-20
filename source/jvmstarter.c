@@ -32,7 +32,7 @@
 
 #if defined(_WIN32)
 
-// as appended to JAVA_HOME + FILE_SEPARATOR (when a jre) or JAVA_HOME + FILE_SEPARATOR + "jre" + FILE_SEPARATOR (when a jdk) 
+// as appended to JAVA_HOME + JST_FILE_SEPARATOR (when a jre) or JAVA_HOME + JST_FILE_SEPARATOR + "jre" + JST_FILE_SEPARATOR (when a jdk) 
 #  define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll"
 #  define PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
 
@@ -96,7 +96,7 @@ typedef struct {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-char* jst_getExecutableHome() {
+extern char* jst_getExecutableHome() {
   static char* _execHome = NULL;
   
   char*  execHome = NULL;
@@ -124,7 +124,7 @@ char* jst_getExecutableHome() {
   } while(len == currentBufSize);
 
   // cut off the executable name
-  *(strrchr(execHome, FILE_SEPARATOR[0]) + 1) = '\0';   
+  *(strrchr(execHome, JST_FILE_SEPARATOR[0]) + 1) = '\0';   
   len = strlen(execHome);
   execHome = realloc(execHome, len + 1); // should not fail as we are shrinking the buffer
   assert(execHome);
@@ -138,7 +138,7 @@ char* jst_getExecutableHome() {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-int contains(char** args, int* numargs, const char* option, const jboolean removeIfFound) {
+extern int jst_contains(char** args, int* numargs, const char* option, const jboolean removeIfFound) {
   int i       = 0, 
       foundAt = -1;
   for(; i < *numargs; i++) {
@@ -157,14 +157,14 @@ int contains(char** args, int* numargs, const char* option, const jboolean remov
   return foundAt;
 }
 
-char* valueOfParam(char** args, int* numargs, int* checkUpto, const char* option, const ParamClass paramType, const jboolean removeIfFound, jboolean* error) {
+extern char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const char* option, const JstParamClass paramType, const jboolean removeIfFound, jboolean* error) {
   int i    = 0, 
       step = 1;
   size_t len;
   char* retVal = NULL;
 
   switch(paramType) {
-    case SINGLE_PARAM :
+    case JST_SINGLE_PARAM :
 	for(;i < *checkUpto; i++) {
           if(strcmp(option, args[i]) == 0) {
             retVal = args[i];
@@ -172,7 +172,7 @@ char* valueOfParam(char** args, int* numargs, int* checkUpto, const char* option
           }
 	}
       break;
-    case DOUBLE_PARAM :
+    case JST_DOUBLE_PARAM :
       step = 2;
       for(; i < *checkUpto; i++) {
         if(strcmp(option, args[i]) == 0) {
@@ -186,7 +186,7 @@ char* valueOfParam(char** args, int* numargs, int* checkUpto, const char* option
         }
       }
       break;
-    case PREFIX_PARAM :
+    case JST_PREFIX_PARAM :
       len = strlen(option);
       for(; i < *checkUpto; i++) {
         if(memcmp(option, args[i], len) == 0) {
@@ -235,12 +235,12 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, jboolean useServerVm) {
   for(i = 0; i < 2; i++) { // try both jdk and jre style paths
     for(j = 0; ( dynLibFile = lookupDirs[j] ); j++) {
       strcpy(path, java_home);
-      strcat(path, FILE_SEPARATOR);
+      strcat(path, JST_FILE_SEPARATOR);
       if(i == 0) { // on a jdk, we need to add jre at this point of the path
-        strcat(path, "jre" FILE_SEPARATOR);
+        strcat(path, "jre" JST_FILE_SEPARATOR);
       }
       strcat(path, dynLibFile);
-      if(fileExists(path)) {
+      if(jst_fileExists(path)) {
         if(!( jvmLib = openDynLib(path) ) )  {
           fprintf(stderr, "error: dynamic library %s exists but could not be loaded!\n", path);
         } 
@@ -269,7 +269,7 @@ exitlookup:
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 /** Returns != 0 if the given file exists. */
-extern int fileExists(const char* fileName) {
+extern int jst_fileExists(const char* fileName) {
   struct stat buf;
   int i = stat(fileName, &buf);
 
@@ -279,7 +279,7 @@ extern int fileExists(const char* fileName) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void setParameterDescription(ParamInfo* paramInfo, int ind, int size, char* name, ParamClass type, short terminating) {
+extern void jst_setParameterDescription(JstParamInfo* paramInfo, int ind, int size, char* name, JstParamClass type, short terminating) {
   assert(ind < size);
   paramInfo[ind].name = name;
   paramInfo[ind].type = type;
@@ -290,7 +290,7 @@ void setParameterDescription(ParamInfo* paramInfo, int ind, int size, char* name
 
 /** To be called when there is a pending exception that is the result of some
  * irrecoverable error in this startup program. Clears the exception and prints its description. */
-void clearException(JNIEnv* env) {
+static void clearException(JNIEnv* env) {
 
   (*env)->ExceptionDescribe(env);
   (*env)->ExceptionClear(env);
@@ -304,7 +304,7 @@ void clearException(JNIEnv* env) {
 /** Appends the given string to target. size param tells the current size of target (target must have been
  * dynamically allocated, i.e. not from stack). If necessary, target is reallocated into a bigger space. 
  * Return the new location of target, and modifies the size inout parameter accordingly. */
-char* append(char* target, size_t* size, const char* stringToAppend) {
+extern char* jst_append(char* target, size_t* size, const char* stringToAppend) {
   size_t targetLen, staLen, newLen, originalSize = *size;
 
   targetLen = strlen(target);
@@ -333,9 +333,9 @@ char* append(char* target, size_t* size, const char* stringToAppend) {
 static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
   // "-Djava.class.path=" == 18 chars -> if 18th char is not a null char, we have more than that and need to append path separator
   if(cp[18]
-    && !(cp = append(cp, cpsize, PATH_SEPARATOR)) ) return NULL;
+    && !(cp = jst_append(cp, cpsize, JST_PATH_SEPARATOR)) ) return NULL;
  
-  return append(cp, cpsize, entry);
+  return jst_append(cp, cpsize, entry);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -344,7 +344,7 @@ static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
 #if !defined(_WIN32) || defined(DIRSUPPORT)
 
 /** returns JNI_FALSE on failure. May change the target to point to a new location */
-jboolean appendJarsFromDir(char* dirName, char** targetPtr, size_t* targetSize) {
+static jboolean appendJarsFromDir(char* dirName, char** targetPtr, size_t* targetSize) {
 
   DIR           *dir;
   struct dirent *entry;
@@ -353,7 +353,7 @@ jboolean appendJarsFromDir(char* dirName, char** targetPtr, size_t* targetSize) 
   char          *target = *targetPtr;
 
   len = strlen(dirName);
-  dirNameEndsWithSeparator = ( strcmp(dirName + len - strlen(FILE_SEPARATOR), FILE_SEPARATOR) == 0 );
+  dirNameEndsWithSeparator = ( strcmp(dirName + len - strlen(JST_FILE_SEPARATOR), JST_FILE_SEPARATOR) == 0 );
 
   dir = opendir(dirName);
   if(!dir) {
@@ -367,8 +367,8 @@ jboolean appendJarsFromDir(char* dirName, char** targetPtr, size_t* targetSize) 
       // this if and the contained ||s are used so that if any of the
       // calls fail, we jump to the end
       if(!(target = appendCPEntry(target, targetSize, dirName))         
-      ||  (dirNameEndsWithSeparator ?  JNI_FALSE : !(target = append(target, targetSize, FILE_SEPARATOR)) ) 
-      || !(target = append(target, targetSize, entry->d_name))) goto end;
+      ||  (dirNameEndsWithSeparator ?  JNI_FALSE : !(target = jst_append(target, targetSize, JST_FILE_SEPARATOR)) ) 
+      || !(target = jst_append(target, targetSize, entry->d_name))) goto end;
     }
   }
   rval = JNI_TRUE;
@@ -391,7 +391,7 @@ end:
 typedef enum { PREFIX_SEARCH, SUFFIX_SEARCH, EXACT_SEARCH } SearchMode;
 
 /** The first param may be NULL, it is considered an empty array. */
-jboolean arrayContainsString(char** nullTerminatedArray, const char* searchString, SearchMode mode) {
+static jboolean arrayContainsString(char** nullTerminatedArray, const char* searchString, SearchMode mode) {
   int    i = 0;
   size_t sslen, len;
   const char   *str;
@@ -424,7 +424,7 @@ jboolean arrayContainsString(char** nullTerminatedArray, const char* searchStrin
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 /** Returns true on error. */
-jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrArr, jint ind) {
+static jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrArr, jint ind) {
   jboolean rval = JNI_FALSE;
   jstring  arg  = (*env)->NewStringUTF(env, strToAdd);
 
@@ -446,7 +446,7 @@ jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrA
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-int findFirstLauncheeParamIndex(char** args, int numArgs, char** terminatingSuffixes, ParamInfo* paramInfos, int paramInfosCount) {
+extern int jst_findFirstLauncheeParamIndex(char** args, int numArgs, char** terminatingSuffixes, JstParamInfo* paramInfos, int paramInfosCount) {
   int    i, j;
   size_t len;
   
@@ -461,20 +461,20 @@ int findFirstLauncheeParamIndex(char** args, int numArgs, char** terminatingSuff
     for(j = 0; j < paramInfosCount; j++) {
       if(paramInfos[j].terminating) {
         switch(paramInfos[j].type) {
-          case SINGLE_PARAM : // deliberate fallthrough, no break
-          case DOUBLE_PARAM : 
+          case JST_SINGLE_PARAM : // deliberate fallthrough, no break
+          case JST_DOUBLE_PARAM : 
             if(strcmp(paramInfos[j].name, arg) == 0) {
               return i;
             }
             break;
-          case PREFIX_PARAM :
+          case JST_PREFIX_PARAM :
             len = strlen(paramInfos[j].name);
             if((strlen(arg) >= len) && (memcmp(paramInfos[j].name, arg, len) == 0)) {
               return i;
             }
             break;
         } // switch
-      } else if((paramInfos[j].type == DOUBLE_PARAM)
+      } else if((paramInfos[j].type == JST_DOUBLE_PARAM)
         && (strcmp(paramInfos[j].name, arg) == 0) ) {
           i++;
         }
@@ -490,7 +490,7 @@ int findFirstLauncheeParamIndex(char** args, int numArgs, char** terminatingSuff
 
 /** See the header file for information.
  */
-extern int launchJavaApp(JavaLauncherOptions *options) {
+extern int jst_launchJavaApp(JavaLauncherOptions *options) {
   int            rval    = -1;
   
   JavaVM         *javavm = NULL;
@@ -537,7 +537,7 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
 
   // find out the argument index after which all the params are launchee (prg being launched) params 
 
-  launcheeParamBeginIndex = findFirstLauncheeParamIndex(options->arguments, options->numArguments, options->terminatingSuffixes, options->paramInfos, options->paramInfosCount);
+  launcheeParamBeginIndex = jst_findFirstLauncheeParamIndex(options->arguments, options->numArguments, options->terminatingSuffixes, options->paramInfos, options->paramInfosCount);
   
   // classify the arguments
   for(i = 0; i < launcheeParamBeginIndex; i++) {
@@ -552,11 +552,11 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
         fprintf(stderr, "erroneous use of %s\n", argument);
         goto end;
       }
-      if((options->classpathHandling) & CP_PARAM_TO_APP) {
+      if((options->classpathHandling) & JST_CP_PARAM_TO_APP) {
         isLauncheeOption[i]     = JNI_TRUE;
         isLauncheeOption[i + 1] = JNI_TRUE;
       } 
-      if((options->classpathHandling) & CP_PARAM_TO_JVM) userClasspath = argument;
+      if((options->classpathHandling) & JST_CP_PARAM_TO_JVM) userClasspath = argument;
       i++;
       continue;
     }
@@ -564,13 +564,13 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
     // check the param infos
     for(j = 0; j < options->paramInfosCount; j++) {
       switch(options->paramInfos[j].type) {
-        case SINGLE_PARAM :
+        case JST_SINGLE_PARAM :
           if(strcmp(argument, options->paramInfos[j].name) == 0) {
             isLauncheeOption[i] = JNI_TRUE;
             goto next_arg;
           }
           break;
-        case DOUBLE_PARAM :
+        case JST_DOUBLE_PARAM :
           if(strcmp(argument, options->paramInfos[j].name) == 0) {
             isLauncheeOption[i] = JNI_TRUE;
             if(i == (options->numArguments - 1)) { // check that this is not the last param as it requires additional info
@@ -581,7 +581,7 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
             goto next_arg;
           }
           break;
-        case PREFIX_PARAM :
+        case JST_PREFIX_PARAM :
           if(memcmp(argument, options->paramInfos[j].name, len) == 0) {
             isLauncheeOption[i] = JNI_TRUE;
             goto next_arg;            
@@ -594,7 +594,7 @@ extern int launchJavaApp(JavaLauncherOptions *options) {
       serverVMRequested = JNI_TRUE;
     } else if(strcmp("-client", argument) == 0) {
       // do nothing - client jvm is the default
-    } else if( ((options->javahomeHandling) & ALLOW_JH_PARAMETER) &&  
+    } else if( ((options->javahomeHandling) & JST_ALLOW_JH_PARAMETER) &&  
                ( (strcmp("-jh", argument) == 0)
               || (strcmp("--javahome", argument) == 0) 
                )
@@ -615,18 +615,18 @@ next_arg:
 
 
   if(!javaHome) javaHome = options->java_home;
-  if(!javaHome && ((options->javahomeHandling) & ALLOW_JH_ENV_VAR_LOOKUP)) javaHome = getenv("JAVA_HOME");
+  if(!javaHome && ((options->javahomeHandling) & JST_ALLOW_JH_ENV_VAR_LOOKUP)) javaHome = getenv("JAVA_HOME");
 
   if(!javaHome || !javaHome[0]) { // not found or an empty string
-    fprintf(stderr, ((options->javahomeHandling) & ALLOW_JH_ENV_VAR_LOOKUP) ? "error: JAVA_HOME not set\n" : 
-                                                                              "error: java home not provided\n");
+    fprintf(stderr, ((options->javahomeHandling) & JST_ALLOW_JH_ENV_VAR_LOOKUP) ? "error: JAVA_HOME not set\n" : 
+                                                                                  "error: java home not provided\n");
     goto end;
   }
 
   // TODO: support or raise error if -Djava.class.path=something is given as a param ???
 
-  if(!(IGNORE_GLOBAL_CP & (options->classpathHandling))) { // first check if CLASSPATH is ignored altogether
-    if(IGNORE_GLOBAL_CP_IF_PARAM_GIVEN & (options->classpathHandling)) { // use CLASSPATH only if -cp not provided
+  if(!(JST_IGNORE_GLOBAL_CP & (options->classpathHandling))) { // first check if CLASSPATH is ignored altogether
+    if(JST_IGNORE_GLOBAL_CP_IF_PARAM_GIVEN & (options->classpathHandling)) { // use CLASSPATH only if -cp not provided
       if(!userClasspath) envCLASSPATH = getenv("CLASSPATH");
     } else {
       envCLASSPATH = getenv("CLASSPATH");
@@ -675,7 +675,7 @@ next_arg:
 #   endif
   }
 
-  if(userClasspath && ((options->classpathHandling) & CP_PARAM_TO_JVM)) {
+  if(userClasspath && ((options->classpathHandling) & JST_CP_PARAM_TO_JVM)) {
     if( !( classpath = appendCPEntry(classpath, &cpsize, userClasspath) ) ) goto end;
   }
 
@@ -695,11 +695,11 @@ next_arg:
   // tools.jar handling
   
   strcpy(toolsJarFile, javaHome);
-  strcat(toolsJarFile, FILE_SEPARATOR "lib" FILE_SEPARATOR "tools.jar");
+  strcat(toolsJarFile, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR "tools.jar");
 
-  if(fileExists(toolsJarFile)) { // tools.jar is not present on a jre
+  if(jst_fileExists(toolsJarFile)) { // tools.jar is not present on a jre
     // add as java env property if requested
-    if((options->toolsJarHandling) & TOOLS_JAR_TO_SYSPROP) {
+    if((options->toolsJarHandling) & JST_TOOLS_JAR_TO_SYSPROP) {
       toolsJarD = malloc(strlen(toolsJarFile) + 12 + 1); // "-Dtools.jar=" == 12 chars + null char
       if(!toolsJarD) {
         fprintf(stderr, "error: could not allocate memory for -Dtools.jar sys prop\n");
@@ -712,7 +712,7 @@ next_arg:
       jvmOptions[optNr++].extraInfo = NULL;
     }
     // add tools.jar to startup classpath if requested
-    if(((options->toolsJarHandling) & TOOLS_JAR_TO_CLASSPATH) 
+    if(((options->toolsJarHandling) & JST_TOOLS_JAR_TO_CLASSPATH) 
      && !( classpath = appendCPEntry(classpath, &cpsize, toolsJarFile) ) ) goto end;
   }
 
