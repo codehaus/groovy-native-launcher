@@ -29,12 +29,15 @@
 
 #include "jvmstarter.h"
 
+// defined here so they can be used both in windows cl compiler (_WIN32) and __CYGWIN__
+#define WIN_PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll"
+#define WIN_PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
 
 #if defined(_WIN32)
 
 // as appended to JAVA_HOME + JST_FILE_SEPARATOR (when a jre) or JAVA_HOME + JST_FILE_SEPARATOR + "jre" + JST_FILE_SEPARATOR (when a jdk) 
-#  define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll"
-#  define PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
+#  define PATHS_TO_SERVER_JVM WIN_PATHS_TO_SERVER_JVM 
+#  define PATHS_TO_CLIENT_JVM WIN_PATHS_TO_CLIENT_JVM
 
 #  if defined(DIRSUPPORT)
          // uppercase win symbol expected by dirent.h we're using
@@ -45,7 +48,7 @@
 
 #  endif
 
-// Windows.h contains protos for funcs to handle dlls
+// Windows.h contains protos for funcs to handle dlls and to get the dir where the executable lives
 #  include "Windows.h"
    typedef HINSTANCE DLHandle;
 #  define openDynLib(path) LoadLibrary(path)
@@ -61,8 +64,8 @@
 #    define PATHS_TO_SERVER_JVM "lib/sparc/server/libjvm.so", "lib/sparcv9/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/sparc/client/libjvm.so", "lib/sparc/libjvm.so"
 #  elif defined(__CYGWIN__)
-#    define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll"
-#    define PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
+#    define PATHS_TO_SERVER_JVM WIN_PATHS_TO_SERVER_JVM
+#    define PATHS_TO_CLIENT_JVM WIN_PATHS_TO_CLIENT_JVM
 #  else   
 #    error "Either your OS and/or architecture is not currently supported. Support should be easy to add - please see the source (look for #if defined stuff)."
 #  endif
@@ -436,7 +439,7 @@ static jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArra
 
   (*env)->SetObjectArrayElement(env, jstrArr, ind, arg);
   if((*env)->ExceptionCheck(env)) {
-    fprintf(stderr, "error: error when writing %dth element %s to Java String[]\n", ind, strToAdd);
+    fprintf(stderr, "error: error when writing %dth element %s to Java String[]\n", (int)ind, strToAdd);
     clearException(env);
     rval = JNI_TRUE;
   }
@@ -518,8 +521,8 @@ extern int jst_launchJavaApp(JavaLauncherOptions *options) {
   jboolean  *isLauncheeOption  = NULL;
   jint      launcheeParamCount = 0;
   char      *javaHome  = NULL, 
-            *toolsJarD = NULL;
-  char      toolsJarFile[1000];
+            *toolsJarD = NULL,
+            *toolsJarFile = NULL;
 
   
   javaLib.creatorFunc  = NULL;
@@ -538,8 +541,10 @@ extern int jst_launchJavaApp(JavaLauncherOptions *options) {
   // find out the argument index after which all the params are launchee (prg being launched) params 
 
   launcheeParamBeginIndex = jst_findFirstLauncheeParamIndex(options->arguments, options->numArguments, options->terminatingSuffixes, options->paramInfos, options->paramInfosCount);
-  
-  // classify the arguments
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+  // classify the arguments as jvm or launchee params. Some are passed to neither as they are handled in this func.
+  // An example is the -client / -server option that selects the type of jvm
   for(i = 0; i < launcheeParamBeginIndex; i++) {
     char* argument = options->arguments[i];
     len = strlen(argument);
@@ -561,7 +566,7 @@ extern int jst_launchJavaApp(JavaLauncherOptions *options) {
       continue;
     }
 
-    // check the param infos
+    // check the param infos for params particular to the app we are launching
     for(j = 0; j < options->paramInfosCount; j++) {
       switch(options->paramInfos[j].type) {
         case JST_SINGLE_PARAM :
@@ -592,8 +597,10 @@ extern int jst_launchJavaApp(JavaLauncherOptions *options) {
 
     if(strcmp("-server", argument) == 0) { // jvm client or server
       serverVMRequested = JNI_TRUE;
+      continue;
     } else if(strcmp("-client", argument) == 0) {
       // do nothing - client jvm is the default
+      continue;
     } else if( ((options->javahomeHandling) & JST_ALLOW_JH_PARAMETER) &&  
                ( (strcmp("-jh", argument) == 0)
               || (strcmp("--javahome", argument) == 0) 
@@ -608,12 +615,16 @@ extern int jst_launchJavaApp(JavaLauncherOptions *options) {
       jvmOptions[optNr].optionString = argument;
       jvmOptions[optNr++].extraInfo  = NULL;
     }
-// this label is needed to be able to break out of nested for and switch (with a goto)
+// this label is needed to be able to break out of nested for and switch (by jumping here w/ goto)
 next_arg: 
    ;  // at least w/ ms compiler, the tag needs a statement after it before the closing brace. Thus, an empty statement here.
-  } // end looping over arguments and classifying them for the jvm
+  } 
+  
+  // end classifying arguments
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
 
-
+  // handle java home
+  
   if(!javaHome) javaHome = options->java_home;
   if(!javaHome && ((options->javahomeHandling) & JST_ALLOW_JH_ENV_VAR_LOOKUP)) javaHome = getenv("JAVA_HOME");
 
@@ -623,17 +634,10 @@ next_arg:
     goto end;
   }
 
-  // TODO: support or raise error if -Djava.class.path=something is given as a param ???
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+  
 
-  if(!(JST_IGNORE_GLOBAL_CP & (options->classpathHandling))) { // first check if CLASSPATH is ignored altogether
-    if(JST_IGNORE_GLOBAL_CP_IF_PARAM_GIVEN & (options->classpathHandling)) { // use CLASSPATH only if -cp not provided
-      if(!userClasspath) envCLASSPATH = getenv("CLASSPATH");
-    } else {
-      envCLASSPATH = getenv("CLASSPATH");
-    }
-  } 
-
-  // count the params going to the launchee so we can construct the right size java String[]
+  // count the params going to the launchee so we can construct the right size java String[] as param to the java main being invoked
   for(i = 0; i < options->numArguments; i++) {
     if(isLauncheeOption[i] || i >= launcheeParamBeginIndex) {
       isLauncheeOption[i] = JNI_TRUE;
@@ -641,12 +645,18 @@ next_arg:
     }
   }
 
-  // fetch the pointer to jvm creator func
-  javaLib = findJVMDynamicLibrary(javaHome, serverVMRequested);
-  if(!javaLib.creatorFunc) goto end; // error message already printed
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+  // construct classpath for the jvm
 
-  // construct the startup classpath
-  
+  // look up CLASSPATH env var if necessary  
+  if( !( JST_IGNORE_GLOBAL_CP & (options->classpathHandling) ) ) { // first check if CLASSPATH is ignored altogether
+    if(JST_IGNORE_GLOBAL_CP_IF_PARAM_GIVEN & (options->classpathHandling)) { // use CLASSPATH only if -cp not provided
+      if(!userClasspath) envCLASSPATH = getenv("CLASSPATH");
+    } else {
+      envCLASSPATH = getenv("CLASSPATH");
+    }
+  } 
+    
   if( !(classpath = malloc(cpsize)) ) {
     fprintf(stderr, "error: out of memory when allocating space for classpath\n");
     goto end;
@@ -693,7 +703,11 @@ next_arg:
   }
 
   // tools.jar handling
-  
+  toolsJarFile = malloc( strlen(javaHome) + 1 + 2 * strlen(JST_FILE_SEPARATOR) + 12 );
+  if(!toolsJarFile) {
+    fprintf(stderr, "error: out of memory when handling tools jar\n");
+    goto end; 
+  }
   strcpy(toolsJarFile, javaHome);
   strcat(toolsJarFile, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR "tools.jar");
 
@@ -715,10 +729,17 @@ next_arg:
     if(((options->toolsJarHandling) & JST_TOOLS_JAR_TO_CLASSPATH) 
      && !( classpath = appendCPEntry(classpath, &cpsize, toolsJarFile) ) ) goto end;
   }
-
+  
+  free(toolsJarFile);
+  toolsJarFile = NULL;
+  
+  
   jvmOptions[optNr].optionString = classpath;
   jvmOptions[optNr++].extraInfo  = NULL;
 
+  // end constructing classpath
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+  
   for(i = 0; i < options->numJvmOptions; i++) {
     jvmOptions[optNr].optionString = options->jvmOptions[i].optionString;
     jvmOptions[optNr++].extraInfo  = options->jvmOptions[i].extraInfo;
@@ -730,9 +751,14 @@ next_arg:
   vm_args.nOptions           = optNr;
   vm_args.ignoreUnrecognized = JNI_FALSE;
 
+  
+  // fetch the pointer to jvm creator func and invoke it
+  javaLib = findJVMDynamicLibrary(javaHome, serverVMRequested);
+  if(!javaLib.creatorFunc) goto end; // error message already printed
+  
   // the cast to void* before void** serves to remove a gcc warning
   // "dereferencing type-punned pointer will break strict-aliasing rules"
-  // found the fix from
+  // Found the fix from
   // http://mail.opensolaris.org/pipermail/tools-gcc/2005-August/000048.html
   result = (javaLib.creatorFunc)(&javavm, (void**)(void*)&env, &vm_args);
 
@@ -761,13 +787,15 @@ next_arg:
         errMsg = "unknown exit code";
         break;
     }
-    fprintf(stderr, "error: jvm creation failed with code %d: %s\n", result, errMsg);
+    fprintf(stderr, "error: jvm creation failed with code %d: %s\n", (int)result, errMsg);
     rval = result;
     goto end;
   } 
 
+  free(toolsJarD);
   free(jvmOptions);
   free(classpath);
+  toolsJarD  = NULL;
   jvmOptions = NULL;
   classpath  = NULL;
 
@@ -867,6 +895,7 @@ end:
   if(classpath)        free(classpath);
   if(isLauncheeOption) free(isLauncheeOption);
   if(jvmOptions)       free(jvmOptions);
+  if(toolsJarFile)     free(toolsJarFile);
   if(toolsJarD)        free(toolsJarD);
 
   return rval;

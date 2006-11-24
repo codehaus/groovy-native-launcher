@@ -41,8 +41,8 @@ case Environment[ 'Architecture' ]
   when Solaris
   when Linux
   when Cygwin
-    $gcc = 'mingw32-gcc'
-    $cppFlags = " -I'#{$javaHome}\\include' -I'#{$javaHome}\\include\\win32'"
+    $gcc = 'gcc'
+    $cppFlags = "-mno-cygwin -I #{$javaHome}/include -I #{$javaHome}/include/win32'"
     def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o `cygpath -w #{target}` #{sources}" end
     def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o `cygpath -w #{target}` `cygpath -w #{sources}` #{$libs}" end
   when MSYS
