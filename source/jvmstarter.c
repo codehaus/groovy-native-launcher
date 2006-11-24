@@ -29,19 +29,18 @@
 
 #include "jvmstarter.h"
 
-// defined here so they can be used both in windows cl compiler (_WIN32) and __CYGWIN__
-#define WIN_PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll"
-#define WIN_PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
-
+// NOTE: when compiling w/ gcc on cygwin, pass -mno-cygwin, which makes gcc define _WIN32 and handle
 #if defined(_WIN32)
 
 // as appended to JAVA_HOME + JST_FILE_SEPARATOR (when a jre) or JAVA_HOME + JST_FILE_SEPARATOR + "jre" + JST_FILE_SEPARATOR (when a jdk) 
-#  define PATHS_TO_SERVER_JVM WIN_PATHS_TO_SERVER_JVM 
-#  define PATHS_TO_CLIENT_JVM WIN_PATHS_TO_CLIENT_JVM
+#  define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll" 
+#  define PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
+
+// TODO: figure out how to be able to use dirent.h on cygwin at the same time as being able to use the win32 libs...
 
 #  if defined(DIRSUPPORT)
-         // uppercase win symbol expected by dirent.h we're using
-#    ifndef(WIN)
+         // uppercase win symbol expected by dirent.h from http:www.uku.fi/~tronkko/dirent.h 
+#    if !defined(WIN)
 #      define WIN
 #    endif
 #    include "dirent.h"
@@ -63,9 +62,6 @@
 #  elif defined(__sun__)
 #    define PATHS_TO_SERVER_JVM "lib/sparc/server/libjvm.so", "lib/sparcv9/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/sparc/client/libjvm.so", "lib/sparc/libjvm.so"
-#  elif defined(__CYGWIN__)
-#    define PATHS_TO_SERVER_JVM WIN_PATHS_TO_SERVER_JVM
-#    define PATHS_TO_CLIENT_JVM WIN_PATHS_TO_CLIENT_JVM
 #  else   
 #    error "Either your OS and/or architecture is not currently supported. Support should be easy to add - please see the source (look for #if defined stuff)."
 #  endif
