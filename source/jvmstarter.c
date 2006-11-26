@@ -140,7 +140,10 @@ extern char* jst_getExecutableHome() {
     return NULL;
   }
   sprintf(procSymlink, "/proc/%d/exe", (int)getpid());
-  realpath(procSymlink, execHome);
+  if(!realpath(procSymlink, execHome)) {
+    fprintf(stderr, "error: error occurred when trying to find out executable location\n");
+    return NULL;    
+  }
   free(procSymlink);
 
 #endif
