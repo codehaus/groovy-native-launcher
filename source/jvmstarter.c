@@ -29,7 +29,7 @@
 
 #include "jvmstarter.h"
 
-// NOTE: when compiling w/ gcc on cygwin, pass -mno-cygwin, which makes gcc define _WIN32 and handle
+// NOTE: when compiling w/ gcc on cygwin, pass -mno-cygwin, which makes gcc define _WIN32 and handle the win headers ok
 #if defined(_WIN32)
 
 // as appended to JAVA_HOME + JST_FILE_SEPARATOR (when a jre) or JAVA_HOME + JST_FILE_SEPARATOR + "jre" + JST_FILE_SEPARATOR (when a jdk) 
@@ -57,6 +57,10 @@
 #else
 
 #  if defined(__linux__) && defined(__i386__)
+   // for getpid()
+#  include <unistd.h>
+  // for PATH_MAX
+#  include <limits.h>
 #    define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
 #  elif defined(__sun__)
@@ -93,14 +97,18 @@ typedef struct {
   DLHandle       dynLibHandle;
 } JavaDynLib;
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 extern char* jst_getExecutableHome() {
   static char* _execHome = NULL;
   
-  char*  execHome = NULL;
-  size_t len,
-         currentBufSize = 0;
+  char   *execHome;
+# if defined(__linux__)
+  char   *procSymlink;
+# elif defined(_WIN32)
+  size_t currentBufSize = 0;
+# endif
+  size_t len;
   
   if(_execHome) return _execHome;
   
@@ -122,6 +130,22 @@ extern char* jst_getExecutableHome() {
     len = (size_t)GetModuleFileNameA(NULL, execHome, currentBufSize);
   } while(len == currentBufSize);
 
+# elif defined(__linux__)
+
+  procSymlink = malloc(40 * sizeof(char) ); // big enough
+  execHome = malloc((PATH_MAX + 1) * sizeof(char));
+  // /proc/{pid}/exe is a symbolic link to the executable
+  if( !procSymlink || !execHome ) {
+    fprintf(stderr, "error: out of memory when finding out executable path\n");
+    return NULL;
+  }
+  sprintf(procSymlink, "/proc/%d/exe", (int)getpid());
+  realpath(procSymlink, execHome);
+  free(procSymlink);
+
+#endif
+
+#if defined(_WIN32) || defined (__linux__)
   // cut off the executable name
   *(strrchr(execHome, JST_FILE_SEPARATOR[0]) + 1) = '\0';   
   len = strlen(execHome);
@@ -133,6 +157,7 @@ extern char* jst_getExecutableHome() {
   // FIXME
   return "";
 # endif
+
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
