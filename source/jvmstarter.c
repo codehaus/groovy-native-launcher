@@ -25,6 +25,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <limits.h>
+
 #include <jni.h>
 
 #include "jvmstarter.h"
@@ -54,13 +56,16 @@
 #  define findFunction(libraryhandle, funcname) GetProcAddress(libraryhandle, funcname)
 #  define closeDynLib(handle) FreeLibrary(handle)
 
+// window's limits.h does not automatically define this:
+# if !defined(PATH_MAX) 
+#    define PATH_MAX 512
+# endif
+
 #else
 
 #  if defined(__linux__) && defined(__i386__)
    // for getpid()
 #  include <unistd.h>
-  // for PATH_MAX
-#  include <limits.h>
 #    define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
 #  elif defined(__sun__)
@@ -85,8 +90,6 @@
 #endif
 
 
-#define PATH_TO_DLL_OR_EXECUTABLE_MAX_LEN 2000
-
 
 // The pointer to the JNI_CreateJavaVM function needs to be called w/ JNICALL calling convention. Using this typedef
 // takes care of that.
@@ -102,7 +105,7 @@ typedef struct {
 extern char* jst_getExecutableHome() {
   static char* _execHome = NULL;
   
-  char   *execHome;
+  char   *execHome = NULL;
 # if defined(__linux__)
   char   *procSymlink;
 # elif defined(_WIN32)
@@ -116,29 +119,32 @@ extern char* jst_getExecutableHome() {
 
   do {
     if(currentBufSize == 0) {
-      currentBufSize = PATH_TO_DLL_OR_EXECUTABLE_MAX_LEN;
+      currentBufSize = PATH_MAX + 1;
       execHome = malloc(currentBufSize * sizeof(char));
     } else {
-      execHome = realloc(execHome, currentBufSize += 100);
+      execHome = realloc(execHome, (currentBufSize += 100) * sizeof(char));
     }
     
     if(!execHome) {
       fprintf(stderr, "error: out of memory when figuring out executable home dir\n");
       return NULL; 
     }
-    
-    len = (size_t)GetModuleFileNameA(NULL, execHome, currentBufSize);
-  } while(len == currentBufSize);
 
+    SetLastError(0); // reset the error state, just in case it has been left dangling somewhere    
+    len = GetModuleFileNameA(NULL, execHome, currentBufSize);
+  } while(GetLastError() == ERROR_INSUFFICIENT_BUFFER);
+  // this works equally well but is a bit less readable
+  // } while(len == currentBufSize);
+  
 # elif defined(__linux__)
 
   procSymlink = malloc(40 * sizeof(char) ); // big enough
   execHome = malloc((PATH_MAX + 1) * sizeof(char));
-  // /proc/{pid}/exe is a symbolic link to the executable
   if( !procSymlink || !execHome ) {
     fprintf(stderr, "error: out of memory when finding out executable path\n");
     return NULL;
   }
+  // /proc/{pid}/exe is a symbolic link to the executable
   sprintf(procSymlink, "/proc/%d/exe", (int)getpid());
   if(!realpath(procSymlink, execHome)) {
     fprintf(stderr, "error: error occurred when trying to find out executable location\n");
@@ -239,7 +245,7 @@ extern char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const c
 /** In case there are errors, the returned struct contains only NULLs. */
 static JavaDynLib findJVMDynamicLibrary(char* java_home, jboolean useServerVm) {
   
-  char path[PATH_TO_DLL_OR_EXECUTABLE_MAX_LEN], *mode;
+  char path[PATH_MAX + 1], *mode;
   JavaDynLib rval;
   int i = 0, j = 0;
   DLHandle jvmLib = (DLHandle)0;
