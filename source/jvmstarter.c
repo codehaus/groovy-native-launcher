@@ -56,7 +56,7 @@
 #  define findFunction(libraryhandle, funcname) GetProcAddress(libraryhandle, funcname)
 #  define closeDynLib(handle) FreeLibrary(handle)
 
-// window's limits.h does not automatically define this:
+// windows' limits.h does not automatically define this:
 # if !defined(PATH_MAX) 
 #    define PATH_MAX 512
 # endif
@@ -64,13 +64,17 @@
 #else
 
 #  if defined(__linux__) && defined(__i386__)
+
    // for getpid()
 #  include <unistd.h>
 #    define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
+
 #  elif defined(__sun__)
+
 #    define PATHS_TO_SERVER_JVM "lib/sparc/server/libjvm.so", "lib/sparcv9/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/sparc/client/libjvm.so", "lib/sparc/libjvm.so"
+
 #  else   
 #    error "Either your OS and/or architecture is not currently supported. Support should be easy to add - please see the source (look for #if defined stuff)."
 #  endif
@@ -106,7 +110,7 @@ extern char* jst_getExecutableHome() {
   static char* _execHome = NULL;
   
   char   *execHome = NULL;
-# if defined(__linux__)
+# if defined(__linux__) || defined(__sun__)
   char   *procSymlink;
 # elif defined(_WIN32)
   size_t currentBufSize = 0;
@@ -130,31 +134,54 @@ extern char* jst_getExecutableHome() {
       return NULL; 
     }
 
-    SetLastError(0); // reset the error state, just in case it has been left dangling somewhere    
+    // reset the error state, just in case it has been left dangling somewhere and 
+    // GetModuleFileNameA does not reset it (its docs don't tell). 
+    // GetModuleFileName docs: http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dllproc/base/getmodulefilename.asp
+    SetLastError(0); 
     len = GetModuleFileNameA(NULL, execHome, currentBufSize);
   } while(GetLastError() == ERROR_INSUFFICIENT_BUFFER);
   // this works equally well but is a bit less readable
   // } while(len == currentBufSize);
+
+  if(len == 0) {
+    fprintf(stderr, "error: finding out executable location failed w/ error code %d\n", (int)GetLastError());
+    free(execHome);
+    return NULL; 
+  }
   
-# elif defined(__linux__)
+# elif defined(__linux__) || defined(__sun__)
 
   procSymlink = malloc(40 * sizeof(char) ); // big enough
   execHome = malloc((PATH_MAX + 1) * sizeof(char));
   if( !procSymlink || !execHome ) {
     fprintf(stderr, "error: out of memory when finding out executable path\n");
+    if(procSymlink) free(procSymlink); 
+    if(execHome)    free(execHome);
     return NULL;
   }
-  // /proc/{pid}/exe is a symbolic link to the executable
-  sprintf(procSymlink, "/proc/%d/exe", (int)getpid());
+
+  sprintf(procSymlink,
+#   if defined(__linux__)
+      // /proc/{pid}/exe is a symbolic link to the executable
+      "/proc/%d/exe" 
+#   elif defined(__sun__)
+      // see above
+      "/proc/%d/path/a.out"
+#   endif
+      , (int)getpid()
+  );
+
   if(!realpath(procSymlink, execHome)) {
     fprintf(stderr, "error: error occurred when trying to find out executable location\n");
+    free(procSymlink);
+    free(execHome);
     return NULL;    
   }
   free(procSymlink);
 
 #endif
 
-#if defined(_WIN32) || defined (__linux__)
+#if defined(_WIN32) || defined (__linux__) || defined(__sun__)
   // cut off the executable name
   *(strrchr(execHome, JST_FILE_SEPARATOR[0]) + 1) = '\0';   
   len = strlen(execHome);
@@ -379,6 +406,26 @@ static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
 /** returns JNI_FALSE on failure. May change the target to point to a new location */
 static jboolean appendJarsFromDir(char* dirName, char** targetPtr, size_t* targetSize) {
 
+/*
+      HANDLE fileHandle;
+      WIN32_FIND_DATA fdata;
+      char *jarEntrySpecifier;
+      
+      jarEntrySpecifier = malloc((strlen(dirName) + 1 + 7) * sizeof(char));
+      if(!jarEntrySpecifier) {
+        fprintf(stderr, "error: out of mem when accessing dir %s\n", dirName);
+        return JNI_FALSE;
+      }
+      strcpy(jarEntrySpecifier, dirName);
+      if(jarEntrySpecifier[strlen(jarEntrySpecifier) - 1] != JST_FILE_SEPARATOR[0]) strcat(jarEntrySpecifier, JST_FILE_SEPARATOR);
+      
+      fileHandle = FindFirstFile(jarEntrySpecifier, &fdata);
+      
+      // If no matching files can be found, the GetLastError function returns ERROR_NO_MORE_FILES
+      // on error:  INVALID_HANDLE_VALUE
+      //FindNextFile
+      //FindClose
+  */
   DIR           *dir;
   struct dirent *entry;
   size_t        len;
