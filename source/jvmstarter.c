@@ -112,8 +112,12 @@ extern char* jst_getExecutableHome() {
   char   *execHome = NULL;
 # if defined(__linux__) || defined(__sun__)
   char   *procSymlink;
-# elif defined(_WIN32)
+#endif
+
+# if defined(_WIN32)
   size_t currentBufSize = 0;
+# else
+  static char *g_emptyString = "";
 # endif
   size_t len;
   
@@ -170,13 +174,13 @@ extern char* jst_getExecutableHome() {
 #   endif
       , (int)getpid()
   );
-/* // TODO: try this out on linux and uncomment
+
   if(!jst_fileExists(procSymlink)) {
     free(procSymlink);
     free(execHome);
-    return "";
+    return g_emptyString;
   }
-*/  
+
   if(!realpath(procSymlink, execHome)) {
     fprintf(stderr, "error: error occurred when trying to find out executable location\n");
     free(procSymlink);
@@ -197,7 +201,7 @@ extern char* jst_getExecutableHome() {
   
 # else
   // FIXME
-  return "";
+  return g_emptyString;
 # endif
 
 }
