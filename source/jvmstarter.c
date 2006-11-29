@@ -170,7 +170,13 @@ extern char* jst_getExecutableHome() {
 #   endif
       , (int)getpid()
   );
-
+/* // TODO: try this out on linux and uncomment
+  if(!jst_fileExists(procSymlink)) {
+    free(procSymlink);
+    free(execHome);
+    return "";
+  }
+*/  
   if(!realpath(procSymlink, execHome)) {
     fprintf(stderr, "error: error occurred when trying to find out executable location\n");
     free(procSymlink);
@@ -407,24 +413,56 @@ static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
 static jboolean appendJarsFromDir(char* dirName, char** targetPtr, size_t* targetSize) {
 
 /*
+
+ClusApi.h://#define MAX_PATH 260
+MAPIWin.h:#define MAX_PATH                                      260
+SetupAPI.h:#define SP_MAX_MACHINENAME_LENGTH   (MAX_PATH + 3)
+VdmDbg.h:#define MAX_PATH16      255
+WinDef.h:#define MAX_PATH          260
+WinInet.h:#define INTERNET_MAX_PATH_LENGTH        2048
+nmexpert.h:#define EXPERTSTRINGLENGTH  MAX_PATH
+npptypes.h:#define MAX_PATH 260
       HANDLE fileHandle;
       WIN32_FIND_DATA fdata;
       char *jarEntrySpecifier;
+      int  lastError;
+      jboolean dirNameEndsWithSeparator;
       
-      jarEntrySpecifier = malloc((strlen(dirName) + 1 + 7) * sizeof(char));
+      jarEntrySpecifier = malloc((strlen(dirName) + 15) * sizeof(char));
       if(!jarEntrySpecifier) {
         fprintf(stderr, "error: out of mem when accessing dir %s\n", dirName);
         return JNI_FALSE;
       }
-      strcpy(jarEntrySpecifier, dirName);
+      strcpy(jarEntrySpecifier, "\\\\?\\"); // see documentation of FindFirstFile
+      strcat(jarEntrySpecifier, dirName);
       if(jarEntrySpecifier[strlen(jarEntrySpecifier) - 1] != JST_FILE_SEPARATOR[0]) strcat(jarEntrySpecifier, JST_FILE_SEPARATOR);
       
-      fileHandle = FindFirstFile(jarEntrySpecifier, &fdata);
+      SetLastError(0);
+      fileHandle = FindFirstFileW(jarEntrySpecifier, &fdata);
       
-      // If no matching files can be found, the GetLastError function returns ERROR_NO_MORE_FILES
-      // on error:  INVALID_HANDLE_VALUE
-      //FindNextFile
-      //FindClose
+      if(fileHandle == INVALID_HANDLE_VALUE) {
+        fprintf(stderr, "error: opening directory %s failed w/ error code %d\n", dirName, (int)GetLastError());
+        return JNI_FALSE;
+      }
+      
+      if((lastError = GetLastError()) == 0) {
+      
+        while(1) {
+          // TODO: do something w/ fdata
+          if(!FindNextFile(fileHandle, &fdata)) break;
+        }
+        
+      }
+      
+      FindClose(fileHandle);
+      
+      lastError = GetLastError();
+      if(lastError != ERROR_NO_MORE_FILES) {
+        fprintf(stderr, "error: error %d occurred when finding jars from %s\n", lastError, dirName);
+        return JNI_FALSE;
+      }
+      return JNI_TRUE;
+      
   */
   DIR           *dir;
   struct dirent *entry;
