@@ -117,7 +117,10 @@ extern int jst_fileExists(const char* fileName);
  * The trailing file separator is included, even though this is a little inconsistent w/ how e.g. dir names are usually stored
  * in environment variables (w/out the trailing file separator). This is because in the worst case the directory the executable
  * resides in may be the root dir, and in that case stripping the trailing file separator would be confusing. 
- * Do NOT modify the returned string, make a copy. */
+ * Do NOT modify the returned string, make a copy. 
+ * Note: there seems to be no standard way to implement this, so it needs to be figured out for each os supported. We have not yet been
+ * able to support all target oses, so do not make code that relies on this func. In case there is no support, the func 
+ * returns an empty string ("") */
 extern char* jst_getExecutableHome();
 
 

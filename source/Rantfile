@@ -67,7 +67,7 @@ case Environment[ 'Architecture' ]
 
     # the -O1 is there just to reduce the size of the executable - it is not mandatory
 
-    $cppFlags = "-nologo -c -MD -I #{$javaHome}\\include"
+    $cppFlags = "-nologo -c -MD -I #{$javaHome}\\include -I #{$javaHome}\\include\\win32"
 
     def compileCommand( target , sources)
       "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"

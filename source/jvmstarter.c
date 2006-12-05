@@ -38,19 +38,8 @@
 #  define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll" 
 #  define PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
 
-// TODO: figure out how to be able to use dirent.h on cygwin at the same time as being able to use the win32 libs...
-
-#  if defined(DIRSUPPORT)
-         // uppercase win symbol expected by dirent.h from http:www.uku.fi/~tronkko/dirent.h 
-#    if !defined(WIN)
-#      define WIN
-#    endif
-#    include "dirent.h"
-
-#  endif
-
-// Windows.h contains protos for funcs to handle dlls and to get the dir where the executable lives
 #  include "Windows.h"
+
    typedef HINSTANCE DLHandle;
 #  define openDynLib(path) LoadLibrary(path)
 #  define findFunction(libraryhandle, funcname) GetProcAddress(libraryhandle, funcname)
@@ -65,8 +54,6 @@
 
 #  if defined(__linux__) && defined(__i386__)
 
-   // for getpid()
-#  include <unistd.h>
 #    define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
 
@@ -79,13 +66,15 @@
 #    error "Either your OS and/or architecture is not currently supported. Support should be easy to add - please see the source (look for #if defined stuff)."
 #  endif
 
+   // for getpid()
+#  include <unistd.h>
+
 #  include <dirent.h>
 
 // stuff for loading a dynamic library
 #  include <dlfcn.h>
 #  include <link.h>
   
-//#  define DLHandle void*
    typedef void *DLHandle;
 #  define openDynLib(path) dlopen(path, RTLD_LAZY)
 #  define closeDynLib(handle) dlclose(handle)
@@ -235,12 +224,12 @@ extern char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const c
 
   switch(paramType) {
     case JST_SINGLE_PARAM :
-	for(;i < *checkUpto; i++) {
-          if(strcmp(option, args[i]) == 0) {
-            retVal = args[i];
-            break;
-          }
-	}
+      for(;i < *checkUpto; i++) {
+        if(strcmp(option, args[i]) == 0) {
+          retVal = args[i];
+          break;
+        }
+      }
       break;
     case JST_DOUBLE_PARAM :
       step = 2;
@@ -410,64 +399,68 @@ static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-// this is taken w/ conditional compilation as dirent.h does not come w/ windows' standard header files - it needs to be fetched from somewhere
-#if !defined(_WIN32) || defined(DIRSUPPORT)
-
 /** returns JNI_FALSE on failure. May change the target to point to a new location */
-static jboolean appendJarsFromDir(char* dirName, char** targetPtr, size_t* targetSize) {
+static jboolean appendJarsFromDir(char* dirName, char** target, size_t* targetSize) {
 
-/*
+# if defined(_WIN32)
 
-ClusApi.h://#define MAX_PATH 260
-MAPIWin.h:#define MAX_PATH                                      260
-SetupAPI.h:#define SP_MAX_MACHINENAME_LENGTH   (MAX_PATH + 3)
-VdmDbg.h:#define MAX_PATH16      255
-WinDef.h:#define MAX_PATH          260
-WinInet.h:#define INTERNET_MAX_PATH_LENGTH        2048
-nmexpert.h:#define EXPERTSTRINGLENGTH  MAX_PATH
-npptypes.h:#define MAX_PATH 260
-      HANDLE fileHandle;
-      WIN32_FIND_DATA fdata;
-      char *jarEntrySpecifier;
-      int  lastError;
-      jboolean dirNameEndsWithSeparator;
+  HANDLE          fileHandle = INVALID_HANDLE_VALUE;
+  WIN32_FIND_DATA fdata;
+  char            *jarEntrySpecifier = NULL;
+  int             lastError;
+  jboolean        dirNameEndsWithSeparator, rval = JNI_FALSE;
+  
+  dirNameEndsWithSeparator = ( strcmp(dirName + strlen(dirName) - strlen(JST_FILE_SEPARATOR), JST_FILE_SEPARATOR) == 0 ) ? JNI_TRUE : JNI_FALSE;
+  
+  jarEntrySpecifier = malloc((strlen(dirName) + 15) * sizeof(char));
+  if(!jarEntrySpecifier) {
+    fprintf(stderr, "error: out of mem when accessing dir %s\n", dirName);
+    return JNI_FALSE;
+  }
+  
+  // this only works w/ FindFirstFileW. If need be, use that.
+//  strcpy(jarEntrySpecifier, "\\\\?\\"); // to allow long paths, see documentation of FindFirstFile
+  strcat(jarEntrySpecifier, dirName);
+  if( !dirNameEndsWithSeparator ) strcat(jarEntrySpecifier, JST_FILE_SEPARATOR);
+  strcat(jarEntrySpecifier, "*.jar");
+  
+  SetLastError(0);
+  fileHandle = FindFirstFile(jarEntrySpecifier, &fdata);
+  
+  if(fileHandle == INVALID_HANDLE_VALUE) {
+    fprintf(stderr, "error: opening directory %s failed w/ error code %d\n", dirName, (int)GetLastError());
+    goto end;
+  }
+  
+  lastError = GetLastError();
+  if(!lastError) {
+  
+    do {
+      // this if and the contained ||s are used so that if any of the
+      // calls fail, we jump to the end
+      if(    !( *target = appendCPEntry(*target, targetSize, dirName) )         
+          ||  ( dirNameEndsWithSeparator ?  JNI_FALSE : !( *target = jst_append(*target, targetSize, JST_FILE_SEPARATOR) ) ) 
+          || !( *target = jst_append(*target, targetSize, fdata.cFileName) )
+        ) goto end;
+    } while( FindNextFile(fileHandle, &fdata) );
+    
+  }
+    
+  if(!lastError) lastError = GetLastError();
+  if(lastError != ERROR_NO_MORE_FILES) {
+    fprintf(stderr, "error: error %d occurred when finding jars from %s\n", lastError, dirName);
+    goto end;
+  }
+  
+  rval = JNI_TRUE;
+  
+  end:
+  if(fileHandle != INVALID_HANDLE_VALUE) FindClose(fileHandle);
+  if(jarEntrySpecifier) free(jarEntrySpecifier);
+  return rval;
       
-      jarEntrySpecifier = malloc((strlen(dirName) + 15) * sizeof(char));
-      if(!jarEntrySpecifier) {
-        fprintf(stderr, "error: out of mem when accessing dir %s\n", dirName);
-        return JNI_FALSE;
-      }
-      strcpy(jarEntrySpecifier, "\\\\?\\"); // see documentation of FindFirstFile
-      strcat(jarEntrySpecifier, dirName);
-      if(jarEntrySpecifier[strlen(jarEntrySpecifier) - 1] != JST_FILE_SEPARATOR[0]) strcat(jarEntrySpecifier, JST_FILE_SEPARATOR);
-      
-      SetLastError(0);
-      fileHandle = FindFirstFileW(jarEntrySpecifier, &fdata);
-      
-      if(fileHandle == INVALID_HANDLE_VALUE) {
-        fprintf(stderr, "error: opening directory %s failed w/ error code %d\n", dirName, (int)GetLastError());
-        return JNI_FALSE;
-      }
-      
-      if((lastError = GetLastError()) == 0) {
-      
-        while(1) {
-          // TODO: do something w/ fdata
-          if(!FindNextFile(fileHandle, &fdata)) break;
-        }
-        
-      }
-      
-      FindClose(fileHandle);
-      
-      lastError = GetLastError();
-      if(lastError != ERROR_NO_MORE_FILES) {
-        fprintf(stderr, "error: error %d occurred when finding jars from %s\n", lastError, dirName);
-        return JNI_FALSE;
-      }
-      return JNI_TRUE;
-      
-  */
+# else      
+
   DIR           *dir;
   struct dirent *entry;
   size_t        len;
@@ -495,7 +488,7 @@ npptypes.h:#define MAX_PATH 260
   }
   rval = JNI_TRUE;
 
-end:
+  end:
   if(target) *targetPtr = target;
   if(!rval) {
     fprintf(stderr, "error: out of memory when adding entries from %s to classpath\n", dirName);
@@ -503,9 +496,10 @@ end:
   closedir(dir);
   return rval;
 
+#  endif
+
 }
 
-#endif
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -786,22 +780,12 @@ next_arg:
   // add the jars from the given dirs
   if(options->jarDirs) {
 
-    // this is taken w/ conditional compilation as dirent.h does not come w/ windows' standard header files - it needs to be fetched from somewhere
-#   if !defined(_WIN32) || defined(DIRSUPPORT)
-
     char *dirName;
 
     for(i = 0; (dirName = options->jarDirs[i++]); ) {
       if(!appendJarsFromDir(dirName, &classpath, &cpsize)) goto end; // error msg already printed
     }
     
-#   else
-
-    fprintf(stderr, "To have reading jars from dirs supported on windows you need to compile w/ option -DDIRSUPPORT\n"
-                    "and have the header dirent.h available. Please see the comments in the source / README file for details.\n");
-    exit(1);
-    
-#   endif
   }
 
   if(userClasspath && ((options->classpathHandling) & JST_CP_PARAM_TO_JVM)) {

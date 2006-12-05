@@ -36,6 +36,8 @@
 #define MAX_GROOVY_PARAM_DEFS 20
 #define MAX_GROOVY_JVM_EXTRA_ARGS 3
 
+static jboolean _groovy_launcher_debug = JNI_FALSE;
+
 /** returns null on error, otherwise pointer to groovy home. 
  * First tries to see if the current executable is located in a groovy installation's bin directory. If not, groovy
  * home is looked up. If neither succeed, an error msg is printed.
@@ -81,7 +83,12 @@ char* getGroovyHome() {
   
   _ghome = getenv("GROOVY_HOME");
   if(!_ghome) {
-    fprintf(stderr, "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n");
+    fprintf(stderr, (len == 0) ? "error: could not find groovy installation - please set GROOVY_HOME environment variable to point to it\n" :
+                                 "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n");
+  } else if(_groovy_launcher_debug) {
+    fprintf(stderr, (len == 0) ? "warning: figuring out groovy installation directory based on the executable location is not supported on your platform, "
+                                    "using GROOVY_HOME environment variable\n"
+                               : "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME\n");
   }
 
   return _ghome;
@@ -149,6 +156,8 @@ int main(int argc, char** argv) {
   // look up the first terminating launchee param and only search for --classpath and --conf up to that   
   numParamsToCheck = jst_findFirstLauncheeParamIndex(args, numArgs, (char**)terminatingSuffixes, paramInfos, paramInfoCount);
 
+  _groovy_launcher_debug = (jst_valueOfParam(args, &numArgs, &numParamsToCheck, "-d", JST_SINGLE_PARAM, JNI_FALSE, &error) ? JNI_TRUE : JNI_FALSE);
+  
   // look for classpath param
   // - If -cp is not given, then the value of CLASSPATH is given in groovy starter param --classpath. 
   // And if not even that is given, then groovy starter param --classpath is omitted.
