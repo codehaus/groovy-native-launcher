@@ -465,7 +465,6 @@ static jboolean appendJarsFromDir(char* dirName, char** target, size_t* targetSi
   struct dirent *entry;
   size_t        len;
   jboolean      dirNameEndsWithSeparator, rval = JNI_FALSE;
-  char          *target = *targetPtr;
 
   len = strlen(dirName);
   dirNameEndsWithSeparator = ( strcmp(dirName + len - strlen(JST_FILE_SEPARATOR), JST_FILE_SEPARATOR) == 0 );
@@ -481,15 +480,14 @@ static jboolean appendJarsFromDir(char* dirName, char** target, size_t* targetSi
     if(len >= 5 && (strcmp(".jar", (entry->d_name) + len - 4) == 0)) {
       // this if and the contained ||s are used so that if any of the
       // calls fail, we jump to the end
-      if(!(target = appendCPEntry(target, targetSize, dirName))         
-      ||  (dirNameEndsWithSeparator ?  JNI_FALSE : !(target = jst_append(target, targetSize, JST_FILE_SEPARATOR)) ) 
-      || !(target = jst_append(target, targetSize, entry->d_name))) goto end;
+      if(!(*target = appendCPEntry(*target, targetSize, dirName))         
+      ||  (dirNameEndsWithSeparator ?  JNI_FALSE : !(*target = jst_append(*target, targetSize, JST_FILE_SEPARATOR)) ) 
+      || !(*target = jst_append(*target, targetSize, entry->d_name))) goto end;
     }
   }
   rval = JNI_TRUE;
 
   end:
-  if(target) *targetPtr = target;
   if(!rval) {
     fprintf(stderr, "error: out of memory when adding entries from %s to classpath\n", dirName);
   }
