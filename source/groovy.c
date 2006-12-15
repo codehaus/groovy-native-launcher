@@ -260,11 +260,12 @@ int main(int argc, char** argv) {
     "                                 instead of the one pointed to by JAVA_HOME\n"
     " --conf <conf file>              use the given groovy conf file\n"
     "\n"
-    "In addition, you can give any parameters accepted by the jvm you are using, e.g.\n"
     " -cp,-classpath,--classpath <user classpath>\n" 
     "                                 the classpath to use\n"
     " -client/-server                 to use a client/server VM (aliases for these\n"
     "                                 are not supported)\n"
+    "In addition, you can give any parameters accepted by the jvm you are using, e.g.\n"
+    "-Xmx<size> (see java -help and java -X for details)\n"
     "\n"
     );
   }
