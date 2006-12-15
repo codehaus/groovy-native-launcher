@@ -22,6 +22,7 @@ import 'clean'
 
 Linux   = 'linux'
 Solaris = 'solaris'
+MacOSX = 'darwin'
 Cygwin  = 'cygwin'
 MSYS    = 'msys'
 Windows = 'windows'
@@ -36,8 +37,9 @@ Environment[ 'BuildDirectory' ] = 'build'
 Architecture = ENV[ 'OSTYPE' ]
 
 Environment[ 'Architecture' ] = case Architecture
-                                when /solaris/ then Solaris
                                 when /linux/ then Linux
+                                when /solaris/ then Solaris
+                                when /darwin/ then MacOSX                                  
                                 when /cygwin/ then Cygwin
                                 when /msys/ then MSYS  
                                 else
