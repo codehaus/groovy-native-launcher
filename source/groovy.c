@@ -120,15 +120,17 @@ int main(int argc, char** argv) {
   // the argv will be copied into this - we don't modify the param, we modify a local copy
   char **args = NULL;
   int  numArgs = argc - 1;
-       
-  jboolean error                  = JNI_FALSE, 
-           groovyConfGivenAsParam = JNI_FALSE;
-
+         
   size_t len;
   int    i,
          numParamsToCheck,
          rval = -1; 
 
+  jboolean error                  = JNI_FALSE, 
+           groovyConfGivenAsParam = JNI_FALSE,
+           displayHelp = ( (numArgs == 0) || (strcmp(argv[1], "-h") == 0) ) ? JNI_TRUE : JNI_FALSE; 
+         
+         
   // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
   // are handled separately below
   jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-c",          JST_DOUBLE_PARAM, 0);
@@ -252,6 +254,21 @@ int main(int argc, char** argv) {
 
   rval = jst_launchJavaApp(&options);
 
+  if(displayHelp) { // add to the standard groovy help message
+    fprintf(stderr, "\n"
+    " -jh,--javahome <path to jdk/jre> makes groovy use the given jdk/jre\n" 
+    "                                 instead of the one pointed to by JAVA_HOME\n"
+    " --conf <conf file>              use the given groovy conf file\n"
+    "\n"
+    "In addition, you can give any parameters accepted by the jvm you are using, e.g.\n"
+    " -cp,-classpath,--classpath <user classpath>\n" 
+    "                                 the classpath to use\n"
+    " -client/-server                 to use a client/server VM (aliases for these\n"
+    "                                 are not supported)\n"
+    "\n"
+    );
+  }
+  
 end:
   if(args)            free(args);
   if(groovyLaunchJar) free(groovyLaunchJar);

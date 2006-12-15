@@ -57,10 +57,19 @@
 #    define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
 
-#  elif defined(__sun__)
+#  elif defined(__sun__) 
 
-#    define PATHS_TO_SERVER_JVM "lib/sparc/server/libjvm.so", "lib/sparcv9/server/libjvm.so"
-#    define PATHS_TO_CLIENT_JVM "lib/sparc/client/libjvm.so", "lib/sparc/libjvm.so"
+#    if defined(__sparc__)
+
+#      define PATHS_TO_SERVER_JVM "lib/sparc/server/libjvm.so", "lib/sparcv9/server/libjvm.so"
+#      define PATHS_TO_CLIENT_JVM "lib/sparc/client/libjvm.so", "lib/sparc/libjvm.so"
+
+#    elif defined(__i386__)
+        // these are just educated guesses, I have no access to solaris running on x86...
+#      define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
+#      define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
+
+#    endif
 
 #  else   
 #    error "Either your OS and/or architecture is not currently supported. Support should be easy to add - please see the source (look for #if defined stuff)."
