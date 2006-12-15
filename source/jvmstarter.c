@@ -91,7 +91,7 @@
 
 #endif
 
-
+static jboolean _jst_debug = JNI_FALSE;
 
 // The pointer to the JNI_CreateJavaVM function needs to be called w/ JNICALL calling convention. Using this typedef
 // takes care of that.
@@ -264,6 +264,7 @@ extern char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const c
       }
       break;
   }
+  
   if(retVal && removeIfFound) {
     for(;i < (*numargs - step); i++) {
       args[i] = args[i + step];
@@ -271,6 +272,7 @@ extern char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const c
     *numargs   -= step;
     *checkUpto -= step;
   }
+  
   return retVal;  
   
 }
@@ -569,6 +571,8 @@ static jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArra
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+static char* _builtinDoubleParams[] = {"-cp", "-classpath", "--classpath", "-jh", "--javahome", NULL};
+
 extern int jst_findFirstLauncheeParamIndex(char** args, int numArgs, char** terminatingSuffixes, JstParamInfo* paramInfos, int paramInfosCount) {
   int    i, j;
   size_t len;
@@ -586,9 +590,7 @@ extern int jst_findFirstLauncheeParamIndex(char** args, int numArgs, char** term
         switch(paramInfos[j].type) {
           case JST_SINGLE_PARAM : // deliberate fallthrough, no break
           case JST_DOUBLE_PARAM : 
-            if(strcmp(paramInfos[j].name, arg) == 0) {
-              return i;
-            }
+            if(strcmp(paramInfos[j].name, arg) == 0) return i;
             break;
           case JST_PREFIX_PARAM :
             len = strlen(paramInfos[j].name);
@@ -601,9 +603,10 @@ extern int jst_findFirstLauncheeParamIndex(char** args, int numArgs, char** term
         && (strcmp(paramInfos[j].name, arg) == 0) ) {
           i++;
         }
-    } // for
-
-  }
+    } // for j
+    // if we have one of the builtin double params, skip the value of the param
+    if(arrayContainsString(_builtinDoubleParams, arg, EXACT_SEARCH)) i++;
+  } // for i
   // not found - none of the params are launchee params
   return numArgs;
   
@@ -644,7 +647,8 @@ extern int jst_launchJavaApp(JavaLauncherOptions *options) {
             *toolsJarD = NULL,
             *toolsJarFile = NULL;
 
-  
+  if(getenv("__JLAUNCHER_DEBUG")) _jst_debug = JNI_TRUE;
+            
   javaLib.creatorFunc  = NULL;
   javaLib.dynLibHandle = NULL;  
 
@@ -739,6 +743,14 @@ extern int jst_launchJavaApp(JavaLauncherOptions *options) {
 next_arg: 
    ;  // at least w/ ms compiler, the tag needs a statement after it before the closing brace. Thus, an empty statement here.
   } 
+
+  // print debug if necessary
+  if( _jst_debug && (options->numArguments != 0) ) {
+    fprintf(stderr, "debug: param classication\n");
+    for(i = 0; i < options->numArguments; i++) {
+      fprintf(stderr, "%s\t: %s\n", options->arguments[i], (isLauncheeOption[i] || i >= launcheeParamBeginIndex) ? "launcheeparam" : "non launchee param");  
+    }
+  }
   
   // end classifying arguments
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  

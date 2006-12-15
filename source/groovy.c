@@ -128,7 +128,7 @@ int main(int argc, char** argv) {
 
   jboolean error                  = JNI_FALSE, 
            groovyConfGivenAsParam = JNI_FALSE,
-           displayHelp = ( (numArgs == 0) || (strcmp(argv[1], "-h") == 0) ) ? JNI_TRUE : JNI_FALSE; 
+           displayHelp            = ( (numArgs == 0) || (strcmp(argv[1], "-h") == 0) ) ? JNI_TRUE : JNI_FALSE; 
          
          
   // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
@@ -264,6 +264,7 @@ int main(int argc, char** argv) {
     "                                 the classpath to use\n"
     " -client/-server                 to use a client/server VM (aliases for these\n"
     "                                 are not supported)\n"
+    "\n"
     "In addition, you can give any parameters accepted by the jvm you are using, e.g.\n"
     "-Xmx<size> (see java -help and java -X for details)\n"
     "\n"
