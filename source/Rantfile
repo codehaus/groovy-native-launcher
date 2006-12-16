@@ -27,7 +27,7 @@ Source = sys[ '*.c' ]
 $javaHome = ENV[ 'JAVA_HOME' ]
 if $javaHome == nil || $javaHome == ''
   if Environment[ 'Architecture' ] == MacOSX
-    putativeDirectory = '/System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Home'
+    putativeDirectory = '/System/Library/Frameworks/JavaVM.framework/Home'
     if File.directory?( putativeDirectory ) then $javaHome = putativeDirectory end
   else
     raise "JAVA_HOME not defined."

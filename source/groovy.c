@@ -21,6 +21,10 @@
 #include <string.h>
 #include <assert.h>
 
+#if defined ( __APPLE__ )
+#include <TargetConditionals.h>
+#endif
+
 #include <jni.h>
 
 #include "jvmstarter.h"
@@ -279,7 +283,3 @@ end:
   if(groovyDHome)     free(groovyDHome);
   return rval;
 }
-
-
-
-

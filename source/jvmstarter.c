@@ -27,6 +27,10 @@
 
 #include <limits.h>
 
+#if defined ( __APPLE__ )
+#include <TargetConditionals.h>
+#endif
+
 #include <jni.h>
 
 #include "jvmstarter.h"
@@ -82,7 +86,9 @@
 
 // stuff for loading a dynamic library
 #  include <dlfcn.h>
+#if ! defined ( __APPLE__ )
 #  include <link.h>
+#endif
   
    typedef void *DLHandle;
 #  define openDynLib(path) dlopen(path, RTLD_LAZY)
@@ -1023,4 +1029,3 @@ end:
   return rval;
 
 }
-
