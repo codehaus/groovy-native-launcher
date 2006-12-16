@@ -102,7 +102,17 @@ case Environment[ 'Architecture' ]
 end 
 
 default_tasks = [ :initialize , Program ]
-default_tasks << Program.gsub(/\.exe$/, 'w.exe') if Environment[ 'Architecture' ] == Windows
+
+res_file = nil
+if Environment[ 'Architecture' ] == Windows
+  res_file = "../build/source/groovy.res"
+  file res_file => ['groovy.rc'] do |t|
+    sys.sh( "rc -fo #{t.name} #{t.prerequisites}" )
+  end
+  default_tasks.insert(1, res_file)
+  
+  default_tasks << Program.gsub(/\.exe$/, 'w.exe')
+end
 
 task :default => default_tasks
 
@@ -121,8 +131,9 @@ end
 
 task :debug => [:set_debug] + default_tasks 
 
-
-file Program => Source.map { | source | object( source ) } do | target | 
+reqs = Source.map { | source | object( source ) }
+reqs << res_file if Environment[ 'Architecture' ] == Windows
+file Program => reqs do | target |
   sys.sh( linkCommand( target.name , target.prerequisites ) )
    if Environment[ 'Architecture' ] == Windows
      sys.sh( linkWCommand( target.name , target.prerequisites ) )
@@ -134,3 +145,5 @@ Source.each { | source |
     sys.sh( compileCommand( target.name , target.prerequisites ) ) 
   end
 }
+
+

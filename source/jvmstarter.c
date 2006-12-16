@@ -577,6 +577,8 @@ static jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArra
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+/** Info about these needs to be available to perform the parameter classification correctly. To be more precise,
+ *  it is needed to find the first launchee param. */
 static char* _builtinDoubleParams[] = {"-cp", "-classpath", "--classpath", "-jh", "--javahome", NULL};
 
 extern int jst_findFirstLauncheeParamIndex(char** args, int numArgs, char** terminatingSuffixes, JstParamInfo* paramInfos, int paramInfosCount) {
