@@ -75,6 +75,13 @@
 
 #    endif
 
+#  elif defined ( __APPLE__ )
+
+//  Assume that /System/Library/Frameworks/JavaVM.framework is the JAVA_HOME directory.
+
+#    define PATHS_TO_SERVER_JVM "Libraries/libjvm.dylib"
+#    define PATHS_TO_CLIENT_JVM "Libraries/libjvm.dylib"
+
 #  else   
 #    error "Either your OS and/or architecture is not currently supported. Support should be easy to add - please see the source (look for #if defined stuff)."
 #  endif
@@ -192,6 +199,10 @@ extern char* jst_getExecutableHome() {
     return NULL;    
   }
   free(procSymlink);
+
+#elif defined ( __APPLE__ )
+
+  return _execHome = "/System/Library/Frameworks/JavaVM.framework/Commands" ;
 
 #endif
 
@@ -767,6 +778,10 @@ next_arg:
   
   if(!javaHome) javaHome = options->java_home;
   if(!javaHome && ((options->javahomeHandling) & JST_ALLOW_JH_ENV_VAR_LOOKUP)) javaHome = getenv("JAVA_HOME");
+
+#if defined ( __APPLE__ )
+  if ( ! javaHome || ! javaHome[0] ) { javaHome = "/System/Library/Frameworks/JavaVM.framework" ; }
+#endif
 
   if(!javaHome || !javaHome[0]) { // not found or an empty string
     fprintf(stderr, ((options->javahomeHandling) & JST_ALLOW_JH_ENV_VAR_LOOKUP) ? "error: JAVA_HOME not set\n" : 

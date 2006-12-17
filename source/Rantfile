@@ -27,7 +27,7 @@ Source = sys[ '*.c' ]
 $javaHome = ENV[ 'JAVA_HOME' ]
 if $javaHome == nil || $javaHome == ''
   if Environment[ 'Architecture' ] == MacOSX
-    putativeDirectory = '/System/Library/Frameworks/JavaVM.framework/Home'
+    putativeDirectory = '/System/Library/Frameworks/JavaVM.framework'
     if File.directory?( putativeDirectory ) then $javaHome = putativeDirectory end
   else
     raise "JAVA_HOME not defined."
@@ -52,6 +52,7 @@ case Environment[ 'Architecture' ]
   when Linux
   when Solaris
   when MacOSX
+    $cppFlags = "-I \"#{$javaHome}/Headers\""
   when Cygwin
     $gcc = 'gcc'
     $cppFlags = "-mno-cygwin -I \"#{$javaHome}/include/win32\" -I \"#{$javaHome}/include\""
