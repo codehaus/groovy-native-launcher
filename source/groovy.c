@@ -132,7 +132,10 @@ int main(int argc, char** argv) {
 
   jboolean error                  = JNI_FALSE, 
            groovyConfGivenAsParam = JNI_FALSE,
-           displayHelp            = ( (numArgs == 0) || (strcmp(argv[1], "-h") == 0) ) ? JNI_TRUE : JNI_FALSE; 
+           displayHelp            = ( (numArgs == 0)                   || 
+                                      (strcmp(argv[1], "-h")     == 0) || 
+                                      (strcmp(argv[1], "--help") == 0)
+                                    ) ? JNI_TRUE : JNI_FALSE; 
          
          
   // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
