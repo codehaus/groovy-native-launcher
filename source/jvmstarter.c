@@ -28,7 +28,7 @@
 #include <limits.h>
 
 #if defined ( __APPLE__ )
-#include <TargetConditionals.h>
+#  include <TargetConditionals.h>
 #endif
 
 #include <jni.h>
@@ -93,9 +93,9 @@
 
 // stuff for loading a dynamic library
 #  include <dlfcn.h>
-#if ! defined ( __APPLE__ )
-#  include <link.h>
-#endif
+#  if ! defined ( __APPLE__ )
+#    include <link.h>
+#  endif
   
    typedef void *DLHandle;
 #  define openDynLib(path) dlopen(path, RTLD_LAZY)
@@ -123,7 +123,7 @@ extern char* jst_getExecutableHome() {
   char   *execHome = NULL;
 # if defined(__linux__) || defined(__sun__)
   char   *procSymlink;
-#endif
+# endif
 
 # if defined(_WIN32)
   size_t currentBufSize = 0;
@@ -200,13 +200,13 @@ extern char* jst_getExecutableHome() {
   }
   free(procSymlink);
 
-#elif defined ( __APPLE__ )
+# elif defined ( __APPLE__ )
 
-  return _execHome = "/System/Library/Frameworks/JavaVM.framework/Commands" ;
+// TODO
 
-#endif
+# endif
 
-#if defined(_WIN32) || defined (__linux__) || defined(__sun__)
+# if defined(_WIN32) || defined (__linux__) || defined(__sun__)
   // cut off the executable name
   *(strrchr(execHome, JST_FILE_SEPARATOR[0]) + 1) = '\0';   
   len = strlen(execHome);
@@ -775,7 +775,7 @@ next_arg:
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
 
   // handle java home
-  
+  // it is null if it was not given as a param
   if(!javaHome) javaHome = options->java_home;
   if(!javaHome && ((options->javahomeHandling) & JST_ALLOW_JH_ENV_VAR_LOOKUP)) javaHome = getenv("JAVA_HOME");
 
