@@ -64,9 +64,10 @@ case Environment[ 'Architecture' ]
 # linking: see http://cygwin.com/faq/faq.programming.html#faq.programming.win32-api
     $gcc  = 'gcc'
     $libs = ''
-    $cppFlags = "#{$cflags} -mno-cygwin -I #{$javaHome}/include/win32 -I #{$javaHome}/include"
+    $cFlags += ' -mno-cygwin'
+    $cppFlags = "-I #{$javaHome}/include/win32 -I #{$javaHome}/include"
     def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-    def linkCommand( target , sources ) ; "#{$gcc} -mno-cygwin #{$cFlags} -o #{target} #{sources} #{$libs}" end
+    def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
   when MSYS
     $javaHome = $javaHome.sub( 'Program/' , 'Program' )
     $cppFlags = "-I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
