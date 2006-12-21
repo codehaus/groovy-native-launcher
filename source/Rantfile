@@ -54,8 +54,17 @@ case Environment[ 'Architecture' ]
   when MacOSX
     $cppFlags = "-I \"#{$javaHome}/Headers\""
   when Cygwin
-    $gcc = 'gcc'
-    $cppFlags = "-mno-cygwin -I \"#{$javaHome}/include/win32\" -I \"#{$javaHome}/include\""
+#  use gcc -mwindows to link your program
+# into a GUI application instead of a command-line application. (cygwin manual page 59)
+# myapp.res : myapp.rc resource.h
+#windres $< -O coff -o $@
+# windres groovy.rc -O coff ../build/source/groovy.coff
+# use .coff file extension to avoid confusion w/ real .res files (different format)
+# If you are writing a GUI program, you should either compile with -mwindows as explained above, or add the string "-Wl,--subsystem,windows" to the GCC command line.
+# linking: see http://cygwin.com/faq/faq.programming.html#faq.programming.win32-api
+    $gcc  = 'gcc'
+    $libs = '-lkernel32'
+    $cppFlags = "-mno-cygwin -I #{$javaHome}/include/win32 -I #{$javaHome}/include"
     def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
     def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
   when MSYS

@@ -115,6 +115,11 @@ typedef struct {
   DLHandle       dynLibHandle;
 } JavaDynLib;
 
+// TODO:
+// #include <sys/utsname.h>
+// int uname(struct utsname *name)
+// utsname.sysname
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 extern char* jst_getExecutableHome() {
