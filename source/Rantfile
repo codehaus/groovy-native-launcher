@@ -21,8 +21,8 @@
 import 'c/dependencies'
 
 BuildDirectory = '../' + Environment[ 'BuildDirectory' ] + '/' + rant.current_subdir
-Program = BuildDirectory + '/' + Environment[ 'Name' ]
-Source = sys[ '*.c' ]
+EXECUTABLE = BuildDirectory + '/' + Environment[ 'Name' ]
+SOURCES = sys[ '*.c' ]
 
 $javaHome = ENV[ 'JAVA_HOME' ]
 if $javaHome == nil || $javaHome == ''
@@ -34,7 +34,7 @@ if $javaHome == nil || $javaHome == ''
   end
 end
 
-if Environment[ 'Architecture' ] == Cygwin
+if Environment[ 'Architecture' ] == CYGWIN
   $javaHome = ( `cygpath --unix "#{$javaHome}"` ).strip( )
 end
 
@@ -49,11 +49,11 @@ def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o 
 def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
 
 case Environment[ 'Architecture' ]
-  when Linux
-  when Solaris
-  when MacOSX
+  when LINUX
+  when SOLARIS
+  when MAC_OSX
     $cppFlags = "-I \"#{$javaHome}/Headers\""
-  when Cygwin
+  when CYGWIN
     # TODO: do the object files really need to be compiled w/ -mwindows or is it sufficient to use that option just when linking?
     # A quote from the cygwin manual:
     # If you are writing a GUI program, you should either compile with -mwindows as explained above, or add the string "-Wl,--subsystem,windows" to the GCC command line.
@@ -70,7 +70,7 @@ case Environment[ 'Architecture' ]
   when MSYS
     $javaHome = $javaHome.sub( 'Program/' , 'Program' )
     $cppFlags = "-I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
-  when Windows
+  when WINDOWS
   
     $gcc = 'cl'
 
@@ -110,15 +110,15 @@ end
 
 def object( source ) ; BuildDirectory + '/' + source.sub( '.c' , '.o' ) end
 
-executable_prerequisites = Source.map { | source | object( source ) }
+executable_prerequisites = SOURCES.map { | source | object( source ) }
 
 
-default_tasks = [ :initialize , Program ]
+default_tasks = [ :initialize , EXECUTABLE ]
 
 res_file = nil
-if [Windows, Cygwin].include? Environment[ 'Architecture' ]
+if [WINDOWS, CYGWIN].include? Environment[ 'Architecture' ]
 
-  $win = ( Environment[ 'Architecture' ] == Windows ) 
+  $win = ( Environment[ 'Architecture' ] == WINDOWS ) 
   res_file = "../build/source/groovy.#{$win ? 'res' : 'coff'}"
   file( res_file => ['groovy.rc'] ) do |t|
     sys.sh( $win ? "rc -fo #{t.name} #{t.prerequisites}" : "windres #{t.prerequisites} -O coff #{t.name} " )
@@ -126,11 +126,11 @@ if [Windows, Cygwin].include? Environment[ 'Architecture' ]
     
   executable_prerequisites << res_file
   
-  ProgramW = Program.gsub(/\.exe$/, 'w.exe')  
-  default_tasks << ProgramW 
+  EXECUTABLE_W = EXECUTABLE.gsub(/\.exe$/, 'w.exe')  
+  default_tasks << EXECUTABLE_W 
   
   # for some reason rant crashes if the prerequisites array isn't dupped here...
-  file( ProgramW => executable_prerequisites.dup )  do | target |
+  file( EXECUTABLE_W => executable_prerequisites.dup )  do | target |
     sys.sh( linkCommand( target.name , target.prerequisites ) )
   end
 
@@ -155,13 +155,13 @@ end
 task :debug => [:set_debug] + default_tasks 
 
 
-file( Program => executable_prerequisites )  do | target |
+file( EXECUTABLE => executable_prerequisites )  do | target |
   sys.sh( linkCommand( target.name , target.prerequisites ) )
 end
 
 
 # compiling from .c to .o for each source file
-Source.each { | source |
+SOURCES.each { | source |
   file object( source ) => source do | target | 
     sys.sh( compileCommand( target.name , target.prerequisites ) ) 
   end

@@ -20,12 +20,12 @@
 
 import 'clean'
 
-Linux   = 'linux'
-Solaris = 'solaris'
-MacOSX = 'darwin'
-Cygwin  = 'cygwin'
+LINUX   = 'linux'
+SOLARIS = 'solaris'
+MAC_OSX = 'darwin'
+CYGWIN  = 'cygwin'
 MSYS    = 'msys'
-Windows = 'windows'
+WINDOWS = 'windows'
 
 Environment = {}
 
@@ -37,12 +37,12 @@ Environment[ 'BuildDirectory' ] = 'build'
 Architecture = ENV[ 'OSTYPE' ]
 
 Environment[ 'Architecture' ] = case Architecture
-                                when /linux/ then Linux
-                                when /solaris/ then Solaris
-                                when /darwin/ then MacOSX   
+                                when /linux/ then LINUX
+                                when /solaris/ then SOLARIS
+                                when /darwin/ then MAC_OSX   
                                 # note that this one can't be relied on. Depending on user's settings it may work,
                                 # but it does not work w/ out of the box settings
-                                # when /cygwin/ then Cygwin  
+                                # when /cygwin/ then CYGWIN  
                                 when /msys/ then MSYS  
                                 else
                                   if ENV[ 'WINDIR' ]
@@ -55,9 +55,9 @@ Environment[ 'Architecture' ] = case Architecture
                                       error = e
                                     end
                                     if name =~ /cygwin/i
-                                      Cygwin
+                                      CYGWIN
                                     else                                   
-                                      Windows
+                                      WINDOWS
                                     end
                                   else raise "Unrecognized architecture -- #{Architecture}"
                                   end # if windir
