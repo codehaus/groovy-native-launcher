@@ -110,7 +110,7 @@ end
 
 def object( source ) ; BuildDirectory + '/' + source.sub( '.c' , '.o' ) end
 
-executable_requirements = Source.map { | source | object( source ) }
+executable_prerequisites = Source.map { | source | object( source ) }
 
 
 default_tasks = [ :initialize , Program ]
@@ -124,13 +124,13 @@ if [Windows, Cygwin].include? Environment[ 'Architecture' ]
     sys.sh( $win ? "rc -fo #{t.name} #{t.prerequisites}" : "windres #{t.prerequisites} -O coff #{t.name} " )
   end
     
-  executable_requirements << res_file
+  executable_prerequisites << res_file
   
   ProgramW = Program.gsub(/\.exe$/, 'w.exe')  
   default_tasks << ProgramW 
   
-  # for some reason rant crashes if the requirements array isn't dupped here...
-  file( ProgramW => executable_requirements.dup )  do | target |
+  # for some reason rant crashes if the prerequisites array isn't dupped here...
+  file( ProgramW => executable_prerequisites.dup )  do | target |
     sys.sh( linkCommand( target.name , target.prerequisites ) )
   end
 
@@ -155,7 +155,7 @@ end
 task :debug => [:set_debug] + default_tasks 
 
 
-file( Program => executable_requirements )  do | target |
+file( Program => executable_prerequisites )  do | target |
   sys.sh( linkCommand( target.name , target.prerequisites ) )
 end
 
