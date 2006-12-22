@@ -65,7 +65,7 @@ case Environment[ 'Architecture' ]
     def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
     def linkCommand( target , sources )
       windowsApp = ( target =~ /w\.exe$/ )
-      "#{$gcc} #{'-mwindows' if windowsApp} #{$cFlags} -o #{target} #{sources} #{$libs}" 
+      "#{$gcc} #{'-mwindows ' if windowsApp}#{$cFlags} -o #{target} #{sources} #{$libs}" 
     end
   when MSYS
     $javaHome = $javaHome.sub( 'Program/' , 'Program' )
@@ -96,7 +96,7 @@ case Environment[ 'Architecture' ]
     end
 
     def linkCommand( target , sources )
-      windowsApp = ( target !~ /w\.exe$/ )    
+      windowsApp = ( target =~ /w\.exe$/ )    
       "link #{'-debug ' if $debug}-nologo #{windowsApp ? '-subsystem:windows -entry:mainCRTStartup' : '-subsystem:console'} -out:#{target} #{sources}"
     end
 
@@ -108,6 +108,11 @@ case Environment[ 'Architecture' ]
     
 end 
 
+def object( source ) ; BuildDirectory + '/' + source.sub( '.c' , '.o' ) end
+
+executable_requirements = Source.map { | source | object( source ) }
+
+
 default_tasks = [ :initialize , Program ]
 
 res_file = nil
@@ -115,20 +120,23 @@ if [Windows, Cygwin].include? Environment[ 'Architecture' ]
 
   $win = ( Environment[ 'Architecture' ] == Windows ) 
   res_file = "../build/source/groovy.#{$win ? 'res' : 'coff'}"
-  file res_file => ['groovy.rc'] do |t|
+  file( res_file => ['groovy.rc'] ) do |t|
     sys.sh( $win ? "rc -fo #{t.name} #{t.prerequisites}" : "windres #{t.prerequisites} -O coff #{t.name} " )
   end
-  default_tasks.insert(1, res_file)
+    
+  executable_requirements << res_file
   
-  ProgramW = Program.gsub(/\.exe$/, 'w.exe')
-  
+  ProgramW = Program.gsub(/\.exe$/, 'w.exe')  
   default_tasks << ProgramW 
   
-  file ProgramW => Source.map { | source | object( source ) } << res_file do | target | 
+  # for some reason rant crashes if the requirements array isn't dupped here...
+  file( ProgramW => executable_requirements.dup )  do | target |
     sys.sh( linkCommand( target.name , target.prerequisites ) )
   end
 
 end
+
+# the tasks
 
 task :default => default_tasks
 
@@ -139,7 +147,6 @@ task :initialize do
   gen Action do source DependenciesFile end
 end
 
-def object( source ) ; BuildDirectory + '/' + source.sub( '.c' , '.o' ) end
 
 task :set_debug do
   $debug = true
@@ -147,19 +154,13 @@ end
 
 task :debug => [:set_debug] + default_tasks 
 
-reqs = Source.map { | source | object( source ) }
-reqs << res_file if [ Windows, Cygwin ].include? Environment[ 'Architecture' ]
 
-file Program => reqs do | target |
+file( Program => executable_requirements )  do | target |
   sys.sh( linkCommand( target.name , target.prerequisites ) )
-#if [ Windows, Cygwin ].include? Environment[ 'Architecture' ]
-#  name = target.name.gsub(/\.exe$/, "w.exe")
-#  sys.sh( linkCommand( name , target.prerequisites ) )
-#end
 end
 
 
-
+# compiling from .c to .o for each source file
 Source.each { | source |
   file object( source ) => source do | target | 
     sys.sh( compileCommand( target.name , target.prerequisites ) ) 
