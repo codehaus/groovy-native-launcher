@@ -39,8 +39,10 @@ Architecture = ENV[ 'OSTYPE' ]
 Environment[ 'Architecture' ] = case Architecture
                                 when /linux/ then Linux
                                 when /solaris/ then Solaris
-                                when /darwin/ then MacOSX                                  
-                                when /cygwin/ then Cygwin
+                                when /darwin/ then MacOSX   
+                                # note that this one can't be relied on. Depending on user's settings it may work,
+                                # but it does not work w/ out of the box settings
+                                # when /cygwin/ then Cygwin  
                                 when /msys/ then MSYS  
                                 else
                                   if ENV[ 'WINDIR' ]
@@ -55,7 +57,6 @@ Environment[ 'Architecture' ] = case Architecture
                                     if name =~ /cygwin/i
                                       Cygwin
                                     else                                   
-                                      Environment[ 'Name' ] += '.exe' 
                                       Windows
                                     end
                                   else raise "Unrecognized architecture -- #{Architecture}"

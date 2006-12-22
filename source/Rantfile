@@ -62,12 +62,15 @@ case Environment[ 'Architecture' ]
 # use .coff file extension to avoid confusion w/ real .res files (different format)
 # If you are writing a GUI program, you should either compile with -mwindows as explained above, or add the string "-Wl,--subsystem,windows" to the GCC command line.
 # linking: see http://cygwin.com/faq/faq.programming.html#faq.programming.win32-api
-    $gcc  = 'gcc'
+#    $gcc  = 'gcc'
     $libs = ''
     $cFlags += ' -mno-cygwin'
     $cppFlags = "-I #{$javaHome}/include/win32 -I #{$javaHome}/include"
     def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-    def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
+    def linkCommand( target , sources )
+      windowsApp = ( target =~ /w\.exe$/ )
+      "#{$gcc} #{'-mwindows' if windowsApp} #{$cFlags} -o #{target} #{sources} #{$libs}" 
+    end
   when MSYS
     $javaHome = $javaHome.sub( 'Program/' , 'Program' )
     $cppFlags = "-I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
@@ -96,33 +99,39 @@ case Environment[ 'Architecture' ]
       "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"
     end
 
-    def linkCommand( target , sources ) 
-      "link #{'-debug ' if $debug}-nologo -subsystem:console -out:#{target} #{sources}"
+    def linkCommand( target , sources )
+      windowsApp = ( target !~ /w\.exe$/ )    
+      "link #{'-debug ' if $debug}-nologo #{windowsApp ? '-subsystem:windows -entry:mainCRTStartup' : '-subsystem:console'} -out:#{target} #{sources}"
     end
 
     # links "windows app", i.e. an app that has no console. Thus we have groovy.exe and groovyw.exe, just like there is java.exe and javaw.exe
-    def linkWCommand( target, sources )
-      target = target.gsub(/\.exe$/, 'w.exe')
-      "link #{'-debug ' if $debug}-nologo -subsystem:windows -entry:mainCRTStartup -out:#{target} #{sources}"
-    end
-
-    file Program.gsub(/\.exe$/, 'w.exe') => Source.map { | source | object( source ) } do | target | 
-      sys.sh( linkWCommand( target.name , target.prerequisites ) )
-    end
+#    def linkWCommand( target, sources )
+#      target = target.gsub(/\.exe$/, 'w.exe')
+#      "link #{'-debug ' if $debug}-nologo -subsystem:windows -entry:mainCRTStartup -out:#{target} #{sources}"
+#    end
     
 end 
 
 default_tasks = [ :initialize , Program ]
 
 res_file = nil
-if Environment[ 'Architecture' ] == Windows
-  res_file = "../build/source/groovy.res"
+if [Windows, Cygwin].include? Environment[ 'Architecture' ]
+
+  $win = ( Environment[ 'Architecture' ] == Windows ) 
+  res_file = "../build/source/groovy.#{$win ? 'res' : 'coff'}"
   file res_file => ['groovy.rc'] do |t|
-    sys.sh( "rc -fo #{t.name} #{t.prerequisites}" )
+    sys.sh( $win ? "rc -fo #{t.name} #{t.prerequisites}" : "windres #{t.prerequisites} -O coff #{t.name} " )
   end
   default_tasks.insert(1, res_file)
   
-  default_tasks << Program.gsub(/\.exe$/, 'w.exe')
+  ProgramW = Program.gsub(/\.exe$/, 'w.exe')
+  
+  default_tasks << ProgramW 
+  
+  file ProgramW => Source.map { | source | object( source ) } << res_file do | target | 
+    sys.sh( linkCommand( target.name , target.prerequisites ) )
+  end
+
 end
 
 task :default => default_tasks
@@ -143,13 +152,17 @@ end
 task :debug => [:set_debug] + default_tasks 
 
 reqs = Source.map { | source | object( source ) }
-reqs << res_file if Environment[ 'Architecture' ] == Windows
+reqs << res_file if [ Windows, Cygwin ].include? Environment[ 'Architecture' ]
+
 file Program => reqs do | target |
   sys.sh( linkCommand( target.name , target.prerequisites ) )
-   if Environment[ 'Architecture' ] == Windows
-     sys.sh( linkWCommand( target.name , target.prerequisites ) )
-   end
+#if [ Windows, Cygwin ].include? Environment[ 'Architecture' ]
+#  name = target.name.gsub(/\.exe$/, "w.exe")
+#  sys.sh( linkCommand( name , target.prerequisites ) )
+#end
 end
+
+
 
 Source.each { | source |
   file object( source ) => source do | target | 
