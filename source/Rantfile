@@ -54,15 +54,11 @@ case Environment[ 'Architecture' ]
   when MacOSX
     $cppFlags = "-I \"#{$javaHome}/Headers\""
   when Cygwin
-#  use gcc -mwindows to link your program
-# into a GUI application instead of a command-line application. (cygwin manual page 59)
-# myapp.res : myapp.rc resource.h
-#windres $< -O coff -o $@
-# windres groovy.rc -O coff ../build/source/groovy.coff
-# use .coff file extension to avoid confusion w/ real .res files (different format)
-# If you are writing a GUI program, you should either compile with -mwindows as explained above, or add the string "-Wl,--subsystem,windows" to the GCC command line.
-# linking: see http://cygwin.com/faq/faq.programming.html#faq.programming.win32-api
-#    $gcc  = 'gcc'
+    # TODO: do the object files really need to be compiled w/ -mwindows or is it sufficient to use that option just when linking?
+    # A quote from the cygwin manual:
+    # If you are writing a GUI program, you should either compile with -mwindows as explained above, or add the string "-Wl,--subsystem,windows" to the GCC command line.
+    # http://cygwin.com/faq/faq.programming.html#faq.programming.no-console-window
+    # At least w/ ms compiler and linker, only the linker needs to know whether we are producing a gui or console app, so I would believe it's the same here.
     $libs = ''
     $cFlags += ' -mno-cygwin'
     $cppFlags = "-I #{$javaHome}/include/win32 -I #{$javaHome}/include"
