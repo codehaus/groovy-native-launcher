@@ -32,7 +32,7 @@ Environment = {}
 Environment[ 'Name' ]           = 'groovy'
 Environment[ 'BuildDirectory' ] = 'build'
 
-#  Environmnet variable is probably not defined on standard windows, assume a value of nil.
+#  The following environment variable is probably not defined on standard windows, assume a value of nil.
 
 Architecture = ENV[ 'OSTYPE' ]
 
