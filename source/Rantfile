@@ -70,8 +70,11 @@ case Environment[ 'Architecture' ]
       "#{$gcc} #{'-mwindows ' if windowsApp}#{$cFlags} -o #{target} #{sources} #{$libs}" 
     end
   when MSYS
+    $libs = ''
     $javaHome = $javaHome.sub( 'Program/' , 'Program' )
-    $cppFlags = "-I'#{$javaHome}/include/win32' -I'#{$javaHome}/include'"
+    $cppFlags = "-I #{$javaHome}\\include -I #{$javaHome}\\include\\win32"
+    $cppFlags.gsub!(/(\w):\\/, '/\1/')
+    $cppFlags.gsub!(/\\/, '/')
   when WINDOWS
   
     $gcc = 'cl'
