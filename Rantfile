@@ -34,6 +34,8 @@ Environment[ 'BuildDirectory' ] = 'build'
 
 #  The following environment variable is probably not defined on standard windows, assume a value of nil.
 
+# TODO: could we use the global constant RUBY_PLATFORM for this identification? Then there would be no
+#       problem w/ windows and cygwin not having OSTYPE env var defined by default.
 Architecture = ENV[ 'OSTYPE' ]
 
 Environment[ 'Architecture' ] = case Architecture
