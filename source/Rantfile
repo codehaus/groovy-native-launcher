@@ -63,7 +63,7 @@ case Environment[ 'Architecture' ]
     # At least w/ ms compiler and linker, only the linker needs to know whether we are producing a gui or console app, so I would believe it's the same here.
     $libs = ''
     $cFlags += ' -mno-cygwin'
-    $cppFlags = "-I #{$javaHome}/include/win32 -I #{$javaHome}/include"
+    $cppFlags = "-I\"#{$javaHome}/include/win32\" -I\"#{$javaHome}/include\""
     def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
     def linkCommand( target , sources )
       windowsApp = ( target =~ /w\.exe$/ )
@@ -72,7 +72,7 @@ case Environment[ 'Architecture' ]
   when MSYS
     $libs = ''
     $javaHome = $javaHome.sub( 'Program/' , 'Program' )
-    $cppFlags = "-I #{$javaHome}\\include -I #{$javaHome}\\include\\win32"
+    $cppFlags = "-I\"#{$javaHome}\\include\\win32\" -I\"#{$javaHome}\\include\""
     $cppFlags.gsub!(/(\w):\\/, '/\1/')
     $cppFlags.gsub!(/\\/, '/')
   when WINDOWS
