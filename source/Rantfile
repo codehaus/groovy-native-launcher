@@ -20,153 +20,130 @@
 
 import 'c/dependencies'
 
-build_basedir = Environment[ 'BuildDirectory' ]
+BuildBaseDirectory = Environment[ 'BuildDirectory' ]
 
-BUILD_DIR  = '../' + build_basedir + '/' + rant.current_subdir
-EXECUTABLE = '../' + build_basedir + '/' + Environment[ 'Name' ]
-SOURCES    = sys[ '*.c' ]
+ObjectsDirectory  = '../' + BuildBaseDirectory + '/objects'
+Executable = '../' + BuildBaseDirectory + '/' + Environment[ 'Name' ]
+Sources    = sys[ '*.c' ]
 
-$javaHome = ENV[ 'JAVA_HOME' ]
-if $javaHome == nil || $javaHome == ''
-  if Environment[ 'Architecture' ] == MAC_OSX
+javaHome = ENV[ 'JAVA_HOME' ]
+if javaHome == nil || javaHome == ''
+  if Environment[ 'Architecture' ] == MAC_OS_X
     putativeDirectory = '/System/Library/Frameworks/JavaVM.framework'
-    if File.directory?( putativeDirectory ) then $javaHome = putativeDirectory end
+    if File.directory?( putativeDirectory ) then javaHome = putativeDirectory end
   else
     raise "JAVA_HOME not defined."
   end
 end
 
 if Environment[ 'Architecture' ] == CYGWIN
-  $javaHome = ( `cygpath --unix "#{$javaHome}"` ).strip( )
+  javaHome = ( `cygpath --unix "#{javaHome}"` ).strip( )
 end
 
 # Assume a default of GCC since most of the systems we are checking use this.
 
 $gcc = 'gcc'
-$cppFlags = "-I'#{$javaHome}/include/#{Environment[ 'Architecture' ]}' -I'#{$javaHome}/include'"
-$cFlags   = '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
-$libs     = '-ldl'
+$cppFlags = "-I'#{javaHome}/include/#{Environment[ 'Architecture' ]}' -I'#{javaHome}/include'"
+$cFlags = '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
+$libs = '-ldl'
 
 def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
 def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
 
 case Environment[ 'Architecture' ]
-  when LINUX
-  when SOLARIS
-  when MAC_OSX
-    $cppFlags = "-I \"#{$javaHome}/Headers\""
-  when CYGWIN
-    # TODO: do the object files really need to be compiled w/ -mwindows or is it sufficient to use that option just when linking?
-    # A quote from the cygwin manual:
-    # If you are writing a GUI program, you should either compile with -mwindows as explained above, or add the string "-Wl,--subsystem,windows" to the GCC command line.
-    # http://cygwin.com/faq/faq.programming.html#faq.programming.no-console-window
-    # At least w/ ms compiler and linker, only the linker needs to know whether we are producing a gui or console app, so I would believe it's the same here.
-    $libs = ''
-    $cFlags += ' -mno-cygwin'
-    $cppFlags = "-I\"#{$javaHome}/include/win32\" -I\"#{$javaHome}/include\""
-    def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-    def linkCommand( target , sources )
-      windowsApp = ( target =~ /w\.exe$/ )
-      "#{$gcc} #{'-mwindows ' if windowsApp}#{$cFlags} -o #{target} #{sources} #{$libs}" 
-    end
-  when MSYS
-    $libs = ''
-    $javaHome = $javaHome.sub( 'Program/' , 'Program' )
-    $cppFlags = "-I\"#{$javaHome}\\include\\win32\" -I\"#{$javaHome}\\include\""
-    $cppFlags.gsub!(/(\w):\\/, '/\1/')
-    $cppFlags.gsub!(/\\/, '/')
-  when WINDOWS
+when LINUX
+when SOLARIS
+when MAC_OS_X
+  $cppFlags = "-I \"#{javaHome}/Headers\""
+when CYGWIN
+
+  # TODO: do the object files really need to be compiled w/ -mwindows or is it sufficient to use that option
+  # just when linking?  A quote from the cygwin manual: If you are writing a GUI program, you should either
+  # compile with -mwindows as explained above, or add the string "-Wl,--subsystem,windows" to the GCC
+  # command line.  http://cygwin.com/faq/faq.programming.html#faq.programming.no-console-window At least w/
+  # ms compiler and linker, only the linker needs to know whether we are producing a gui or console app, so
+  # I would believe it's the same here.
+
+  $libs = ''
+  $cFlags += ' -mno-cygwin'
+  $cppFlags = "-I\"#{javaHome}/include/win32\" -I\"#{javaHome}/include\""
+  def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
+  def linkCommand( target , sources )
+    windowsApp = ( target =~ /w\.exe$/ )
+    "#{$gcc} #{'-mwindows ' if windowsApp}#{$cFlags} -o #{target} #{sources} #{$libs}" 
+  end
+when MSYS
+  $libs = ''
+  javaHome = javaHome.sub( 'Program/' , 'Program' )
+  $cppFlags = "-I\"#{javaHome}\\include\\win32\" -I\"#{javaHome}\\include\""
+when WINDOWS
+  $gcc = 'cl'
+
+  # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
+  # c4255 == 'function' : no function prototype given: converting '()' to '(void)'
+  # c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
+  # c4820 == padding added into a struct 
+  # This one is disabled as there's a lot of this done intentionally (and there seems to be no way to tell cl that it's intentional):
+  # c4706 == assignment in conditional expression
+  # this one's disabled as it does not seem very interesting:
+  # c4711 == function 'function' selected for inline expansion
+
+  # the -MD option is important - it is required when using JNI. 
+  # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
+  #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
+
+  # the -O1 is there just to reduce the size of the executable - it is not mandatory
   
-    $gcc = 'cl'
-
-    # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
-    # c4255 == 'function' : no function prototype given: converting '()' to '(void)'
-    # c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
-    # c4820 == padding added into a struct 
-    # This one is disabled as there's a lot of this done intentionally (and there seems to be no way to tell cl that it's intentional):
-    # c4706 == assignment in conditional expression
-    # this one's disabled as it does not seem very interesting:
-    # c4711 == function 'function' selected for inline expansion
-
-    # the -MD option is important - it is required when using JNI. 
-    # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
-    #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
-
-    # the -O1 is there just to reduce the size of the executable - it is not mandatory
-
-    $cppFlags = "-nologo -c -MD -I #{$javaHome}\\include -I #{$javaHome}\\include\\win32"
-
-    def compileCommand( target , sources)
-      "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"
-    end
-
-    def linkCommand( target , sources )
-      windowsApp = ( target =~ /w\.exe$/ )    
-      "link #{'-debug ' if $debug}-nologo #{windowsApp ? '-subsystem:windows -entry:mainCRTStartup' : '-subsystem:console'} -out:#{target} #{sources}"
-    end
-
-    # links "windows app", i.e. an app that has no console. Thus we have groovy.exe and groovyw.exe, just like there is java.exe and javaw.exe
-#    def linkWCommand( target, sources )
-#      target = target.gsub(/\.exe$/, 'w.exe')
-#      "link #{'-debug ' if $debug}-nologo -subsystem:windows -entry:mainCRTStartup -out:#{target} #{sources}"
-#    end
-    
+  $cppFlags = "-nologo -c -MD -I #{javaHome}\\include -I #{javaHome}\\include\\win32"
+  def compileCommand( target , sources)
+    "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"
+  end
+  def linkCommand( target , sources )
+    windowsApp = ( target =~ /w\.exe$/ )    
+    "link #{'-debug ' if $debug}-nologo #{windowsApp ? '-subsystem:windows -entry:mainCRTStartup' : '-subsystem:console'} -out:#{target} #{sources}"
+  end
 end 
 
-def object( source ) ; BUILD_DIR + '/' + source.sub( '.c' , '.o' ) end
+def object( source ) ; ObjectsDirectory + '/' + source.sub( '.c' , '.o' ) end
 
-executable_prerequisites = SOURCES.map { | source | object( source ) }
-
-
-default_tasks = [ :initialize , EXECUTABLE ]
-
-res_file = nil
-if [WINDOWS, CYGWIN].include? Environment[ 'Architecture' ]
-
-  $win = ( Environment[ 'Architecture' ] == WINDOWS ) 
-  res_file = "../build/source/groovy.#{$win ? 'res' : 'coff'}"
-  file( res_file => ['groovy.rc'] ) do |t|
-    sys.sh( $win ? "rc -fo #{t.name} #{t.prerequisites}" : "windres #{t.prerequisites} -O coff #{t.name} " )
+executablePrerequisites = Sources.map { | source | object( source ) }
+defaultTasks = [ :initialize , Executable ]
+resFile = nil
+if [ WINDOWS , MSYS , CYGWIN ].include?( Environment[ 'Architecture' ] )
+  IsWindows = ( Environment[ 'Architecture' ] == WINDOWS ) 
+  resFile = ObjectsDirectory + "/groovy.#{ IsWindows ? 'res' : 'coff' }"
+  file resFile => [ 'groovy.rc' ] do |t|
+    sys.sh( IsWindows ? "rc -fo #{t.name} #{t.prerequisites}" : "windres #{t.prerequisites} -O coff #{t.name} " )
   end
-    
-  executable_prerequisites << res_file
-  
-  EXECUTABLE_W = EXECUTABLE.gsub(/\.exe$/, 'w.exe')  
-  default_tasks << EXECUTABLE_W 
-  
-  # for some reason rant crashes if the prerequisites array isn't dupped here...
-  file( EXECUTABLE_W => executable_prerequisites.dup )  do | target |
+  executablePrerequisites << resFile
+  Executable_W = Executable.gsub( /\.exe$/ , 'w.exe' )  
+  defaultTasks << Executable_W 
+
+  # For some reason rant crashes if the prerequisites array isn't dupped here...
+
+  file Executable_W => executablePrerequisites.dup do | target |
     sys.sh( linkCommand( target.name , target.prerequisites ) )
   end
-
 end
 
-# the tasks
-
-task :default => default_tasks
+task :default => defaultTasks
 
 task :initialize do
-  if ! File.directory?( BUILD_DIR ) then sys.mkdir_p( BUILD_DIR ) end
-  DependenciesFile = BUILD_DIR + '/dependencies'
+  if ! File.directory?( ObjectsDirectory ) then sys.mkdir_p( ObjectsDirectory ) end
+  DependenciesFile = ObjectsDirectory + '/dependencies'
   gen C::Dependencies , DependenciesFile , :search => 'source'
   gen Action do source DependenciesFile end
 end
 
+task :set_debug do $debug = true end
 
-task :set_debug do
-  $debug = true
-end
+task :debug => [ :set_debug ] + defaultTasks 
 
-task :debug => [:set_debug] + default_tasks 
-
-
-file( EXECUTABLE => executable_prerequisites )  do | target |
+file Executable => executablePrerequisites do | target |
   sys.sh( linkCommand( target.name , target.prerequisites ) )
 end
 
-
-# compiling from .c to .o for each source file
-SOURCES.each { | source |
+Sources.each { | source |
   file object( source ) => source do | target | 
     sys.sh( compileCommand( target.name , target.prerequisites ) ) 
   end

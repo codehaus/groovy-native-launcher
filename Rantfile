@@ -20,51 +20,35 @@
 
 import 'clean'
 
-LINUX   = 'linux'
+LINUX = 'linux'
 SOLARIS = 'solaris'
-MAC_OSX = 'darwin'
-CYGWIN  = 'cygwin'
-MSYS    = 'msys'
+MAC_OS_X = 'darwin'
+CYGWIN = 'cygwin'
+MSYS = 'msys'
 WINDOWS = 'windows'
 
-Environment = {}
+Environment = { }
 
-Environment[ 'Name' ]           = 'groovy'
+Environment[ 'Name' ] = 'groovy'
 Environment[ 'BuildDirectory' ] = 'build'
 
-#  The following environment variable is probably not defined on standard windows, assume a value of nil.
-
-# TODO: could we use the global constant RUBY_PLATFORM for this identification? Then there would be no
-#       problem w/ windows and cygwin not having OSTYPE env var defined by default.
-Architecture = ENV[ 'OSTYPE' ]
-
-Environment[ 'Architecture' ] = case Architecture
+Environment[ 'Architecture' ] = case RUBY_PLATFORM
                                 when /linux/ then LINUX
                                 when /solaris/ then SOLARIS
-                                when /darwin/ then MAC_OSX   
-                                # note that this one can't be relied on. Depending on user's settings it may work,
-                                # but it does not work w/ out of the box settings
-                                # when /cygwin/ then CYGWIN  
+                                when /darwin/ then MAC_OS_X   
+                                when /cygwin/ then
+                                  if ENV[ 'MACHTYPE' ] =~ /msys/ then MSYS
+                                  else CYGWIN end  
                                 when /msys/ then MSYS  
                                 else
                                   if ENV[ 'WINDIR' ]
-                                    Environment[ 'Name' ] += '.exe' 
-                                    name  = nil
-                                    error = nil
-                                    begin
-                                      name = `uname`
-                                    rescue Exception => e
-                                      error = e
-                                    end
-                                    if name =~ /cygwin/i
-                                      CYGWIN
-                                    else                                   
-                                      WINDOWS
-                                    end
+                                    WINDOWS
                                   else raise "Unrecognized architecture -- #{Architecture}"
                                   end # if windir
                                 end # case
-                                
+
+if [ CYGWIN , MSYS , WINDOWS ].include?( Environment[ 'Architecture' ] ) then Environment[ 'Name' ] += '.exe' end
+
 desc 'Clean everything.'
 gen Clean , :clean
 var[ :clean ].include( [ Environment[ 'BuildDirectory' ] , '**/*~' ] )
