@@ -100,9 +100,9 @@ resFile = nil
 
 if [ WINDOWS , MSYS , CYGWIN ].include?( Environment[ 'Architecture' ] )
   IsWindows = ( Environment[ 'Architecture' ] == WINDOWS ) 
-  resFile = ObjectsDirectory + "/groovy.#{ IsWindows ? 'res' : 'coff' }"
-  file resFile => [ 'groovy.rc' ] do |t|
-    sys.sh( IsWindows ? "rc -fo #{t.name} #{t.prerequisites}" : "windres #{t.prerequisites} -O coff #{t.name} " )
+  resFile = ObjectsDirectory + "/groovy.#{IsWindows ? 'res' : 'coff'}"
+  file resFile => [ 'groovy.rc' ] do | target |
+    sys.sh( IsWindows ? "rc -fo #{target.name} #{target.prerequisites}" : "windres #{target.prerequisites} -O coff #{target.name} " )
   end
   executablePrerequisites << resFile
   Executable_W = Executable.gsub( /\.exe$/ , 'w.exe' )  
