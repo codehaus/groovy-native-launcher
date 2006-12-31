@@ -22,9 +22,9 @@ import 'c/dependencies'
 
 BuildBaseDirectory = Environment[ 'BuildDirectory' ]
 
-ObjectsDirectory  = '../' + BuildBaseDirectory + '/objects'
+ObjectsDirectory = '../' + BuildBaseDirectory + '/objects'
 Executable = '../' + BuildBaseDirectory + '/' + Environment[ 'Name' ]
-Sources    = sys[ '*.c' ]
+Sources = sys[ '*.c' ]
 
 javaHome = ENV[ 'JAVA_HOME' ]
 if javaHome == nil || javaHome == ''
@@ -56,25 +56,13 @@ when SOLARIS
 when MAC_OS_X
   $cppFlags = "-I \"#{javaHome}/Headers\""
 when CYGWIN
-
-  # TODO: do the object files really need to be compiled w/ -mwindows or is it sufficient to use that option
-  # just when linking?  A quote from the cygwin manual: If you are writing a GUI program, you should either
-  # compile with -mwindows as explained above, or add the string "-Wl,--subsystem,windows" to the GCC
-  # command line.  http://cygwin.com/faq/faq.programming.html#faq.programming.no-console-window At least w/
-  # ms compiler and linker, only the linker needs to know whether we are producing a gui or console app, so
-  # I would believe it's the same here.
-
   $libs = ''
   $cFlags += ' -mno-cygwin'
   $cppFlags = "-I\"#{javaHome}/include/win32\" -I\"#{javaHome}/include\""
   def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-  def linkCommand( target , sources )
-    windowsApp = ( target =~ /w\.exe$/ )
-    "#{$gcc} #{'-mwindows ' if windowsApp}#{$cFlags} -o #{target} #{sources} #{$libs}" 
-  end
+  def linkCommand( target , sources ) ; "#{$gcc} #{if target =~ /w\.exe$/ then '-mwindows' end} #{$cFlags} -o #{target} #{sources} #{$libs}" end
 when MSYS
   $libs = ''
-  javaHome = javaHome.sub( 'Program/' , 'Program' )
   $cppFlags = "-I\"#{javaHome}\\include\\win32\" -I\"#{javaHome}\\include\""
 when WINDOWS
   $gcc = 'cl'
@@ -109,6 +97,7 @@ def object( source ) ; ObjectsDirectory + '/' + source.sub( '.c' , '.o' ) end
 executablePrerequisites = Sources.map { | source | object( source ) }
 defaultTasks = [ :initialize , Executable ]
 resFile = nil
+
 if [ WINDOWS , MSYS , CYGWIN ].include?( Environment[ 'Architecture' ] )
   IsWindows = ( Environment[ 'Architecture' ] == WINDOWS ) 
   resFile = ObjectsDirectory + "/groovy.#{ IsWindows ? 'res' : 'coff' }"
@@ -119,7 +108,8 @@ if [ WINDOWS , MSYS , CYGWIN ].include?( Environment[ 'Architecture' ] )
   Executable_W = Executable.gsub( /\.exe$/ , 'w.exe' )  
   defaultTasks << Executable_W 
 
-  # For some reason rant crashes if the prerequisites array isn't dupped here...
+  # Rant has a problem which is a deep cobination of sys globbing, use of map on the result and then using
+  # the array in two separate file rules.  Workarounbd for now is to duplicate.
 
   file Executable_W => executablePrerequisites.dup do | target |
     sys.sh( linkCommand( target.name , target.prerequisites ) )
@@ -148,5 +138,3 @@ Sources.each { | source |
     sys.sh( compileCommand( target.name , target.prerequisites ) ) 
   end
 }
-
-
