@@ -769,10 +769,14 @@ next_arg:
   } 
 
   // print debug if necessary
-  if( _jst_debug && (options->numArguments != 0) ) {
-    fprintf(stderr, "debug: param classication\n");
-    for(i = 0; i < options->numArguments; i++) {
-      fprintf(stderr, "%s\t: %s\n", options->arguments[i], (isLauncheeOption[i] || i >= launcheeParamBeginIndex) ? "launcheeparam" : "non launchee param");  
+  if( _jst_debug ) { 
+    if( options->numArguments != 0 ) {
+      fprintf(stderr, "DEBUG: param classication\n");
+      for(i = 0; i < options->numArguments; i++) {
+        fprintf(stderr, "  %s\t: %s\n", options->arguments[i], (isLauncheeOption[i] || i >= launcheeParamBeginIndex) ? "launcheeparam" : "non launchee param");  
+      }
+    } else {
+      fprintf(stderr, "DEBUG: no parameters\n");
     }
   }
   
@@ -792,6 +796,8 @@ next_arg:
     fprintf(stderr, ((options->javahomeHandling) & JST_ALLOW_JH_ENV_VAR_LOOKUP) ? "error: JAVA_HOME not set\n" : 
                                                                                   "error: java home not provided\n");
     goto end;
+  } else if( _jst_debug ) {
+    fprintf(stderr, "DEBUG: using java home: %s\n", javaHome);
   }
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
@@ -817,7 +823,7 @@ next_arg:
     }
   } 
     
-  if( !(classpath = malloc(cpsize)) ) {
+  if( !( classpath = malloc(cpsize) ) ) {
     fprintf(stderr, "error: out of memory when allocating space for classpath\n");
     goto end;
   }
@@ -829,17 +835,17 @@ next_arg:
 
     char *dirName;
 
-    for(i = 0; (dirName = options->jarDirs[i++]); ) {
+    for( i = 0 ; (dirName = options->jarDirs[i++]) ; ) {
       if(!appendJarsFromDir(dirName, &classpath, &cpsize)) goto end; // error msg already printed
     }
     
   }
 
-  if(userClasspath && ((options->classpathHandling) & JST_CP_PARAM_TO_JVM)) {
+  if( userClasspath && ((options->classpathHandling) & JST_CP_PARAM_TO_JVM)) {
     if( !( classpath = appendCPEntry(classpath, &cpsize, userClasspath) ) ) goto end;
   }
 
-  if(envCLASSPATH && !( classpath = appendCPEntry(classpath, &cpsize, envCLASSPATH) ) ) goto end;
+  if( envCLASSPATH && !( classpath = appendCPEntry(classpath, &cpsize, envCLASSPATH) ) ) goto end;
 
   // add the provided single jars
   
@@ -895,6 +901,12 @@ next_arg:
     jvmOptions[optNr++].extraInfo  = options->jvmOptions[i].extraInfo;
   }
 
+  if( _jst_debug ) {
+    fprintf(stderr, "DUBUG: Starting jvm with the following options:\n");
+    for(i = 0; i < optNr; i++) {
+      fprintf(stderr, "  %s\n", jvmOptions[i].optionString);
+    }
+  }
 
   vm_args.version            = JNI_VERSION_1_4;
   vm_args.options            = jvmOptions;
