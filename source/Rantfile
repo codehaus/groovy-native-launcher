@@ -2,7 +2,7 @@
 
 #  Groovy -- A native launcher for Groovy
 #
-#  Copyright © 2006 Russel Winder
+#  Copyright © 2006-7 Russel Winder
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
 #  compliance with the License. You may obtain a copy of the License at
@@ -51,52 +51,47 @@ def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o 
 def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
 
 case Environment[ 'Architecture' ]
-  when CYGWIN
-    # TODO: do the object files really need to be compiled w/ -mwindows or is it sufficient to use that option just when linking?
-    # A quote from the cygwin manual:
-    # If you are writing a GUI program, you should either compile with -mwindows as explained above, or add the string "-Wl,--subsystem,windows" to the GCC command line.
-    # http://cygwin.com/faq/faq.programming.html#faq.programming.no-console-window
-    # At least w/ ms compiler and linker, only the linker needs to know whether we are producing a gui or console app, so I would believe it's the same here.
-    $libs = ''
-    $cFlags += ' -s -mno-cygwin'
-    $cppFlags = "-I\"#{javaHome}/include/win32\" -I\"#{javaHome}/include\""
-    def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-    def linkCommand( target , sources )
-      windowsApp = ( target =~ /w\.exe$/ )
-      "#{$gcc} #{'-mwindows ' if windowsApp}#{$cFlags} -o #{target} #{sources} #{$libs}" 
-    end
-  when MSYS
-#    $javaHome = $javaHome.sub( 'Program/' , 'Program' )
-#    $cppFlags = "-I #{$javaHome}\\include -I #{$javaHome}\\include\\win32"
-#    $cppFlags.gsub!(/(\w):\\/, '/\1/')
-#    $cppFlags.gsub!(/\\/, '/')
-    $cppFlags = "-I\"#{javaHome}\\include\\win32\" -I\"#{javaHome}\\include\""
-  when WINDOWS
-    $gcc = 'cl'
-
-    # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
-    # c4255 == 'function' : no function prototype given: converting '()' to '(void)'
-    # c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
-    # c4820 == padding added into a struct 
-    # This one is disabled as there's a lot of this done intentionally (and there seems to be no way to tell cl that it's intentional):
-    # c4706 == assignment in conditional expression
-    # this one's disabled as it does not seem very interesting:
-    # c4711 == function 'function' selected for inline expansion
+when MAC_OS_X
+  $cppFlags = "-I \"#{javaHome}/Headers\""
+when CYGWIN
+  # TODO: do the object files really need to be compiled w/ -mwindows or is it sufficient to use that option just when linking?
+  # A quote from the cygwin manual:
+  # If you are writing a GUI program, you should either compile with -mwindows as explained above, or add the string "-Wl,--subsystem,windows" to the GCC command line.
+  # http://cygwin.com/faq/faq.programming.html#faq.programming.no-console-window
+  # At least w/ ms compiler and linker, only the linker needs to know whether we are producing a gui or console app, so I would believe it's the same here.
+  $libs = ''
+  $cFlags += ' -s -mno-cygwin'
+  $cppFlags = "-I\"#{javaHome}/include/win32\" -I\"#{javaHome}/include\""
+  def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
+  def linkCommand( target , sources ) ; "#{$gcc} #{if target =~ /w\.exe$/ then '-mwindows' end} #{$cFlags} -o #{target} #{sources} #{$libs}" end
+when MSYS
+  $cppFlags = "-I\"#{javaHome}\\include\\win32\" -I\"#{javaHome}\\include\""
+when WINDOWS
+  $gcc = 'cl'
   
-    # the -MD option is important - it is required when using JNI. 
-    # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
-    #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
+  # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
+  # c4255 == 'function' : no function prototype given: converting '()' to '(void)'
+  # c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
+  # c4820 == padding added into a struct 
+  # This one is disabled as there's a lot of this done intentionally (and there seems to be no way to tell cl that it's intentional):
+  # c4706 == assignment in conditional expression
+  # this one's disabled as it does not seem very interesting:
+  # c4711 == function 'function' selected for inline expansion
   
-    # the -O1 is there just to reduce the size of the executable - it is not mandatory
-    
-    $cppFlags = "-nologo -c -MD -I #{javaHome}\\include -I #{javaHome}\\include\\win32"
-    def compileCommand( target , sources)
-      "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"
-    end
-    def linkCommand( target , sources )
-      windowsApp = ( target =~ /w\.exe$/ )    
-      "link #{'-debug ' if $debug}-nologo #{windowsApp ? '-subsystem:windows -entry:mainCRTStartup' : '-subsystem:console'} -out:#{target} #{sources}"
-    end
+  # the -MD option is important - it is required when using JNI. 
+  # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
+  #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
+  
+  # the -O1 is there just to reduce the size of the executable - it is not mandatory
+  
+  $cppFlags = "-nologo -c -MD -I #{javaHome}\\include -I #{javaHome}\\include\\win32"
+  def compileCommand( target , sources)
+    "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"
+  end
+  def linkCommand( target , sources )
+    windowsApp = ( target =~ /w\.exe$/ )    
+    "link #{'-debug ' if $debug}-nologo #{windowsApp ? '-subsystem:windows -entry:mainCRTStartup' : '-subsystem:console'} -out:#{target} #{sources}"
+  end
 end 
 
 def object( source ) ; ObjectsDirectory + '/' + source.sub( '.c' , '.o' ) end
@@ -114,10 +109,10 @@ if [ WINDOWS , MSYS , CYGWIN ].include?( Environment[ 'Architecture' ] )
   executablePrerequisites << resFile
   Executable_W = Executable.gsub( /\.exe$/ , 'w.exe' )  
   defaultTasks << Executable_W 
-
+  
   # Rant has a problem which is a deep cobination of sys globbing, use of map on the result and then using
   # the array in two separate file rules.  Workarounbd for now is to duplicate.
-
+  
   file Executable_W => executablePrerequisites.dup do | target |
     sys.sh( linkCommand( target.name , target.prerequisites ) )
   end
