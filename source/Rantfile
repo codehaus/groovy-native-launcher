@@ -65,6 +65,7 @@ when CYGWIN
   def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
   def linkCommand( target , sources ) ; "#{$gcc} #{if target =~ /w\.exe$/ then '-mwindows' end} #{$cFlags} -o #{target} #{sources} #{$libs}" end
 when MSYS
+  $libs = ''
   $cppFlags = "-I\"#{javaHome}\\include\\win32\" -I\"#{javaHome}\\include\""
 when WINDOWS
   $gcc = 'cl'
@@ -111,7 +112,7 @@ if [ WINDOWS , MSYS , CYGWIN ].include?( Environment[ 'Architecture' ] )
   defaultTasks << Executable_W 
   
   # Rant has a problem which is a deep cobination of sys globbing, use of map on the result and then using
-  # the array in two separate file rules.  Workarounbd for now is to duplicate.
+  # the array in two separate file rules.  Workaround for now is to duplicate.
   
   file Executable_W => executablePrerequisites.dup do | target |
     sys.sh( linkCommand( target.name , target.prerequisites ) )
