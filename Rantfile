@@ -2,7 +2,7 @@
 
 #  Groovy -- A native launcher for Groovy
 #
-#  Copyright © 2006 Russel Winder
+#  Copyright © 2006-7 Russel Winder
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
 #  compliance with the License. You may obtain a copy of the License at
@@ -20,6 +20,8 @@
 
 import 'clean'
 
+#  Use the name of the architecture specific directory in ${JAVA_HOME}/include as representation.
+
 LINUX = 'linux'
 SOLARIS = 'solaris'
 MAC_OS_X = 'darwin'
@@ -32,20 +34,25 @@ Environment = { }
 Environment[ 'Name' ] = 'groovy'
 Environment[ 'BuildDirectory' ] = 'build'
 
-Environment[ 'Architecture' ] = case RUBY_PLATFORM
-                                when /linux/ then LINUX
-                                when /solaris/ then SOLARIS
-                                when /darwin/ then MAC_OS_X   
-                                when /cygwin/ then
-                                  if ENV[ 'MACHTYPE' ] =~ /msys/ then MSYS
-                                  else CYGWIN end  
-                                when /msys/ then MSYS  
-                                else
-                                  if ENV[ 'WINDIR' ]
-                                    WINDOWS
-                                  else raise "Unrecognized architecture -- #{Architecture}"
-                                  end # if windir
-                                end # case
+def unknownArchitecture ( ) raise "Unrecognized architecture -- #{Architecture}" end
+
+begin
+  Environment[ 'Architecture' ] = case `uname -s`
+                                  when /Linux/ then LINUX
+                                  when /SunOS/ then SOLARIS
+                                  when /Darwin/ then MAC_OS_X   
+                                  when /CYGWIN/ then CYGWIN
+                                  when /MINGW32/ then MSYS  
+                                  else
+                                    unknownArchitecture
+                                  end
+rescue
+  if ENV[ 'WINDIR' ]
+    Environment[ 'Architecture' ] = WINDOWS
+  else
+    unknownArchitecture
+  end
+end
 
 if [ CYGWIN , MSYS , WINDOWS ].include?( Environment[ 'Architecture' ] ) then Environment[ 'Name' ] += '.exe' end
 
