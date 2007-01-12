@@ -25,6 +25,58 @@
 #include <TargetConditionals.h>
 #endif
 
+#if defined ( _WIN32 ) && defined(_experiment_)
+  // for cygwin compatibility
+
+# include <Windows.h>
+
+  typedef void (*cygwin_initfunc_type)() ;
+  typedef void (*cygwin_conversionfunc_type)(const char*, char*) ;
+
+  static cygwin_initfunc_type       cygwin_initfunc            = NULL ;
+  static cygwin_conversionfunc_type cygwin_posix2win_path      = NULL ;
+  static cygwin_conversionfunc_type cygwin_posix2win_path_list = NULL ;
+
+#  if !defined( MAX_PATH )
+#    define MAX_PATH 512
+#  endif
+
+  static char* convertPath( cygwin_conversionfunc_type conversionFunc, char* path ) {
+    char*  temp ;
+    
+    temp = malloc( MAX_PATH * sizeof(char) ) ;
+    if ( !temp ) {
+      fprintf(stderr, "error: out of mem when converting paths from cygwin format to win format\n") ;
+      return NULL ; 
+    }
+
+    if( conversionFunc ) {
+      conversionFunc( path, temp ) ;
+    } else {
+      strcpy(temp, path) ;
+    }
+    
+    temp = realloc(temp, strlen(temp) + 1);
+    assert( temp ); // we're shrinking, so this should go fine
+  
+    return temp ;
+    
+  }
+  
+  /** returns NULL on error, does not modify the param. Result must be freed by caller. */
+  static char* jst_convertCygwin2winPath( char* path ) {
+    return convertPath( cygwin_posix2win_path, path ) ;  
+  }
+  
+  
+  
+  /** see above */
+  static char* jst_convertCygwin2winPathList( char* path ) {
+    return convertPath( cygwin_posix2win_path_list, path ) ;
+  }
+
+#endif
+
 #include <jni.h>
 
 #include "jvmstarter.h"
@@ -50,7 +102,7 @@ char* getGroovyHome() {
   static char *_ghome = NULL;
   char *appHome, *gstarterJar = NULL;
   size_t len;
-       
+  
   if(_ghome) return _ghome;
   
   appHome = jst_getExecutableHome();
@@ -79,20 +131,23 @@ char* getGroovyHome() {
     starterJarExists = jst_fileExists(gstarterJar);
     free(gstarterJar);
     if(starterJarExists) {
-      return _ghome = realloc(_ghome, len + 1); // shrink the buffer as there is extra space
+      _ghome = realloc(_ghome, len + 1); // shrink the buffer as there is extra space
     } else {
       free(_ghome);
+      _ghome = NULL;
     }
   }
   
-  _ghome = getenv("GROOVY_HOME");
-  if(!_ghome) {
-    fprintf(stderr, (len == 0) ? "error: could not find groovy installation - please set GROOVY_HOME environment variable to point to it\n" :
-                                 "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n");
-  } else if(_groovy_launcher_debug) {
-    fprintf(stderr, (len == 0) ? "warning: figuring out groovy installation directory based on the executable location is not supported on your platform, "
-                                    "using GROOVY_HOME environment variable\n"
-                               : "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME\n");
+  if( !_ghome ) {
+    _ghome = getenv("GROOVY_HOME");
+    if(!_ghome) {
+      fprintf(stderr, (len == 0) ? "error: could not find groovy installation - please set GROOVY_HOME environment variable to point to it\n" :
+                                   "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n");
+    } else if(_groovy_launcher_debug) {
+      fprintf(stderr, (len == 0) ? "warning: figuring out groovy installation directory based on the executable location is not supported on your platform, "
+                                   "using GROOVY_HOME environment variable\n"
+                                 : "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME\n");
+    }
   }
 
   return _ghome;
@@ -136,7 +191,26 @@ int main(int argc, char** argv) {
                                       (strcmp(argv[1], "-h")     == 0) || 
                                       (strcmp(argv[1], "--help") == 0)
                                     ) ? JNI_TRUE : JNI_FALSE; 
-         
+#if defined ( _WIN32 ) && defined(_experiment_)
+  // for cygwin compatibility
+  char *classpath_dyn  = NULL,
+       *scriptpath_dyn = NULL ;
+  HINSTANCE cygwinDllHandle = LoadLibrary("cygwin1.dll");
+
+  if ( cygwinDllHandle ) {
+
+    cygwin_initfunc            = (cygwin_initfunc_type)      GetProcAddress( cygwinDllHandle, "cygwin_dll_init"                 );
+    cygwin_posix2win_path      = (cygwin_conversionfunc_type)GetProcAddress( cygwinDllHandle, "cygwin_conv_to_win32_path"       );
+    cygwin_posix2win_path_list = (cygwin_conversionfunc_type)GetProcAddress( cygwinDllHandle, "cygwin_posix_to_win32_path_list" );
+    
+    if ( !cygwin_initfunc || !cygwin_posix2win_path || !cygwin_posix2win_path_list ) {
+      fprintf(stderr, "strange bug: could not find appropriate init and conversion functions inside cygwin1.dll\n" );
+      goto end;
+    }
+    cygwin_initfunc();
+  } // if cygwin1.dll is not found, just carry on. It means we're not inside cygwin shell and don't need to care about cygwin path conversions
+
+#endif
          
   // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
   // are handled separately below
@@ -154,9 +228,9 @@ int main(int argc, char** argv) {
   jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-v",          JST_SINGLE_PARAM, 0);
   jst_setParameterDescription(paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--version",   JST_SINGLE_PARAM, 0);
 
-  assert(paramInfoCount <= MAX_GROOVY_PARAM_DEFS);
+  assert( paramInfoCount <= MAX_GROOVY_PARAM_DEFS ) ;
   
-  if( !( args = malloc( numArgs * sizeof(char*) ) ) ) {
+  if( !( args = malloc( numArgs * sizeof( char* ) ) ) ) {
     fprintf(stderr, "error: out of memory at startup\n");
     goto end;
   }
@@ -165,15 +239,42 @@ int main(int argc, char** argv) {
   // look up the first terminating launchee param and only search for --classpath and --conf up to that   
   numParamsToCheck = jst_findFirstLauncheeParamIndex(args, numArgs, (char**)terminatingSuffixes, paramInfos, paramInfoCount);
 
+#  if defined ( _WIN32 ) && defined(_experiment_)
+    // cygwin compatibility: path conversion from cygwin to win format
+    if( ( numParamsToCheck < numArgs ) && 
+        ( args[ numParamsToCheck ][ 0 ]  != '-' ) ) {
+      scriptpath_dyn = jst_convertCygwin2winPath( args[ numParamsToCheck ] ) ;
+      if( !scriptpath_dyn ) goto end ;
+      args[ numParamsToCheck ] = scriptpath_dyn ; 
+    }
+#  endif  
   _groovy_launcher_debug = (jst_valueOfParam(args, &numArgs, &numParamsToCheck, "-d", JST_SINGLE_PARAM, JNI_FALSE, &error) ? JNI_TRUE : JNI_FALSE);
   
   // look for classpath param
   // - If -cp is not given, then the value of CLASSPATH is given in groovy starter param --classpath. 
   // And if not even that is given, then groovy starter param --classpath is omitted.
-  for(i = 0; (temp = cpaliases[i++]); ) {
+  for(i = 0; (temp = cpaliases[i]); i++) {
     classpath = jst_valueOfParam(args, &numArgs, &numParamsToCheck, temp, JST_DOUBLE_PARAM, JNI_TRUE, &error);
     if(error) goto end;
-    if(classpath) break;
+    if(classpath) {
+
+#     if defined ( _WIN32 ) && defined(_experiment_)
+      // cygwin compatibility: path conversion from cygwin to win format
+      int cpind = jst_indexOfParam( args, numParamsToCheck, cpaliases[ i ] ) ;
+      
+      classpath_dyn = malloc( MAX_PATH ) ;
+      if( !classpath_dyn ) {
+        fprintf(stderr, "error: out of mem when converting classpath to dyn allocated\n" ) ;
+        goto end ;
+      }
+      classpath_dyn = jst_convertCygwin2winPathList( classpath ) ; 
+      if( !classpath_dyn ) goto end;
+      
+      args[ cpind ] = classpath = classpath_dyn ;
+#     endif
+      
+      break;
+    }
   }
 
   if(!classpath) classpath = getenv("CLASSPATH");
@@ -258,7 +359,15 @@ int main(int argc, char** argv) {
   options.paramInfosCount     = paramInfoCount;
   options.terminatingSuffixes = terminatingSuffixes;
 
+#if defined ( _WIN32 ) && defined(_experiment_)
+  // for cygwin compatibility
+  if( cygwinDllHandle ) {
+    FreeLibrary( cygwinDllHandle );
+    cygwinDllHandle = NULL;
+  }
 
+#endif
+  
   rval = jst_launchJavaApp(&options);
 
   if(displayHelp) { // add to the standard groovy help message
@@ -279,10 +388,16 @@ int main(int argc, char** argv) {
   }
   
 end:
-  if(args)            free(args);
-  if(groovyLaunchJar) free(groovyLaunchJar);
-  if(groovyConfFile && !groovyConfGivenAsParam)  free(groovyConfFile);
-  if(groovyDConf)     free(groovyDConf);
-  if(groovyDHome)     free(groovyDHome);
+#if defined ( _WIN32 ) && defined(_experiment_)
+  // cygwin support
+  if( cygwinDllHandle ) FreeLibrary( cygwinDllHandle );
+  if( classpath_dyn )  free( classpath_dyn ) ;
+  if( scriptpath_dyn ) free( scriptpath_dyn ) ; 
+#endif
+  if(args)             free(args);
+  if(groovyLaunchJar)  free(groovyLaunchJar);
+  if(groovyConfFile && !groovyConfGivenAsParam) free(groovyConfFile);
+  if(groovyDConf)      free(groovyDConf);
+  if(groovyDHome)      free(groovyDHome);
   return rval;
 }

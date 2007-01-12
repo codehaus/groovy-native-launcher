@@ -140,5 +140,9 @@ int jst_findFirstLauncheeParamIndex(char** argv, int argc, char** terminatingSuf
  * In case of double param w/ no value, error out param is set to true. */
 char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const char* option, const JstParamClass paramType, const jboolean removeIfFound, jboolean* error);
 
+/** returns -1 if not found */
+int jst_indexOfParam( char** args, int numargs, char* paramToSearch) ;
+
+
 #endif // ifndef _JVMSTARTER_H_
 

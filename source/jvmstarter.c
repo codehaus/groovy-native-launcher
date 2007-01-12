@@ -247,6 +247,14 @@ extern int jst_contains(char** args, int* numargs, const char* option, const jbo
   return foundAt;
 }
 
+extern int jst_indexOfParam( char** args, int numargs, char* paramToSearch) {
+  int i = 0;
+  for( ; i < numargs; i++) {
+    if( strcmp( paramToSearch, args[i] ) == 0 ) return i ;
+  }
+  return -1;  
+}
+
 extern char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const char* option, const JstParamClass paramType, const jboolean removeIfFound, jboolean* error) {
   int i    = 0, 
       step = 1;
@@ -671,7 +679,7 @@ extern int jst_launchJavaApp(JavaLauncherOptions *options) {
             *toolsJarD = NULL,
             *toolsJarFile = NULL;
 
-  if(getenv("__JLAUNCHER_DEBUG")) _jst_debug = JNI_TRUE;
+  if( getenv( "__JLAUNCHER_DEBUG" ) ) _jst_debug = JNI_TRUE;
             
   javaLib.creatorFunc  = NULL;
   javaLib.dynLibHandle = NULL;  
