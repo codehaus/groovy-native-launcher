@@ -45,9 +45,10 @@
 #  include "Windows.h"
 
    typedef HINSTANCE DLHandle;
-#  define openDynLib(path) LoadLibrary(path)
-#  define findFunction(libraryhandle, funcname) GetProcAddress(libraryhandle, funcname)
-#  define closeDynLib(handle) FreeLibrary(handle)
+#  define dlopen(path, mode) LoadLibrary(path)
+#  define dlsym(libraryhandle, funcname) GetProcAddress(libraryhandle, funcname)
+#  define dlclose(handle) FreeLibrary(handle)
+#  define dlerror() NULL
 
 // windows' limits.h does not automatically define this:
 # if !defined(PATH_MAX) 
@@ -98,9 +99,9 @@
 #  endif
   
    typedef void *DLHandle;
-#  define openDynLib(path) dlopen(path, RTLD_LAZY)
-#  define closeDynLib(handle) dlclose(handle)
-#  define findFunction(libraryhandle, funcname) dlsym(libraryhandle, funcname)
+//#  define openDynLib(path) dlopen(path, RTLD_LAZY)
+//#  define closeDynLib(handle) dlclose(handle)
+//#  define findFunction(libraryhandle, funcname) dlsym(libraryhandle, funcname)
 
 #endif
 
@@ -341,7 +342,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, jboolean useServerVm) {
       }
       strcat(path, dynLibFile);
       if(jst_fileExists(path)) {
-        if(!( jvmLib = openDynLib(path) ) )  {
+        if(!( jvmLib = dlopen(path, RTLD_LAZY) ) )  {
           fprintf(stderr, "error: dynamic library %s exists but could not be loaded!\n", path);
         } 
         goto exitlookup; // just break out of 2 nested loops
@@ -350,19 +351,21 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, jboolean useServerVm) {
   }
 exitlookup:
   
-  if(!jvmLib) {
+  if( !jvmLib ) {
     fprintf(stderr, "error: could not find %s jvm under %s\n"
                     "       please check that it is a valid jdk / jre containing the desired type of jvm\n", 
                     mode, java_home);
     return rval;
   }
 
-  rval.creatorFunc = (JVMCreatorFunc)findFunction(jvmLib, "JNI_CreateJavaVM");
+  rval.creatorFunc = (JVMCreatorFunc)dlsym(jvmLib, "JNI_CreateJavaVM");
 
   if(rval.creatorFunc) {
     rval.dynLibHandle = jvmLib;
   } else {
+    char* errorMsg = dlerror() ;
     fprintf(stderr, "strange bug: jvm creator function not found in jvm dynamic library %s\n", path);
+    if ( errorMsg ) fprintf( stderr, "%s\n", errorMsg ) ; 
   }
   return rval;
 }
@@ -1061,7 +1064,7 @@ end:
     }
     (*javavm)->DestroyJavaVM(javavm);
   }
-  if(javaLib.dynLibHandle) closeDynLib(javaLib.dynLibHandle);
+  if(javaLib.dynLibHandle) dlclose(javaLib.dynLibHandle);
   if(classpath)        free(classpath);
   if(isLauncheeOption) free(isLauncheeOption);
   if(jvmOptions)       free(jvmOptions);
