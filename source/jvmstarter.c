@@ -42,6 +42,8 @@
 #  define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll" 
 #  define PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
 
+#  define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM"
+
 #  include "Windows.h"
 
    typedef HINSTANCE DLHandle;
@@ -62,6 +64,8 @@
 #    define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
 
+#  define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM"
+
 #  elif defined(__sun__) 
 
 #    if defined(__sparc__)
@@ -76,12 +80,14 @@
 
 #    endif
 
+#  define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM"
+
 #  elif defined ( __APPLE__ )
 
-//  Assume that /System/Library/Frameworks/JavaVM.framework is the JAVA_HOME directory.
+#    define PATHS_TO_SERVER_JVM "Libraries/libserver.dylib"
+#    define PATHS_TO_CLIENT_JVM "Libraries/libclient.dylib"
 
-#    define PATHS_TO_SERVER_JVM "Libraries/libjvm.dylib"
-#    define PATHS_TO_CLIENT_JVM "Libraries/libjvm.dylib"
+#  define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM_Impl"
 
 #  else   
 #    error "Either your OS and/or architecture is not currently supported. Support should be easy to add - please see the source (look for #if defined stuff)."
@@ -358,7 +364,7 @@ exitlookup:
     return rval;
   }
 
-  rval.creatorFunc = (JVMCreatorFunc)dlsym(jvmLib, "JNI_CreateJavaVM");
+  rval.creatorFunc = (JVMCreatorFunc)dlsym(jvmLib, CREATE_JVM_FUNCTION_NAME);
 
   if(rval.creatorFunc) {
     rval.dynLibHandle = jvmLib;
