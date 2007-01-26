@@ -53,7 +53,7 @@
 #  define dlerror() NULL
 
 // windows' limits.h does not automatically define this:
-# if !defined(PATH_MAX) 
+# if !defined( PATH_MAX )   
 #    define PATH_MAX 512
 # endif
 
@@ -64,7 +64,7 @@
 #    define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
 
-#  define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM"
+#    define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM"
 
 #  elif defined(__sun__) 
 
@@ -80,14 +80,14 @@
 
 #    endif
 
-#  define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM"
+#    define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM"
 
 #  elif defined ( __APPLE__ )
 
 #    define PATHS_TO_SERVER_JVM "Libraries/libserver.dylib"
 #    define PATHS_TO_CLIENT_JVM "Libraries/libclient.dylib"
 
-#  define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM_Impl"
+#    define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM_Impl"
 
 #  else   
 #    error "Either your OS and/or architecture is not currently supported. Support should be easy to add - please see the source (look for #if defined stuff)."
@@ -105,11 +105,10 @@
 #  endif
   
    typedef void *DLHandle;
-//#  define openDynLib(path) dlopen(path, RTLD_LAZY)
-//#  define closeDynLib(handle) dlclose(handle)
-//#  define findFunction(libraryhandle, funcname) dlsym(libraryhandle, funcname)
 
 #endif
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 static jboolean _jst_debug = JNI_FALSE;
 
@@ -122,31 +121,24 @@ typedef struct {
   DLHandle       dynLibHandle;
 } JavaDynLib;
 
-// TODO:
-// #include <sys/utsname.h>
-// int uname(struct utsname *name)
-// utsname.sysname
-
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 extern char* jst_getExecutableHome() {
   static char* _execHome = NULL;
   
   char   *execHome = NULL;
-# if defined(__linux__) || defined(__sun__)
+# if defined( __linux__ ) || defined( __sun__ )
   char   *procSymlink;
 # endif
 
-# if defined(_WIN32)
+# if defined( _WIN32 )
   size_t currentBufSize = 0;
-# else
-  static char *g_emptyString = "";
 # endif
   size_t len;
   
   if(_execHome) return _execHome;
   
-# if defined(_WIN32)
+# if defined( _WIN32 )
 
   do {
     if(currentBufSize == 0) {
@@ -176,8 +168,9 @@ extern char* jst_getExecutableHome() {
     return NULL; 
   }
   
-# elif defined(__linux__) || defined(__sun__)
+# elif defined( __linux__ ) || defined( __sun__ )
 
+  // TODO - remove space for this from the stack, not dynamically
   procSymlink = malloc(40 * sizeof(char) ); // big enough
   execHome = malloc((PATH_MAX + 1) * sizeof(char));
   if( !procSymlink || !execHome ) {
@@ -188,29 +181,29 @@ extern char* jst_getExecutableHome() {
   }
 
   sprintf(procSymlink,
-#   if defined(__linux__)
+#   if defined( __linux__ )
       // /proc/{pid}/exe is a symbolic link to the executable
       "/proc/%d/exe" 
-#   elif defined(__sun__)
+#   elif defined( __sun__ )
       // see above
       "/proc/%d/path/a.out"
 #   endif
       , (int)getpid()
   );
 
-  if(!jst_fileExists(procSymlink)) {
+  if( !jst_fileExists( procSymlink ) ) {
     free(procSymlink);
     free(execHome);
-    return g_emptyString;
+    return "";
   }
 
-  if(!realpath(procSymlink, execHome)) {
-    fprintf(stderr, "error: error occurred when trying to find out executable location\n");
-    free(procSymlink);
-    free(execHome);
-    return NULL;    
+  if( !realpath( procSymlink, execHome ) ) {
+    fprintf( stderr, "error: error occurred when trying to find out executable location\n" ) ;
+    free( procSymlink ) ;
+    free( execHome ) ;
+    return NULL ;
   }
-  free(procSymlink);
+  free( procSymlink ) ;
 
 # elif defined ( __APPLE__ )
 
@@ -218,7 +211,7 @@ extern char* jst_getExecutableHome() {
 
 # endif
 
-# if defined(_WIN32) || defined (__linux__) || defined(__sun__)
+# if defined( _WIN32 ) || defined ( __linux__ ) || defined( __sun__ )
   // cut off the executable name
   *(strrchr(execHome, JST_FILE_SEPARATOR[0]) + 1) = '\0';   
   len = strlen(execHome);
@@ -227,8 +220,8 @@ extern char* jst_getExecutableHome() {
   return _execHome = execHome;
   
 # else
-  // FIXME
-  return g_emptyString;
+  // FIXME - remove this once this feature is supported for __APPLE__
+  return "";
 # endif
 
 }

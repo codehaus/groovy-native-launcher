@@ -22,10 +22,10 @@
 #include <assert.h>
 
 #if defined ( __APPLE__ )
-#include <TargetConditionals.h>
+#  include <TargetConditionals.h>
 #endif
 
-#if defined ( _WIN32 ) && defined(_experiment_)
+#if defined ( _WIN32 ) && defined ( _cwcompat )
   // for cygwin compatibility
 
 # include <Windows.h>
@@ -153,14 +153,93 @@ char* getGroovyHome() {
   return _ghome;
 }
 
+#if defined ( _WIN32 ) && defined ( _cwcompat )
+// cygwin compatibility
+static int rest_of_main( int argc, char** argv ) ;
+static int mainRval ;
+// 2**15
+#define PAD_SIZE 32768
+typedef struct {
+  void* backup ;
+  void* stackbase ;
+  void* end ;
+  byte padding[ PAD_SIZE ] ; 
+} CygPadding ;
+
+static CygPadding *g_pad ;
+
+#endif
+
 int main(int argc, char** argv) {
+
+#if defined ( _WIN32 ) && defined ( _cwcompat )
+  // for cygwin compatibility
+  // NOTE: this DOES NOT WORK. This code is experimental and is not compiled into the executable by default.
+  //       You need to either add -D_cwcompat to the gcc opts when compiling on cygwin (into the Rantfile) or 
+  //       remove the occurrences of "&& defined ( _cwcompat )" from this file.
+
+  
+  // Dynamically loading the cygwin dll is a lot more complicated than the loading of an ordinary dll. Please see
+  // http://cygwin.com/faq/faq.programming.html#faq.programming.msvs-mingw
+  // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/cygwin/how-cygtls-works.txt?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
+  // "If you load cygwin1.dll dynamically from a non-cygwin application, it is
+  // vital that the bottom CYGTLS_PADSIZE bytes of the stack are not in use
+  // before you call cygwin_dll_init()."
+  // See also 
+  // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.cc?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
+  // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.h?rev=1.2&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
+  CygPadding pad ;
+  void* sbase ;
+  
+  g_pad = &pad ;
+  pad.end = pad.padding + PAD_SIZE ;
+    
+  #if defined( __GNUC__ )
+  __asm__ (
+    "movl %%fs:4, %0"
+    :"=r"( sbase )
+    ) ;
+  #else
+  __asm {
+    mov eax, fs:[ 4 ] 
+    mov sbase, eax 
+  }
+  #endif
+  g_pad->stackbase = sbase ;
+  
+  if ( g_pad->stackbase - g_pad->end ) {
+    size_t delta = g_pad->stackbase - g_pad->end ;
+    g_pad->backup = malloc( delta ) ;
+    if( !(g_pad->backup) ) {
+      fprintf( stderr, "error: out of mem when copying stack state\n" ) ;
+      return -1 ;
+    }
+    memcpy( g_pad->backup, g_pad->end, delta ) ; 
+  }
+  
+  mainRval = rest_of_main( argc, argv ) ;
+  
+  // clean up the stack (is it necessary? we are exiting the program anyway...)
+  if ( g_pad->stackbase - g_pad->end ) {
+    size_t delta = g_pad->stackbase - g_pad->end ;
+    memcpy( g_pad->end, g_pad->backup, delta ) ; 
+    free( g_pad->backup ) ;
+  }  
+  
+  return mainRval ;
+  
+}
+
+int rest_of_main( int argc, char** argv ) {
+  
+#endif
 
   JavaLauncherOptions options;
 
-  JavaVMOption extraJvmOptions[MAX_GROOVY_JVM_EXTRA_ARGS];
+  JavaVMOption extraJvmOptions[ MAX_GROOVY_JVM_EXTRA_ARGS ] ;
   int          extraJvmOptionsCount = 0;
   
-  JstParamInfo paramInfos[MAX_GROOVY_PARAM_DEFS]; // big enough, make larger if necessary
+  JstParamInfo paramInfos[ MAX_GROOVY_PARAM_DEFS ] ; // big enough, make larger if necessary
   int       paramInfoCount = 0;
 
   char *groovyLaunchJar = NULL, 
@@ -171,10 +250,11 @@ int main(int argc, char** argv) {
        *classpath       = NULL,
        *temp;
         
-  char *terminatingSuffixes[] = {".groovy", ".gvy", ".gy", ".gsh", NULL},
-       *extraProgramOptions[] = {"--main", "groovy.ui.GroovyMain", "--conf", NULL, "--classpath", NULL, NULL}, 
-       *jars[]                = {NULL, NULL}, 
-       *cpaliases[]           = {"-cp", "-classpath", "--classpath", NULL};
+  // NULL terminated string arrays. Other NULL entries will be filled dynamically below.
+  char *terminatingSuffixes[] = { ".groovy", ".gvy", ".gy", ".gsh", NULL },
+       *extraProgramOptions[] = { "--main", "groovy.ui.GroovyMain", "--conf", NULL, "--classpath", NULL, NULL }, 
+       *jars[]                = { NULL, NULL }, 
+       *cpaliases[]           = { "-cp", "-classpath", "--classpath", NULL };
 
   // the argv will be copied into this - we don't modify the param, we modify a local copy
   char **args = NULL;
@@ -191,7 +271,7 @@ int main(int argc, char** argv) {
                                       (strcmp(argv[1], "-h")     == 0) || 
                                       (strcmp(argv[1], "--help") == 0)
                                     ) ? JNI_TRUE : JNI_FALSE; 
-#if defined ( _WIN32 ) && defined(_experiment_)
+#if defined ( _WIN32 ) && defined ( _cwcompat )
   // for cygwin compatibility
   char *classpath_dyn  = NULL,
        *scriptpath_dyn = NULL ;
@@ -239,7 +319,7 @@ int main(int argc, char** argv) {
   // look up the first terminating launchee param and only search for --classpath and --conf up to that   
   numParamsToCheck = jst_findFirstLauncheeParamIndex(args, numArgs, (char**)terminatingSuffixes, paramInfos, paramInfoCount);
 
-#  if defined ( _WIN32 ) && defined(_experiment_)
+#  if defined ( _WIN32 ) && defined ( _cwcompat )
     // cygwin compatibility: path conversion from cygwin to win format
     if( ( numParamsToCheck < numArgs ) && 
         ( args[ numParamsToCheck ][ 0 ]  != '-' ) ) {
@@ -258,7 +338,7 @@ int main(int argc, char** argv) {
     if(error) goto end;
     if(classpath) {
 
-#     if defined ( _WIN32 ) && defined(_experiment_)
+#     if defined ( _WIN32 ) && defined ( _cwcompat )
       // cygwin compatibility: path conversion from cygwin to win format
       int cpind = jst_indexOfParam( args, numParamsToCheck, cpaliases[ i ] ) ;
       
@@ -359,11 +439,12 @@ int main(int argc, char** argv) {
   options.paramInfosCount     = paramInfoCount;
   options.terminatingSuffixes = terminatingSuffixes;
 
-#if defined ( _WIN32 ) && defined(_experiment_)
+#if defined ( _WIN32 ) && defined ( _cwcompat )
   // for cygwin compatibility
   if( cygwinDllHandle ) {
-    FreeLibrary( cygwinDllHandle );
-    cygwinDllHandle = NULL;
+    FreeLibrary( cygwinDllHandle ) ;
+    cygwinDllHandle = NULL ;
+    // TODO: clean up the stack here (the cygwin stack buffer) ?
   }
 
 #endif
@@ -388,7 +469,7 @@ int main(int argc, char** argv) {
   }
   
 end:
-#if defined ( _WIN32 ) && defined(_experiment_)
+#if defined ( _WIN32 ) && defined ( _cwcompat )
   // cygwin support
   if( cygwinDllHandle ) FreeLibrary( cygwinDllHandle );
   if( classpath_dyn )  free( classpath_dyn ) ;
