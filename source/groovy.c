@@ -262,7 +262,7 @@ jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_output,
   ghomeEndsWithSeparator = ( strcmp( groovyHome + len - strlen(JST_FILE_SEPARATOR), JST_FILE_SEPARATOR) == 0 ) ;
 
   if ( !(groovyLibDir = jst_append( groovyLibDir, &len, groovyHome, 
-                                                        ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
+                                                        ghomeEndsWithSeparator ? "" : JST_FILE_SEPARATOR, 
                                                         "lib" JST_FILE_SEPARATOR, NULL ) ) ) goto end ;
 
   dir = opendir( groovyLibDir ) ;
@@ -273,15 +273,16 @@ jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_output,
   }
 
   while ( ( entry = readdir( dir ) ) ) {
-    len = strlen( entry->d_name ) ;
+    char *jarName = entry->d_name ;
+    len = strlen( jarName ) ;
     // groovy-x.jar == 12 chars 
-    if ( len >= 12 && ( memcmp( entry->d_name, "groovy-", 7 ) == 0 ) && ( strcmp( ".jar", (entry->d_name) + len - 4 ) == 0 ) ) { 
+    if ( len >= 12 && ( memcmp( jarName, "groovy-", 7 ) == 0 ) && ( strcmp( ".jar", jarName + len - 4 ) == 0 ) ) { 
 
       if ( strcmp( "groovy-starter.jar", jarName ) == 0 ) {
         (*startupJar_output)[ 0 ] = '\0' ;
 
         if ( !( *startupJar_output = jst_append( *startupJar_output, bufsize, groovyHome, 
-                                                                              ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
+                                                                              ghomeEndsWithSeparator ? "" : JST_FILE_SEPARATOR, 
                                                                               "lib" JST_FILE_SEPARATOR, jarName, NULL ) ) ) goto end ;
         rval = JNI_TRUE ;
         break ;
