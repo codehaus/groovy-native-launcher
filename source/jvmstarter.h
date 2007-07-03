@@ -120,7 +120,7 @@ extern int jst_fileExists(const char* fileName);
  * Do NOT modify the returned string, make a copy. 
  * Note: there seems to be no standard way to implement this, so it needs to be figured out for each os supported. We have not yet been
  * able to support all target oses, so do not make code that relies on this func. In case there is no support, the func 
- * returns an empty string ("") */
+ * returns an empty string (""). Returns NULL on error. */
 extern char* jst_getExecutableHome();
 
 
@@ -142,6 +142,11 @@ char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const char* op
 
 /** returns -1 if not found */
 int jst_indexOfParam( char** args, int numargs, char* paramToSearch) ;
+
+/** Appends the given string to target. size param tells the current size of target (target must have been
+ * dynamically allocated, i.e. not from stack). If necessary, target is reallocated into a bigger space. 
+ * Return the new location of target, and modifies the size inout parameter accordingly. */
+char* jst_append( char* target, size_t* size, ... ) ; //const char* stringToAppend ) ;
 
 
 #endif // ifndef _JVMSTARTER_H_

@@ -20,17 +20,23 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <limits.h>
+#include <stdarg.h>
 
 #if defined ( __APPLE__ )
 #  include <TargetConditionals.h>
 #endif
+
+#if defined ( _WIN32 )
+# include <Windows.h>
+#endif
+
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   // - - - - - - - - - - - - -
   // for cygwin compatibility
   // - - - - - - - - - - - - -
 
-# include <Windows.h>
 
   typedef void ( *cygwin_initfunc_type)() ;
   typedef void ( *cygwin_conversionfunc_type)( const char*, char* ) ;
@@ -90,10 +96,9 @@
 // static void and take a String[] as param
 #define GROOVY_MAIN_METHOD "main"
 
-// in groovy 1.0 and previous versions, the startup class is here
+// in groovy 1.0 and previous versions, the startup class is here.
+// In later versions the jar is not of a constant name. The func to find it is below. 
 #define GROOVY_START_JAR_10 "groovy-starter.jar"
-// in groovy 1.1 the startup class is here
-#define GROOVY_START_JAR_11 "groovy.jar"
 
 #define GROOVY_CONF "groovy-starter.conf"
 
@@ -103,14 +108,216 @@
 
 static jboolean _groovy_launcher_debug = JNI_FALSE ;
 
+/** Takes as param a list of strings with null as the last value. 
+ * Returns a dynallocated string that must be freed by the caller. 
+ * Returns NULL on error. */
+char* jst_concat( const char* first, ... ) {
+  va_list args ;
+  size_t len = strlen( first ) + 100 ;
+  char *result = calloc( len, sizeof( char )  ),
+       *s ;
+
+  strcpy( result, first ) ;
+  
+  va_start( args, first ) ;
+  while ( ( s = va_arg( args, char* ) ) ) {
+    if ( ! ( result = jst_append( result, &len, s, NULL ) ) ) goto end ;
+  }
+  
+  end:
+  
+  va_end( args ) ;
+  
+  return result ;
+
+}
+
+/** As jst_concat, but concatenates to the given buffer. */
+//char* jst_concat_e( char *buffer, size_t bufsize, ... ) {
+  
+//}
+
+// TODO: this would be good as vararg func
+// a helper for the func below (findGroovyStartupJar)
+static char* createCPEntry( const char* groovyHome, const char* jarName ) {
+  char *firstGroovyJarFound = NULL ;
+  size_t len = strlen( groovyHome ) + 1 + 3 + 1 + strlen( jarName ) + 1 ;
+  jboolean ghomeEndWithSeparator = ( groovyHome[ strlen( groovyHome ) ] == JST_FILE_SEPARATOR[ 0 ] ) ;
+  
+  if ( ! ( firstGroovyJarFound = calloc( len, sizeof( char ) ) ) ) return NULL ; 
+  
+  return jst_append( firstGroovyJarFound, &len, groovyHome,
+                                                ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
+                                                "lib" JST_FILE_SEPARATOR, 
+                                                jarName, NULL ) ;  
+}
+
+
+/** If groovy-starter.jar exists, returns path to that. If not, the first jar whose name starts w/ "groovy-" is returned.
+ * The previous is appropriate for groovy <= 1.0, the latter for groovy >= 1.1
+ * Be sure startupJar_output is malloc:ed, it will be realloc:d if not big enough.
+ * Returns JNI_FALSE on error. */
+jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_output, size_t* bufsize ) {
+  char* firstGroovyJarFound = NULL ;
+  
+# if defined( _WIN32 )
+// windows does not have dirent.h, it does things different from other os'es
+
+  HANDLE          fileHandle = INVALID_HANDLE_VALUE ;
+  WIN32_FIND_DATA fdata ;
+  char*           jarEntrySpecifier ;
+  size_t           jarEntryLen ;
+  int             lastError ;
+  jboolean        rval = JNI_FALSE,
+                  ghomeEndWithSeparator ; 
+  
+  // groovy startup jar is called groovy-XXXXXXX.jar. 100 == big enough
+  jarEntryLen = strlen( groovyHome ) + 100 ;
+  jarEntrySpecifier = calloc( jarEntryLen, sizeof( char ) ) ;
+  if ( !jarEntrySpecifier ) {
+    fprintf( stderr, "error: out of mem when accessing dir %s\n", groovyHome ) ;
+    goto end ;
+  }
+  
+  ghomeEndWithSeparator = ( groovyHome[ strlen( groovyHome ) - 1 ] == JST_FILE_SEPARATOR[ 0 ] ) ; 
+  // this only works w/ FindFirstFileW. If need be, use that.
+//  strcpy(jarEntrySpecifier, "\\\\?\\"); // to allow long paths, see documentation of FindFirstFile
+  if ( !(jarEntrySpecifier = jst_append( jarEntrySpecifier, &jarEntryLen, groovyHome, 
+                                                                          ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
+                                                                          "lib" JST_FILE_SEPARATOR "*.jar", NULL ) ) ) goto end ;
+
+  SetLastError( 0 ) ;
+  fileHandle = FindFirstFile( jarEntrySpecifier, &fdata ) ;
+  
+  if ( fileHandle == INVALID_HANDLE_VALUE ) {
+    fprintf( stderr, "error: opening directory %s%s failed w/ error code %d\n", groovyHome, JST_FILE_SEPARATOR "lib", (int)GetLastError() ) ;
+    goto end ;
+  }
+  
+  lastError = GetLastError() ;
+  if( !lastError ) {
+
+    do {
+      char* jarName = fdata.cFileName ;
+      
+      // groovy-x.jar == 12 chars 
+      if ( ( strlen( jarName ) >= 12 ) && ( memcmp( jarName, "groovy-", 7 ) == 0 ) && ( strcmp( ".jar", jarName + strlen( jarName ) - 4 ) == 0 ) ) {
+        // if it's groovy-starter.jar, we found what we're lookin for. If not, continue looking.
+        if ( strcmp( "groovy-starter.jar", jarName ) == 0 ) {
+          (*startupJar_output)[ 0 ] = '\0' ;
+          if ( !( *startupJar_output = jst_append( *startupJar_output, bufsize, groovyHome,
+                                                                                ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
+                                                                                "lib" JST_FILE_SEPARATOR, jarName, NULL ) ) ) goto end ;
+          rval = JNI_TRUE ;
+          break ;
+        }
+        
+        if ( !firstGroovyJarFound && !( firstGroovyJarFound = createCPEntry( groovyHome, jarName ) ) ) goto end ;
+        
+      }
+
+    } while ( FindNextFile( fileHandle, &fdata ) ) ;
+    
+    if ( !rval && firstGroovyJarFound ) {
+      (*startupJar_output)[ 0 ] = '\0' ;
+      if ( !(*startupJar_output = jst_append( *startupJar_output, bufsize, firstGroovyJarFound, NULL ) ) ) goto end ;
+      rval = JNI_TRUE ;
+    }
+        
+  }
+    
+  if( !lastError ) lastError = GetLastError() ;
+  if( lastError && ( lastError != ERROR_NO_MORE_FILES ) ) {
+    fprintf( stderr, "error: error %d occurred when finding jars %s\n", lastError, jarEntrySpecifier ) ;
+    rval = JNI_FALSE ;
+  }
+  
+  
+  end:
+  
+  if ( fileHandle != INVALID_HANDLE_VALUE ) FindClose( fileHandle     ) ;
+  if ( jarEntrySpecifier                  ) free( jarEntrySpecifier   ) ;
+  if ( firstGroovyJarFound                ) free( firstGroovyJarFound ) ;
+  return rval ;
+      
+# else      
+
+  // POSIX (with dirent.h existing, i.e. any other platform than windows)
+
+  DIR           *dir = NULL ;
+  struct dirent *entry ;
+  size_t        len ;
+  char          *groovyLibDir = NULL ;
+  jboolean      ghomeEndsWithSeparator, 
+                rval = JNI_FALSE ;
+
+  // groovy startup jar is called groovy-XXXXXXX.jar. 100 == big enough
+  len = strlen( groovyHome ) + 100  ;
+  if ( !( groovyLibDir = calloc( len, sizeof( char ) ) ) ) {
+    fprintf( stderr, "error: out of mem when looking for groovy jar\n" ) ;
+    goto end ;
+  }
+  ghomeEndsWithSeparator = ( strcmp( groovyHome + len - strlen(JST_FILE_SEPARATOR), JST_FILE_SEPARATOR) == 0 ) ;
+
+  if ( !(groovyLibDir = jst_append( groovyLibDir, &len, groovyHome, 
+                                                        ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
+                                                        "lib" JST_FILE_SEPARATOR, NULL ) ) ) goto end ;
+
+  dir = opendir( groovyLibDir ) ;
+  
+  if ( !dir ) {
+    fprintf( stderr, "error: could not read groovy lib directory %s\n", groovyLibDir ) ;
+    return JNI_FALSE ;
+  }
+
+  while ( ( entry = readdir( dir ) ) ) {
+    len = strlen( entry->d_name ) ;
+    // groovy-x.jar == 12 chars 
+    if ( len >= 12 && ( memcmp( entry->d_name, "groovy-", 7 ) == 0 ) && ( strcmp( ".jar", (entry->d_name) + len - 4 ) == 0 ) ) { 
+
+      if ( strcmp( "groovy-starter.jar", jarName ) == 0 ) {
+        (*startupJar_output)[ 0 ] = '\0' ;
+
+        if ( !( *startupJar_output = jst_append( *startupJar_output, bufsize, groovyHome, 
+                                                                              ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
+                                                                              "lib" JST_FILE_SEPARATOR, jarName, NULL ) ) ) goto end ;
+        rval = JNI_TRUE ;
+        break ;
+      }
+
+      if ( !firstGroovyJarFound && !( firstGroovyJarFound = createCPEntry( groovyHome, jarName ) ) ) goto end ;
+      
+    }
+  }
+
+  if ( !rval && firstGroovyJarFound ) {
+    (*startupJar_output)[ 0 ] = '\0' ;
+    if ( !(*startupJar_output = jst_append( *startupJar_output, bufsize, firstGroovyJarFound, NULL ) ) ) goto end ;
+    rval = JNI_TRUE ;
+  }
+
+  end:
+  
+  if ( firstGroovyJarFound ) free( firstGroovyJarFound ) ;
+  if ( !rval ) {
+    fprintf( stderr, "error: out of memory when handling groovy lib dir\n" ) ;
+  }
+  closedir( dir ) ;
+  return rval ;
+  
+#  endif
+  
+}
+
 /** returns null on error, otherwise pointer to groovy home. 
  * First tries to see if the current executable is located in a groovy installation's bin directory. If not, groovy
  * home is looked up. If neither succeed, an error msg is printed.
  * Do NOT modify the returned string, make a copy. */
 char* getGroovyHome() {
   static char *_ghome = NULL ;
-  char *appHome, *gstarterJar = NULL ;
-  size_t len ;
+  char *appHome, 
+       *gconfFile = NULL ;
+  size_t len, curSize ;
   
   if ( _ghome ) return _ghome ;
   
@@ -120,7 +327,7 @@ char* getGroovyHome() {
   len = strlen( appHome ) ;
   // "bin" == 3 chars
   if ( len > ( 3 + 2 * strlen( JST_FILE_SEPARATOR ) ) ) {
-    int starterJarExists ; 
+    int gconfExists ; 
     
     _ghome = malloc( ( len + 1 ) * sizeof( char ) ) ;
     if ( !_ghome ) {
@@ -128,24 +335,21 @@ char* getGroovyHome() {
       return NULL ;
     }
     strcpy( _ghome, appHome ) ;
-    _ghome[len - 2 * strlen( JST_FILE_SEPARATOR ) - 3] = '\0' ;
-    // check that lib/groovy-starter.jar ( == 22 chars) exists
-    gstarterJar = malloc( len + 22 ) ;
-    if ( !gstarterJar ) {
+    _ghome[ len - 2 * strlen( JST_FILE_SEPARATOR ) - 3 ] = '\0' ; // cut of the "bin" (where the executable lives) from the given path
+    // check that conf/groovy-starter.conf ( == 24 chars) exists ( + nul char )
+    gconfFile = calloc( curSize = len + 25, sizeof( char ) ) ;
+    if ( !gconfFile ) {
       fprintf( stderr, "error: out of memory when figuring out groovy home\n" ) ;
       return NULL ;
     }
-    strcpy( gstarterJar, _ghome ) ;
-    strcat( gstarterJar, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR GROOVY_START_JAR_10 ) ;
-    starterJarExists = jst_fileExists( gstarterJar ) ;
-    if ( !starterJarExists ) {
-      strcpy( gstarterJar, _ghome ) ;
-      strcat( gstarterJar, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR GROOVY_START_JAR_11 ) ;
-      starterJarExists = jst_fileExists( gstarterJar ) ;
-    }
-    free( gstarterJar ) ;
-    if ( starterJarExists ) {
+  
+    if ( !jst_append( gconfFile, &curSize, _ghome, "conf" JST_FILE_SEPARATOR "groovy-starter.conf", NULL ) ) goto end ;
+
+    gconfExists = jst_fileExists( gconfFile ) ;
+
+    if ( gconfExists ) {
       _ghome = realloc( _ghome, len + 1 ) ; // shrink the buffer as there is extra space
+      assert( _ghome ) ;
     } else {
       free( _ghome ) ;
       _ghome = NULL ;
@@ -164,6 +368,9 @@ char* getGroovyHome() {
     }
   }
 
+  end : 
+  if ( gconfFile ) free( gconfFile ) ;
+  
   return _ghome ;
 }
 
@@ -389,9 +596,9 @@ int rest_of_main( int argc, char** argv ) {
   if ( !classpath ) classpath = getenv( "CLASSPATH" ) ;
 
   if ( classpath ) {
-    extraProgramOptions[5] = classpath ;
+    extraProgramOptions[ 5 ] = classpath ;
   } else {
-    extraProgramOptions[4] = NULL ; // omit the --classpath param
+    extraProgramOptions[ 4 ] = NULL ; // omit the --classpath param, extraProgramOptions is a NULL terminated char**
   }
   
   groovyConfFile = jst_valueOfParam( args, &numArgs, &numParamsToCheck, "--conf", JST_DOUBLE_PARAM, JNI_TRUE, &error ) ;
@@ -404,11 +611,11 @@ int rest_of_main( int argc, char** argv ) {
   groovyHome = getGroovyHome() ;
   if ( !groovyHome ) goto end ;
   
+  groovyLaunchJar = calloc( len = strlen( groovyHome ) + 50, sizeof( char ) ) ;  
+  if ( !findGroovyStartupJar( groovyHome, &groovyLaunchJar, &len ) ) goto end ; 
+  jars[ 0 ] = groovyLaunchJar ;
+    
   len = strlen( groovyHome ) ;
-  
-           // ghome path len + nul char + "lib" + 2 file seps + file name len (1.0 has longer start jar name than 1.1)
-  groovyLaunchJar = malloc( len + 1 + 3 + 2 * strlen( JST_FILE_SEPARATOR ) + strlen(GROOVY_START_JAR_10 ) ) ;
-  
           // ghome path len + nul + "conf" + 2 file seps + file name len
   if ( !groovyConfOverridden ) groovyConfFile = malloc( len + 1 + 4 + 2 * strlen( JST_FILE_SEPARATOR ) + strlen( GROOVY_CONF ) ) ;
   if ( !groovyLaunchJar || ( !groovyConfOverridden && !groovyConfFile ) ) {
@@ -416,22 +623,6 @@ int rest_of_main( int argc, char** argv ) {
     goto end ;
   }
 
-  strcpy( groovyLaunchJar, groovyHome ) ;
-  strcat( groovyLaunchJar, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR GROOVY_START_JAR_10 ) ;
-  
-  if ( !jst_fileExists( groovyLaunchJar ) ) {
-    strcpy( groovyLaunchJar, groovyHome ) ;
-    strcat( groovyLaunchJar, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR GROOVY_START_JAR_11 ) ;
-    if ( !jst_fileExists( groovyLaunchJar ) ) {
-      fprintf( stderr, "error: could not find groovy start jar under groovy home " ) ;
-      fprintf( stderr, groovyHome ) ;
-      fprintf( stderr, "\n" ) ;
-      goto end ;
-    }
-  }
-
-  jars[ 0 ] = groovyLaunchJar ;
-  
   // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
 
   if ( !groovyConfOverridden ) { // set the default groovy conf file if it was not given as a parameter

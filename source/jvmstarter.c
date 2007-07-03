@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 #include <assert.h>
 
@@ -36,7 +37,7 @@
 #include "jvmstarter.h"
 
 // NOTE: when compiling w/ gcc on cygwin, pass -mno-cygwin, which makes gcc define _WIN32 and handle the win headers ok
-#if defined(_WIN32)
+#if defined( _WIN32 )
 
 // as appended to JAVA_HOME + JST_FILE_SEPARATOR (when a jre) or JAVA_HOME + JST_FILE_SEPARATOR + "jre" + JST_FILE_SEPARATOR (when a jdk) 
 #  define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll" 
@@ -59,21 +60,21 @@
 
 #else
 
-#  if defined(__linux__) && defined(__i386__)
+#  if defined( __linux__ ) && defined( __i386__ )
 
 #    define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
 
 #    define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM"
 
-#  elif defined(__sun__) 
+#  elif defined( __sun__ ) 
 
-#    if defined(__sparc__)
+#    if defined( __sparc__ ) || defined( __sparc ) || defined( __sparcv9 )
 
 #      define PATHS_TO_SERVER_JVM "lib/sparc/server/libjvm.so", "lib/sparcv9/server/libjvm.so"
 #      define PATHS_TO_CLIENT_JVM "lib/sparc/client/libjvm.so", "lib/sparc/libjvm.so"
 
-#    elif defined(__i386__)
+#    elif defined( __i386__ ) || defined( __i386 )
         // these are just educated guesses, I have no access to solaris running on x86...
 #      define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #      define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
@@ -402,11 +403,36 @@ static void clearException(JNIEnv* env) {
 
 #define INCREMENT 50
 
+extern char* jst_append( char* target, size_t* bufsize, ... ) {
+  va_list args ;
+  size_t targetlen = strlen( target ) ;
+  char *s ;
+  
+  va_start( args, bufsize ) ;
+  
+  while ( ( s = va_arg( args, char* ) ) ) {
+    size_t sSize = strlen( s ) ;
+    size_t newSize = ( targetlen += sSize ) + 1 ; 
+    if ( sSize == 0 ) continue ;
+    if ( newSize > *bufsize ) {
+      *bufsize = newSize + INCREMENT ; 
+      if ( ! ( target = realloc( target, *bufsize ) ) ) {
+        fprintf( stderr, "error: out of memory when concatenating strings. Currently adding \"%s\"\n", s ) ;
+        goto end ;
+      }
+    }
+    strcat( target, s ) ;
+  }
+  
+  end:
 
-/** Appends the given string to target. size param tells the current size of target (target must have been
- * dynamically allocated, i.e. not from stack). If necessary, target is reallocated into a bigger space. 
- * Return the new location of target, and modifies the size inout parameter accordingly. */
-extern char* jst_append(char* target, size_t* size, const char* stringToAppend) {
+  va_end( args ) ;
+  return target ;
+  
+}
+
+/*
+extern char* jst_append( char* target, size_t* size, const char* stringToAppend ) {
   size_t targetLen, staLen, newLen, originalSize = *size;
 
   targetLen = strlen(target);
@@ -425,7 +451,7 @@ extern char* jst_append(char* target, size_t* size, const char* stringToAppend) 
 
   return strcat(target, stringToAppend);
 }
-
+*/
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 /** Appends the given entry to the jvm classpath being constructed (begins w/ "-Djava.class.path=", which the given
@@ -433,32 +459,33 @@ extern char* jst_append(char* target, size_t* size, const char* stringToAppend) 
  * before the given entry, unless this is the first entry. Returns the cp buffer (which may be moved)
  * Returns 0 on error (err msg already printed). */
 static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
-  // "-Djava.class.path=" == 18 chars -> if 18th char is not a null char, we have more than that and need to append path separator
-  if(cp[18]
-    && !(cp = jst_append(cp, cpsize, JST_PATH_SEPARATOR)) ) return NULL;
+  // "-Djava.class.path=" == 18 chars -> if 19th char (index 18) is not a null char, we have more than that and need to append path separator
+  if ( cp[ 18 ]
+      && !(cp = jst_append( cp, cpsize, JST_PATH_SEPARATOR, NULL ) ) ) return NULL ;
  
-  return jst_append(cp, cpsize, entry);
+  return jst_append( cp, cpsize, entry, NULL ) ;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-/** returns JNI_FALSE on failure. May change the target to point to a new location */
-static jboolean appendJarsFromDir(char* dirName, char** target, size_t* targetSize) {
+/** returns != 0 on failure. May change the target to point to a new location */
+static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetSize ) {
 
-# if defined(_WIN32)
+# if defined( _WIN32 )
+// windows does not have dirent.h, it does things different from other os'es
 
   HANDLE          fileHandle = INVALID_HANDLE_VALUE;
   WIN32_FIND_DATA fdata;
   char            *jarEntrySpecifier = NULL;
   int             lastError;
-  jboolean        dirNameEndsWithSeparator, rval = JNI_FALSE;
+  jboolean        dirNameEndsWithSeparator, rval = JNI_TRUE ;
   
   dirNameEndsWithSeparator = ( strcmp(dirName + strlen(dirName) - strlen(JST_FILE_SEPARATOR), JST_FILE_SEPARATOR) == 0 ) ? JNI_TRUE : JNI_FALSE;
   
   jarEntrySpecifier = malloc((strlen(dirName) + 15) * sizeof(char));
   if(!jarEntrySpecifier) {
     fprintf(stderr, "error: out of mem when accessing dir %s\n", dirName);
-    return JNI_FALSE;
+    return JNI_TRUE ;
   }
   
   // this only works w/ FindFirstFileW. If need be, use that.
@@ -482,8 +509,8 @@ static jboolean appendJarsFromDir(char* dirName, char** target, size_t* targetSi
       // this if and the contained ||s are used so that if any of the
       // calls fail, we jump to the end
       if(    !( *target = appendCPEntry(*target, targetSize, dirName) )         
-          ||  ( dirNameEndsWithSeparator ?  JNI_FALSE : !( *target = jst_append(*target, targetSize, JST_FILE_SEPARATOR) ) ) 
-          || !( *target = jst_append(*target, targetSize, fdata.cFileName) )
+          ||  ( dirNameEndsWithSeparator ?  JNI_FALSE : !( *target = jst_append( *target, targetSize, JST_FILE_SEPARATOR, NULL ) ) ) 
+          || !( *target = jst_append(*target, targetSize, fdata.cFileName, NULL ) )
         ) goto end;
     } while( FindNextFile(fileHandle, &fdata) );
     
@@ -495,7 +522,7 @@ static jboolean appendJarsFromDir(char* dirName, char** target, size_t* targetSi
     goto end;
   }
   
-  rval = JNI_TRUE;
+  rval = JNI_FALSE ;
   
   end:
   if(fileHandle != INVALID_HANDLE_VALUE) FindClose(fileHandle);
@@ -507,7 +534,8 @@ static jboolean appendJarsFromDir(char* dirName, char** target, size_t* targetSi
   DIR           *dir;
   struct dirent *entry;
   size_t        len;
-  jboolean      dirNameEndsWithSeparator, rval = JNI_FALSE;
+  jboolean      dirNameEndsWithSeparator, 
+                rval = JNI_TRUE ;
 
   len = strlen(dirName);
   dirNameEndsWithSeparator = ( strcmp(dirName + len - strlen(JST_FILE_SEPARATOR), JST_FILE_SEPARATOR) == 0 );
@@ -515,7 +543,7 @@ static jboolean appendJarsFromDir(char* dirName, char** target, size_t* targetSi
   dir = opendir(dirName);
   if(!dir) {
     fprintf(stderr, "error: could not read directory %s to append jar files from\n", dirName);
-    return JNI_FALSE;
+    return JNI_TRUE ;
   }
 
   while( (entry = readdir(dir)) ) {
@@ -523,19 +551,19 @@ static jboolean appendJarsFromDir(char* dirName, char** target, size_t* targetSi
     if(len >= 5 && (strcmp(".jar", (entry->d_name) + len - 4) == 0)) {
       // this if and the contained ||s are used so that if any of the
       // calls fail, we jump to the end
-      if(!(*target = appendCPEntry(*target, targetSize, dirName))         
-      ||  (dirNameEndsWithSeparator ?  JNI_FALSE : !(*target = jst_append(*target, targetSize, JST_FILE_SEPARATOR)) ) 
-      || !(*target = jst_append(*target, targetSize, entry->d_name))) goto end;
+      if ( !( *target = appendCPEntry( *target, targetSize, dirName ) )         
+       ||   ( dirNameEndsWithSeparator ?  JNI_FALSE : !( *target = jst_append( *target, targetSize, JST_FILE_SEPARATOR, NULL ) ) ) 
+       ||  !( *target = jst_append( *target, targetSize, entry->d_name, NULL ) ) ) goto end ;
     }
   }
-  rval = JNI_TRUE;
+  rval = JNI_FALSE ;
 
   end:
-  if(!rval) {
-    fprintf(stderr, "error: out of memory when adding entries from %s to classpath\n", dirName);
+  if ( !rval ) {
+    fprintf( stderr, "error: out of memory when adding entries from %s to classpath\n", dirName ) ;
   }
-  closedir(dir);
-  return rval;
+  closedir( dir ) ;
+  return rval ;
 
 #  endif
 
@@ -846,7 +874,7 @@ next_arg:
     char *dirName;
 
     for( i = 0 ; (dirName = options->jarDirs[i++]) ; ) {
-      if(!appendJarsFromDir(dirName, &classpath, &cpsize)) goto end; // error msg already printed
+      if( appendJarsFromDir( dirName, &classpath, &cpsize ) ) goto end ; // error msg already printed
     }
     
   }

@@ -1,4 +1,5 @@
 # -*- mode: ruby encoding: UTF-8 -*-
+# jedit: :mode=ruby:
 
 #  Groovy -- A native launcher for Groovy
 #
@@ -60,7 +61,7 @@ when CYGWIN
   # http://cygwin.com/faq/faq.programming.html#faq.programming.no-console-window
   # At least w/ ms compiler and linker, only the linker needs to know whether we are producing a gui or console app, so I would believe it's the same here.
   $libs = ''
-  $cFlags += ' -s -mno-cygwin'
+  $cFlags += ' -s -mno-cygwin' # -D_cwcompat'
   $cppFlags = "-I\"#{javaHome}/include/win32\" -I\"#{javaHome}/include\""
   def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
   def linkCommand( target , sources ) ; "#{$gcc} #{if target =~ /w\.exe$/ then '-mwindows' end} #{$cFlags} -o #{target} #{sources} #{$libs}" end
