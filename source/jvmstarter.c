@@ -405,8 +405,13 @@ static void clearException(JNIEnv* env) {
 
 extern char* jst_append( char* target, size_t* bufsize, ... ) {
   va_list args ;
-  size_t targetlen = strlen( target ) ;
+  size_t targetlen = ( target ? strlen( target ) : 0 ) ;
   char *s ;
+  
+  if ( !target && !( target = calloc( *bufsize, sizeof( char ) ) ) ) {
+    fprintf( stderr, "error: out of memory creating a string\n" ) ;
+    return NULL ;
+  }
   
   va_start( args, bufsize ) ;
   
@@ -431,27 +436,40 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
   
 }
 
-/*
-extern char* jst_append( char* target, size_t* size, const char* stringToAppend ) {
-  size_t targetLen, staLen, newLen, originalSize = *size;
 
-  targetLen = strlen(target);
-  staLen    = strlen(stringToAppend);
-  newLen    = targetLen + staLen + 1;
+extern void* appendArrayItem( void* array, int index, size_t* arlen, void* item, int item_size_in_bytes ) {
+  byte *temp ;
 
-  if(newLen > *size) *size = newLen + INCREMENT;
+  if ( !array && ! ( array = malloc( *arlen * item_size_in_bytes ) ) ) {
+    fprintf( stderr, "error: out of memory creating an array\n" ) ;
+    return NULL ;
+  }
   
-  if(*size != originalSize) {
-    target = realloc(target, *size);
-    if(!target) {
-      fprintf(stderr, "error: out of memory when allocating space for strings\n");
-      return NULL;
+  if ( ((size_t)index) >= *arlen ) {
+    if ( !( array = realloc( array, ( *arlen += 5 ) * item_size_in_bytes ) ) ) {
+      fprintf( stderr, "error: out of memory when adding items to array\n" ) ;
+      return NULL ;
     }
   }
+  
+  temp = (byte*)array ;
+  temp += ( index * item_size_in_bytes ) ;
 
-  return strcat(target, stringToAppend);
+  memcpy( temp, item, item_size_in_bytes ) ;
+  return array ;
 }
-*/
+
+extern JavaVMOption* appendJvmOption( JavaVMOption* opts, int index, size_t* optsSize, char* optStr, void* extraInfo ) {
+  JavaVMOption tmp ;
+  
+  tmp.optionString = optStr    ;
+  tmp.extraInfo    = extraInfo ;
+  
+  return appendArrayItem( opts, index, optsSize, &tmp, sizeof( JavaVMOption ) ) ;
+  
+}
+
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 /** Appends the given entry to the jvm classpath being constructed (begins w/ "-Djava.class.path=", which the given
@@ -633,7 +651,7 @@ static jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArra
 
 /** Info about these needs to be available to perform the parameter classification correctly. To be more precise,
  *  it is needed to find the first launchee param. */
-static char* _builtinDoubleParams[] = {"-cp", "-classpath", "--classpath", "-jh", "--javahome", NULL};
+static char* _builtinDoubleParams[] = { "-cp", "-classpath", "--classpath", "-jh", "--javahome", NULL } ;
 
 extern int jst_findFirstLauncheeParamIndex(char** args, int numArgs, char** terminatingSuffixes, JstParamInfo* paramInfos, int paramInfosCount) {
   int    i, j;
@@ -678,19 +696,26 @@ extern int jst_findFirstLauncheeParamIndex(char** args, int numArgs, char** term
 
 /** See the header file for information.
  */
-extern int jst_launchJavaApp(JavaLauncherOptions *options) {
-  int            rval    = -1;
+extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
+  int            rval    = -1 ;
   
   JavaVM         *javavm = NULL;
   JNIEnv         *env    = NULL;
   JavaDynLib     javaLib;
-  jint           result, 
-                 optNr   = 0;
+  jint           result ;
   JavaVMInitArgs vm_args;
-  JavaVMOption*  jvmOptions; 
-  size_t         len;
+  JavaVMOption   *jvmOptions = NULL,
+                 // the options assigned by the user on cmdline are given last as that way they override the ones set before
+                 *userJvmOptions  = NULL ; 
+  size_t         len,
+                 // jvm opts from command line
+                 userJvmOptionsSize  = 5, // initial size
+                 // all jvm options combined
+                 jvmOptionsSize = 5 ;
   int            i, j, 
-                 launcheeParamBeginIndex = options->numArguments; 
+                 launcheeParamBeginIndex = options->numArguments,
+                 userJvmOptionsCount  = 0,
+                 jvmOptionsCount      = 0 ;
 
   jboolean     serverVMRequested        = JNI_FALSE;
   jclass       launcheeMainClassHandle  = NULL;
@@ -700,30 +725,30 @@ extern int jst_launchJavaApp(JavaLauncherOptions *options) {
   
   char      *userClasspath = NULL, 
             *envCLASSPATH  = NULL, 
-            *classpath     = NULL; 
+            *classpath     = NULL,
+            *userJvmOptsS  = NULL ; 
 
   size_t    cpsize         = 1000; // just the initial size, expanded if necessary
   jboolean  *isLauncheeOption  = NULL;
   jint      launcheeParamCount = 0;
-  char      *javaHome  = NULL, 
-            *toolsJarD = NULL,
-            *toolsJarFile = NULL;
+  char      *javaHome     = NULL, 
+            *toolsJarD    = NULL,
+            *toolsJarFile = NULL ;
 
   if( getenv( "__JLAUNCHER_DEBUG" ) ) _jst_debug = JNI_TRUE;
             
-  javaLib.creatorFunc  = NULL;
-  javaLib.dynLibHandle = NULL;  
+  javaLib.creatorFunc  = NULL ;
+  javaLib.dynLibHandle = NULL ;  
 
   // calloc effectively sets all elems to JNI_FALSE.  
   if(options->numArguments) isLauncheeOption = calloc(options->numArguments, sizeof(jboolean));
-  // worst case : all command line options are jvm options -> thus numArguments + 2
-  // +2 as we need space for at least -Djava.class.path and possibly for -Dtools.jar
-  jvmOptions = calloc( (options->numArguments) + (options->numJvmOptions) + 2, sizeof(JavaVMOption) ); 
-  if((launcheeParamBeginIndex && !isLauncheeOption) || !jvmOptions) {
+
+  if ( launcheeParamBeginIndex && !isLauncheeOption ) {
     fprintf(stderr, "error: out of memory at startup!\n");
     goto end;
   }
-
+  
+  
   // find out the argument index after which all the params are launchee (prg being launched) params 
 
   launcheeParamBeginIndex = jst_findFirstLauncheeParamIndex(options->arguments, options->numArguments, options->terminatingSuffixes, options->paramInfos, options->paramInfosCount);
@@ -798,8 +823,14 @@ extern int jst_launchJavaApp(JavaLauncherOptions *options) {
         }
         javaHome = options->arguments[++i];
     } else { // jvm option
-      jvmOptions[optNr].optionString = argument;
-      jvmOptions[optNr++].extraInfo  = NULL;
+      // add these to a separate array and add these last. This way the ones given by the user override
+      // the ones set automatically, so user can override e.g. -Dgroovy.home= and the options given in JAVA_OPTS
+
+      if ( ! ( userJvmOptions = appendJvmOption( userJvmOptions, 
+                                                 userJvmOptionsCount++, 
+                                                 &userJvmOptionsSize, 
+                                                 argument, 
+                                                 NULL ) ) ) goto end ;
     }
 // this label is needed to be able to break out of nested for and switch (by jumping here w/ goto)
 next_arg: 
@@ -916,8 +947,11 @@ next_arg:
       strcpy(toolsJarD, "-Dtools.jar=");
       strcat(toolsJarD, toolsJarFile);
 
-      jvmOptions[optNr].optionString = toolsJarD; 
-      jvmOptions[optNr++].extraInfo = NULL;
+      if ( !( jvmOptions = appendJvmOption( jvmOptions, 
+                                            jvmOptionsCount++, 
+                                            &jvmOptionsSize, 
+                                            toolsJarD, 
+                                            NULL ) ) ) goto end ; 
     }
     // add tools.jar to startup classpath if requested
     if(((options->toolsJarHandling) & JST_TOOLS_JAR_TO_CLASSPATH) 
@@ -928,28 +962,79 @@ next_arg:
   toolsJarFile = NULL;
   
   
-  jvmOptions[optNr].optionString = classpath;
-  jvmOptions[optNr++].extraInfo  = NULL;
+  if ( !( jvmOptions = appendJvmOption( jvmOptions, 
+                                        jvmOptionsCount++, 
+                                        &jvmOptionsSize, 
+                                        classpath, 
+                                        NULL ) ) ) goto end ; 
 
   // end constructing classpath
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+
+  // the jvm options order handling is significant: if the same option is given more than once, the last one is the one
+  // that stands. That's why we here set first the jvm opts set programmatically, then the ones from user env var
+  // and then the ones from the command line. Thus the user can override the ones he wants on the next level
+  // ones on the right override those on the left
+  // autoset by the caller of this func -> ones from env var (e.g. JAVA_OPTS) -> ones from command line 
   
+  // jvm options given as parameters to this func  
   for(i = 0; i < options->numJvmOptions; i++) {
-    jvmOptions[optNr].optionString = options->jvmOptions[i].optionString;
-    jvmOptions[optNr++].extraInfo  = options->jvmOptions[i].extraInfo;
+    if ( !( jvmOptions = appendJvmOption( jvmOptions, 
+                                          jvmOptionsCount++, 
+                                          &jvmOptionsSize, 
+                                          options->jvmOptions[ i ].optionString, 
+                                          options->jvmOptions[ i ].extraInfo ) ) ) goto end ; 
   }
 
+  // handle jvm options in env var JAVA_OPTS or similar  
+  if ( options->javaOptsEnvVar ) {
+    int userJvmOptCount = 0 ;
+    char* userOpts = getenv( options->javaOptsEnvVar ), *s ;
+    jboolean firstTime = JNI_TRUE ;
+    
+    if ( userOpts && userOpts[ 0 ] ) {
+      userJvmOptCount = 1 ;
+      for ( i = 0 ; userOpts[ i ] ; i++ ) if ( userOpts[ i ] == ' ' ) userJvmOptCount++ ;
+      if ( !( userJvmOptsS = malloc( ( strlen( userOpts ) + 1 ) * sizeof( char ) ) ) ) {
+        fprintf( stderr, "error: out of memory when allocating jvm opts\n" ) ;
+        goto end ;        
+      }
+      strcpy( userJvmOptsS, userOpts ) ;
+
+      while ( ( s = strtok( firstTime ? userJvmOptsS : NULL, " " ) ) ) {
+        firstTime = JNI_FALSE ;
+        if ( ! ( jvmOptions = appendJvmOption( jvmOptions, 
+                                               jvmOptionsCount++, 
+                                               &jvmOptionsSize, 
+                                               s, 
+                                               NULL ) ) ) goto end ;
+      }
+      
+    }
+
+  }
+    
+  // jvm options given on the command line by the user
+  for ( i = 0 ; i < userJvmOptionsCount ; i++ ) {
+    
+    if ( !( jvmOptions = appendJvmOption( jvmOptions, 
+                                          jvmOptionsCount++, 
+                                          &jvmOptionsSize, 
+                                          userJvmOptions[ i ].optionString, 
+                                          userJvmOptions[ i ].extraInfo ) ) ) goto end ; 
+  }
+  
   if( _jst_debug ) {
-    fprintf(stderr, "DUBUG: Starting jvm with the following options:\n");
-    for(i = 0; i < optNr; i++) {
-      fprintf(stderr, "  %s\n", jvmOptions[i].optionString);
+    fprintf(stderr, "DUBUG: Starting jvm with the following %d options:\n", jvmOptionsCount ) ;
+    for( i = 0 ; i < jvmOptionsCount ; i++ ) {
+      fprintf( stderr, "  %s\n", jvmOptions[ i ].optionString ) ;
     }
   }
 
-  vm_args.version            = JNI_VERSION_1_4;
-  vm_args.options            = jvmOptions;
-  vm_args.nOptions           = optNr;
-  vm_args.ignoreUnrecognized = JNI_FALSE;
+  vm_args.version            = JNI_VERSION_1_4 ;
+  vm_args.options            = jvmOptions      ;
+  vm_args.nOptions           = jvmOptionsCount ;
+  vm_args.ignoreUnrecognized = JNI_FALSE       ;
 
   
   // fetch the pointer to jvm creator func and invoke it
@@ -1050,7 +1135,7 @@ next_arg:
     }
   }
 
-  free(isLauncheeOption);
+  free( isLauncheeOption ) ;
   isLauncheeOption = NULL;
 
 
@@ -1091,13 +1176,15 @@ end:
     }
     (*javavm)->DestroyJavaVM(javavm);
   }
-  if(javaLib.dynLibHandle) dlclose(javaLib.dynLibHandle);
-  if(classpath)        free(classpath);
-  if(isLauncheeOption) free(isLauncheeOption);
-  if(jvmOptions)       free(jvmOptions);
-  if(toolsJarFile)     free(toolsJarFile);
-  if(toolsJarD)        free(toolsJarD);
-
+  if ( javaLib.dynLibHandle ) dlclose(javaLib.dynLibHandle);
+  if ( classpath )        free( classpath ) ;
+  if ( isLauncheeOption ) free( isLauncheeOption ) ;
+  if ( jvmOptions )       free( jvmOptions ) ;
+  if ( toolsJarFile )     free( toolsJarFile ) ;
+  if ( toolsJarD )        free( toolsJarD ) ;
+  if ( userJvmOptions )   free( userJvmOptions ) ;
+  if ( userJvmOptsS     ) free( userJvmOptsS ) ;
+  
   return rval;
 
 }

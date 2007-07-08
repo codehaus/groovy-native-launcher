@@ -79,6 +79,8 @@ typedef struct {
 typedef struct {
   /** May be null. */
   char* java_home; 
+  /** The name of the env var where to take extra jvm params from. May be NULL. */
+  char* javaOptsEnvVar ;
   /** what to do about tools.jar */
   int toolsJarHandling;
   /** See the constants above. */
@@ -143,11 +145,16 @@ char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const char* op
 /** returns -1 if not found */
 int jst_indexOfParam( char** args, int numargs, char* paramToSearch) ;
 
-/** Appends the given string to target. size param tells the current size of target (target must have been
+/** Appends the given strings to target. size param tells the current size of target (target must have been
  * dynamically allocated, i.e. not from stack). If necessary, target is reallocated into a bigger space. 
- * Return the new location of target, and modifies the size inout parameter accordingly. */
-char* jst_append( char* target, size_t* size, ... ) ; //const char* stringToAppend ) ;
+ * Returns the possibly new location of target, and modifies the size inout parameter accordingly. */
+char* jst_append( char* target, size_t* size, ... ) ; 
 
+/** If array is NULL, a new one will be created, size arlen. */
+void* appendArrayItem( void* array, int index, size_t* arlen, void* item, int item_size_in_bytes ) ;
+
+/** As the previous, but specifically for jvm options */
+JavaVMOption* appendJvmOption( JavaVMOption* opts, int index, size_t* optsSize, char* optStr, void* extraInfo ) ;
 
 #endif // ifndef _JVMSTARTER_H_
 

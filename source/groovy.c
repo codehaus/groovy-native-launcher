@@ -105,15 +105,13 @@
 #define GROOVY_CONF "groovy-starter.conf"
 
 #define MAX_GROOVY_PARAM_DEFS 20
-// the amount of jvm params given from this func (jvm starter func will add its own)
-#define MAX_GROOVY_JVM_EXTRA_ARGS 3
 
 static jboolean _groovy_launcher_debug = JNI_FALSE ;
 
 /** Takes as param a list of strings with null as the last value. 
  * Returns a dynallocated string that must be freed by the caller. 
  * Returns NULL on error. */
-char* jst_concat( const char* first, ... ) {
+static char* jst_concat( const char* first, ... ) {
   va_list args ;
   size_t len = strlen( first ) + 100 ;
   char *result = calloc( len, sizeof( char )  ),
@@ -133,6 +131,7 @@ char* jst_concat( const char* first, ... ) {
   return result ;
 
 }
+
 
 /** As jst_concat, but concatenates to the given buffer. */
 //char* jst_concat_e( char *buffer, size_t bufsize, ... ) {
@@ -460,12 +459,13 @@ int main( int argc, char** argv ) {
 
 int rest_of_main( int argc, char** argv ) {
   
-#endif
+#endif // cygwin compatibility
 
   JavaLauncherOptions options ;
 
-  JavaVMOption extraJvmOptions[ MAX_GROOVY_JVM_EXTRA_ARGS ] ;
-  int          extraJvmOptionsCount = 0 ;
+  JavaVMOption *extraJvmOptions = NULL ;
+  size_t       extraJvmOptionsCount = 0, extraJvmOptionsSize = 5 ;
+  char         *userJvmOpts = NULL ;
   
   JstParamInfo paramInfos[ MAX_GROOVY_PARAM_DEFS ] ; // big enough, make larger if necessary
   int       paramInfoCount = 0 ;
@@ -526,7 +526,8 @@ int rest_of_main( int argc, char** argv ) {
   } // if cygwin1.dll is not found, just carry on. It means we're not inside cygwin shell and don't need to care about cygwin path conversions
 
 #endif
-         
+
+
   // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
   // are handled separately below
   jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-c",          JST_DOUBLE_PARAM, 0 ) ;
@@ -549,7 +550,7 @@ int rest_of_main( int argc, char** argv ) {
     fprintf( stderr, "error: out of memory at startup\n" ) ;
     goto end ;
   }
-  for( i = 0 ; i < numArgs ; i++ ) args[i] = argv[i + 1] ; // skip the program name
+  for( i = 0 ; i < numArgs ; i++ ) args[ i ] = argv[ i + 1 ] ; // skip the program name
   
   // look up the first terminating launchee param and only search for --classpath and --conf up to that   
   numParamsToCheck = jst_findFirstLauncheeParamIndex( args, numArgs, (char**)terminatingSuffixes, paramInfos, paramInfoCount ) ;
@@ -565,7 +566,8 @@ int rest_of_main( int argc, char** argv ) {
       args[ numParamsToCheck ] = scriptpath_dyn ; 
     }
 #  endif  
-  _groovy_launcher_debug = (jst_valueOfParam( args, &numArgs, &numParamsToCheck, "-d", JST_SINGLE_PARAM, JNI_FALSE, &error ) ? JNI_TRUE : JNI_FALSE ) ;
+//  _groovy_launcher_debug = (jst_valueOfParam( args, &numArgs, &numParamsToCheck, "-d", JST_SINGLE_PARAM, JNI_FALSE, &error ) ? JNI_TRUE : JNI_FALSE ) ;
+  _groovy_launcher_debug = ( getenv( "__JLAUNCHER_DEBUG" ) ? JNI_TRUE : JNI_FALSE ) ;
   
   // look for classpath param
   // - If -cp is not given, then the value of CLASSPATH is given in groovy starter param --classpath. 
@@ -644,21 +646,27 @@ int rest_of_main( int argc, char** argv ) {
   }
   strcpy( groovyDConf, "-Dgroovy.starter.conf=" ) ;
   strcat( groovyDConf, groovyConfFile ) ;
-
-  extraJvmOptions[extraJvmOptionsCount].optionString = groovyDConf ; 
-  extraJvmOptions[extraJvmOptionsCount++].extraInfo = NULL ;
+  
+  
+  if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
+                                              extraJvmOptionsCount++, 
+                                              &extraJvmOptionsSize, 
+                                              groovyDConf, 
+                                              NULL ) ) ) goto end ;
 
   strcpy( groovyDHome, "-Dgroovy.home=" ) ;
   strcat( groovyDHome, groovyHome ) ;
 
-  extraJvmOptions[extraJvmOptionsCount].optionString = groovyDHome ; 
-  extraJvmOptions[extraJvmOptionsCount++].extraInfo = NULL ;
+  if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
+                                              extraJvmOptionsCount++, 
+                                              &extraJvmOptionsSize, 
+                                              groovyDHome, 
+                                              NULL ) ) ) goto end ;
 
-  assert( extraJvmOptionsCount <= MAX_GROOVY_JVM_EXTRA_ARGS ) ;
-  
   // populate the startup parameters
 
   options.java_home           = NULL ; // let the launcher func figure it out
+  options.javaOptsEnvVar      = "JAVA_OPTS" ;
   options.toolsJarHandling    = JST_TOOLS_JAR_TO_SYSPROP ;
   options.javahomeHandling    = JST_ALLOW_JH_ENV_VAR_LOOKUP|JST_ALLOW_JH_PARAMETER ; 
   options.classpathHandling   = JST_IGNORE_GLOBAL_CP ; 
@@ -717,6 +725,8 @@ end:
   if ( scriptpath_dyn ) free( scriptpath_dyn ) ; 
 #endif
 
+  if ( userJvmOpts )      free( userJvmOpts ) ;
+  if ( extraJvmOptions )  free( extraJvmOptions ) ;
   if ( args )             free( args ) ;
   if ( groovyLaunchJar )  free( groovyLaunchJar ) ;
   if ( groovyConfFile && !groovyConfOverridden ) free( groovyConfFile ) ;
