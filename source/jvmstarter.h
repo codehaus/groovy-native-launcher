@@ -30,6 +30,13 @@
 #  define JST_FILE_SEPARATOR "/"
 #  define JST_PATH_SEPARATOR ":"
 
+/*
+ *  Added this typedef as byte is not a valid data type for GCC.  I assumes the byte data type was
+ *  introduced and only tested with a compiler that provides the byte data type as an alias automatically.
+ *  RLW 2007-07-27.
+ */
+typedef unsigned char byte ;
+
 #endif
 
 typedef enum { 
