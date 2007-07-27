@@ -31,9 +31,11 @@ javaHome = ENV[ 'JAVA_HOME' ]
 if javaHome == nil || javaHome == ''
   if Environment[ 'Architecture' ] == MAC_OS_X
     putativeDirectory = '/System/Library/Frameworks/JavaVM.framework'
-    if File.directory?( putativeDirectory ) then javaHome = putativeDirectory end
+    if File.directory?( putativeDirectory ) then javaHome = putativeDirectory
+    else raise "JAVA_HOME not defined and #{putativeDirectory} not found."
+    end
   else
-    raise "JAVA_HOME not defined."
+    raise 'JAVA_HOME not defined.'
   end
 end
 
@@ -112,26 +114,13 @@ if [ WINDOWS , MSYS , CYGWIN ].include?( Environment[ 'Architecture' ] )
   Executable_W = Executable.gsub( /\.exe$/ , 'w.exe' )  
   defaultTasks << Executable_W 
   
-  # Rant has a problem which is a deep cobination of sys globbing, use of map on the result and then using
+  # Rant has a problem which is a deep combination of sys globbing, use of map on the result and then using
   # the array in two separate file rules.  Workaround for now is to duplicate.
   
   file Executable_W => executablePrerequisites.dup do | target |
     sys.sh( linkCommand( target.name , target.prerequisites ) )
   end
 end
-
-task :default => defaultTasks
-
-task :initialize do
-  if ! File.directory?( ObjectsDirectory ) then sys.mkdir_p( ObjectsDirectory ) end
-  DependenciesFile = ObjectsDirectory + '/dependencies'
-  gen C::Dependencies , DependenciesFile , :search => 'source'
-  gen Action do source DependenciesFile end
-end
-
-task :set_debug do $debug = true end
-
-task :debug => [ :set_debug ] + defaultTasks 
 
 file Executable => executablePrerequisites do | target |
   sys.sh( linkCommand( target.name , target.prerequisites ) )
@@ -142,3 +131,17 @@ Sources.each { | source |
     sys.sh( compileCommand( target.name , target.prerequisites ) ) 
   end
 }
+
+task :initialize do
+  if ! File.directory?( ObjectsDirectory ) then sys.mkdir_p( ObjectsDirectory ) end
+  DependenciesFile = ObjectsDirectory + '/dependencies'
+  gen C::Dependencies , DependenciesFile , :search => 'source'
+  gen Action do source DependenciesFile end
+end
+
+task :compile => defaultTasks 
+
+task :set_debug do $debug = true end
+task :debug => [ :set_debug ] + defaultTasks 
+
+task :default => :compile
