@@ -104,33 +104,31 @@
 
 #define GROOVY_CONF "groovy-starter.conf"
 
-#define MAX_GROOVY_PARAM_DEFS 20
-
 static jboolean _groovy_launcher_debug = JNI_FALSE ;
 
-/** Takes as param a list of strings with null as the last value. 
- * Returns a dynallocated string that must be freed by the caller. 
- * Returns NULL on error. */
-static char* jst_concat( const char* first, ... ) {
-  va_list args ;
-  size_t len = strlen( first ) + 100 ;
-  char *result = calloc( len, sizeof( char )  ),
-       *s ;
-
-  strcpy( result, first ) ;
-  
-  va_start( args, first ) ;
-  while ( ( s = va_arg( args, char* ) ) ) {
-    if ( ! ( result = jst_append( result, &len, s, NULL ) ) ) goto end ;
-  }
-  
-  end:
-  
-  va_end( args ) ;
-  
-  return result ;
-
-}
+// /** Takes as param a list of strings with null as the last value. 
+ // * Returns a dynallocated string that must be freed by the caller. 
+ // * Returns NULL on error. */
+// static char* jst_concat( const char* first, ... ) {
+  // va_list args ;
+  // size_t len = strlen( first ) + 100 ;
+  // char *result = calloc( len, sizeof( char )  ),
+       // *s ;
+// 
+  // strcpy( result, first ) ;
+  // 
+  // va_start( args, first ) ;
+  // while ( ( s = va_arg( args, char* ) ) ) {
+    // if ( ! ( result = jst_append( result, &len, s, NULL ) ) ) goto end ;
+  // }
+  // 
+  // end:
+  // 
+  // va_end( args ) ;
+  // 
+  // return result ;
+// 
+// }
 
 
 /** As jst_concat, but concatenates to the given buffer. */
@@ -467,8 +465,8 @@ int rest_of_main( int argc, char** argv ) {
   size_t       extraJvmOptionsCount = 0, extraJvmOptionsSize = 5 ;
   char         *userJvmOpts = NULL ;
   
-  JstParamInfo paramInfos[ MAX_GROOVY_PARAM_DEFS ] ; // big enough, make larger if necessary
-  int       paramInfoCount = 0 ;
+  JstParamInfo* paramInfos     = NULL ;
+  int           paramInfoCount = 0    ;
 
   char *groovyLaunchJar = NULL, 
        *groovyConfFile  = NULL, 
@@ -488,7 +486,8 @@ int rest_of_main( int argc, char** argv ) {
   char **args = NULL ;
   int  numArgs = argc - 1 ;
          
-  size_t len ;
+  size_t len, 
+         numGroovyOpts = 13 ;
   int    i,
          numParamsToCheck,
          rval = -1 ; 
@@ -530,21 +529,19 @@ int rest_of_main( int argc, char** argv ) {
 
   // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
   // are handled separately below
-  jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-c",          JST_DOUBLE_PARAM, 0 ) ;
-  jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--encoding",  JST_DOUBLE_PARAM, 0 ) ;
-  jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-h",          JST_SINGLE_PARAM, 1 ) ;
-  jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--help",      JST_SINGLE_PARAM, 1 ) ;
-  jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-d",          JST_SINGLE_PARAM, 0 ) ;
-  jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--debug",     JST_SINGLE_PARAM, 0 ) ;
-  jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-e",          JST_DOUBLE_PARAM, 1 ) ;
-  jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-i",          JST_DOUBLE_PARAM, 0 ) ;
-  jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-l",          JST_DOUBLE_PARAM, 0 ) ;
-  jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-n",          JST_SINGLE_PARAM, 0 ) ;
-  jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-p",          JST_SINGLE_PARAM, 0 ) ;
-  jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "-v",          JST_SINGLE_PARAM, 0 ) ;
-  jst_setParameterDescription( paramInfos, paramInfoCount++, MAX_GROOVY_PARAM_DEFS, "--version",   JST_SINGLE_PARAM, 0 ) ;
-
-  assert( paramInfoCount <= MAX_GROOVY_PARAM_DEFS ) ;
+  if ( !( paramInfos = jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-c",          JST_DOUBLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "--encoding",  JST_DOUBLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-h",          JST_SINGLE_PARAM, 1 ) ) ||
+       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "--help",      JST_SINGLE_PARAM, 1 ) ) ||
+       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-d",          JST_SINGLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "--debug",     JST_SINGLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-e",          JST_DOUBLE_PARAM, 1 ) ) ||
+       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-i",          JST_DOUBLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-l",          JST_DOUBLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-n",          JST_SINGLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-p",          JST_SINGLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-v",          JST_SINGLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "--version",   JST_SINGLE_PARAM, 0 ) ) ) goto end ;
   
   if ( !( args = malloc( numArgs * sizeof( char* ) ) ) ) {
     fprintf( stderr, "error: out of memory at startup\n" ) ;

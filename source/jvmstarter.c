@@ -382,11 +382,15 @@ extern int jst_fileExists(const char* fileName) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-extern void jst_setParameterDescription(JstParamInfo* paramInfo, int ind, int size, char* name, JstParamClass type, short terminating) {
-  assert(ind < size);
-  paramInfo[ind].name = name;
-  paramInfo[ind].type = type;
-  paramInfo[ind].terminating = terminating;  
+extern JstParamInfo* jst_setParameterDescription(JstParamInfo* paramInfo, int ind, size_t* size, char* name, JstParamClass type, short terminating) {
+  JstParamInfo pinfo ;
+  
+  pinfo.name = name ;
+  pinfo.type = type ;
+  pinfo.terminating = terminating ;
+
+  return (JstParamInfo*)appendArrayItem( paramInfo, ind, size, &pinfo, sizeof( JstParamInfo ) ) ; 
+  
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -938,14 +942,14 @@ next_arg:
 
   if(jst_fileExists(toolsJarFile)) { // tools.jar is not present on a jre
     // add as java env property if requested
-    if((options->toolsJarHandling) & JST_TOOLS_JAR_TO_SYSPROP) {
+    if ( ( options->toolsJarHandling ) & JST_TOOLS_JAR_TO_SYSPROP ) {
       toolsJarD = malloc(strlen(toolsJarFile) + 12 + 1); // "-Dtools.jar=" == 12 chars + null char
-      if(!toolsJarD) {
-        fprintf(stderr, "error: could not allocate memory for -Dtools.jar sys prop\n");
-        goto end;
+      if( !toolsJarD ) {
+        fprintf( stderr, "error: could not allocate memory for -Dtools.jar sys prop\n" ) ;
+        goto end ;
       }
-      strcpy(toolsJarD, "-Dtools.jar=");
-      strcat(toolsJarD, toolsJarFile);
+      strcpy( toolsJarD, "-Dtools.jar=" ) ;
+      strcat( toolsJarD, toolsJarFile   ) ;
 
       if ( !( jvmOptions = appendJvmOption( jvmOptions, 
                                             jvmOptionsCount++, 
@@ -958,8 +962,8 @@ next_arg:
      && !( classpath = appendCPEntry(classpath, &cpsize, toolsJarFile) ) ) goto end;
   }
   
-  free(toolsJarFile);
-  toolsJarFile = NULL;
+  free( toolsJarFile ) ;
+  toolsJarFile = NULL ;
   
   
   if ( !( jvmOptions = appendJvmOption( jvmOptions, 
@@ -978,7 +982,7 @@ next_arg:
   // autoset by the caller of this func -> ones from env var (e.g. JAVA_OPTS) -> ones from command line 
   
   // jvm options given as parameters to this func  
-  for(i = 0; i < options->numJvmOptions; i++) {
+  for ( i = 0 ; i < options->numJvmOptions ; i++ ) {
     if ( !( jvmOptions = appendJvmOption( jvmOptions, 
                                           jvmOptionsCount++, 
                                           &jvmOptionsSize, 

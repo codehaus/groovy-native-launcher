@@ -30,14 +30,11 @@
 #  define JST_FILE_SEPARATOR "/"
 #  define JST_PATH_SEPARATOR ":"
 
-/*
- *  Added this typedef as byte is not a valid data type for GCC.  I assumes the byte data type was
- *  introduced and only tested with a compiler that provides the byte data type as an alias automatically.
- *  RLW 2007-07-27.
- */
-typedef unsigned char byte ;
-
 #endif
+
+#if !defined( byte )
+  typedef unsigned char byte ;
+#endif 
 
 typedef enum { 
   /** a standalone parameter, such as -v */
@@ -132,8 +129,8 @@ extern int jst_fileExists(const char* fileName);
  * returns an empty string (""). Returns NULL on error. */
 extern char* jst_getExecutableHome();
 
-
-void jst_setParameterDescription(JstParamInfo* paramInfo, int indx, int size, char* name, JstParamClass type, short terminating);
+/** Returns pointer to the param info array that may be relocated. NULL if error occurs. */
+JstParamInfo* jst_setParameterDescription( JstParamInfo* paramInfo, int indx, size_t* size, char* name, JstParamClass type, short terminating ) ;
 
 /** Returns the index of the given str in the given str array, -1 if not found.  
  * Modifies args, numargs and checkUpto if removeIfFound == true */
