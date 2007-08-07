@@ -130,7 +130,7 @@ extern int jst_fileExists(const char* fileName);
 extern char* jst_getExecutableHome();
 
 /** Returns pointer to the param info array that may be relocated. NULL if error occurs. */
-JstParamInfo* jst_setParameterDescription( JstParamInfo* paramInfo, int indx, size_t* size, char* name, JstParamClass type, short terminating ) ;
+JstParamInfo* jst_setParameterDescription( JstParamInfo** paramInfo, int indx, size_t* size, char* name, JstParamClass type, short terminating ) ;
 
 /** Returns the index of the given str in the given str array, -1 if not found.  
  * Modifies args, numargs and checkUpto if removeIfFound == true */
@@ -157,7 +157,7 @@ char* jst_append( char* target, size_t* size, ... ) ;
 /** If array is NULL, a new one will be created, size arlen. */
 void* appendArrayItem( void* array, int index, size_t* arlen, void* item, int item_size_in_bytes ) ;
 
-/** As the previous, but specifically for jvm options */
+/** As the previous, but specifically for jvm options. */
 JavaVMOption* appendJvmOption( JavaVMOption* opts, int index, size_t* optsSize, char* optStr, void* extraInfo ) ;
 
 #endif // ifndef _JVMSTARTER_H_

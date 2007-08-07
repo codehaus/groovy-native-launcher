@@ -34,11 +34,11 @@
 #endif
 
 
-#if defined ( _WIN32 ) && defined ( _cwcompat )
-  // - - - - - - - - - - - - -
-  // for cygwin compatibility
-  // - - - - - - - - - - - - -
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// cygwin compatibility code begin
 
+#if defined ( _WIN32 ) && defined ( _cwcompat )
 
   typedef void ( *cygwin_initfunc_type)() ;
   typedef void ( *cygwin_conversionfunc_type)( const char*, char* ) ;
@@ -89,6 +89,10 @@
 
 #endif
 
+// cygwin compatibility end
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+
 #include <jni.h>
 
 #include "jvmstarter.h"
@@ -99,56 +103,28 @@
 #define GROOVY_MAIN_METHOD "main"
 
 // in groovy 1.0 and previous versions, the startup class is here.
-// In later versions the jar is not of a constant name. The func to find it is below. 
+// In later versions the jar is not of a constant name. The func to find the correct jar is below. 
 #define GROOVY_START_JAR_10 "groovy-starter.jar"
 
 #define GROOVY_CONF "groovy-starter.conf"
 
 static jboolean _groovy_launcher_debug = JNI_FALSE ;
 
-// /** Takes as param a list of strings with null as the last value. 
- // * Returns a dynallocated string that must be freed by the caller. 
- // * Returns NULL on error. */
-// static char* jst_concat( const char* first, ... ) {
-  // va_list args ;
-  // size_t len = strlen( first ) + 100 ;
-  // char *result = calloc( len, sizeof( char )  ),
-       // *s ;
-// 
-  // strcpy( result, first ) ;
-  // 
-  // va_start( args, first ) ;
-  // while ( ( s = va_arg( args, char* ) ) ) {
-    // if ( ! ( result = jst_append( result, &len, s, NULL ) ) ) goto end ;
-  // }
-  // 
-  // end:
-  // 
-  // va_end( args ) ;
-  // 
-  // return result ;
-// 
-// }
 
-
-/** As jst_concat, but concatenates to the given buffer. */
-//char* jst_concat_e( char *buffer, size_t bufsize, ... ) {
-  
-//}
-
-// TODO: this would be good as vararg func
-// a helper for the func below (findGroovyStartupJar)
 static char* createCPEntry( const char* groovyHome, const char* jarName ) {
   char *firstGroovyJarFound = NULL ;
   size_t len = strlen( groovyHome ) + 1 + 3 + 1 + strlen( jarName ) + 1 ;
   jboolean ghomeEndWithSeparator = ( groovyHome[ strlen( groovyHome ) ] == JST_FILE_SEPARATOR[ 0 ] ) ;
   
-  if ( ! ( firstGroovyJarFound = calloc( len, sizeof( char ) ) ) ) return NULL ; 
+  if ( ! ( firstGroovyJarFound = calloc( len, sizeof( char ) ) ) ) {
+    fprintf( stderr, "error: out of memory" ) ;
+    return NULL ;
+  }
   
   return jst_append( firstGroovyJarFound, &len, groovyHome,
-                                                ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
-                                                "lib" JST_FILE_SEPARATOR, 
-                                                jarName, NULL ) ;  
+                                                 ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
+                                                 "lib" JST_FILE_SEPARATOR, 
+                                                 jarName, NULL ) ;  
 }
 
 
@@ -156,7 +132,7 @@ static char* createCPEntry( const char* groovyHome, const char* jarName ) {
  * The previous is appropriate for groovy <= 1.0, the latter for groovy >= 1.1
  * Be sure startupJar_output is malloc:ed, it will be realloc:d if not big enough.
  * Returns JNI_FALSE on error. */
-jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_output, size_t* bufsize ) {
+static jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_output, size_t* bufsize ) {
   char* firstGroovyJarFound = NULL ;
   
 # if defined( _WIN32 )
@@ -374,6 +350,10 @@ char* getGroovyHome() {
   return _ghome ;
 }
 
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// cygwin compatibility code begin
+
 #if defined ( _WIN32 ) && defined ( _cwcompat )
 // - - - - - - - - - - - - -
 // cygwin compatibility
@@ -393,12 +373,18 @@ static CygPadding *g_pad ;
 
 #endif
 
+// cygwin compatibility end
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+
 int main( int argc, char** argv ) {
 
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// cygwin compatibility code begin
+
 #if defined ( _WIN32 ) && defined ( _cwcompat )
-  // - - - - - - - - - - - - -
-  // for cygwin compatibility
-  // - - - - - - - - - - - - -
+
   // NOTE: this DOES NOT WORK. This code is experimental and is not compiled into the executable by default.
   //       You need to either add -D_cwcompat to the gcc opts when compiling on cygwin (into the Rantfile) or 
   //       remove the occurrences of "&& defined ( _cwcompat )" from this file.
@@ -457,7 +443,11 @@ int main( int argc, char** argv ) {
 
 int rest_of_main( int argc, char** argv ) {
   
-#endif // cygwin compatibility
+#endif 
+
+// cygwin compatibility end
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 
   JavaLauncherOptions options ;
 
@@ -502,10 +492,11 @@ int rest_of_main( int argc, char** argv ) {
                                     ( strcmp( argv[ 1 ], "--help" ) == 0 )
                                   ) ? JNI_TRUE : JNI_FALSE ; 
 
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// cygwin compatibility code begin
+
 #if defined ( _WIN32 ) && defined ( _cwcompat )
-  // - - - - - - - - - - - - -
-  // for cygwin compatibility
-  // - - - - - - - - - - - - -
   
   char *classpath_dyn  = NULL,
        *scriptpath_dyn = NULL ;
@@ -526,22 +517,25 @@ int rest_of_main( int argc, char** argv ) {
 
 #endif
 
+// cygwin compatibility end
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 
   // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
   // are handled separately below
-  if ( !( paramInfos = jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-c",          JST_DOUBLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "--encoding",  JST_DOUBLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-h",          JST_SINGLE_PARAM, 1 ) ) ||
-       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "--help",      JST_SINGLE_PARAM, 1 ) ) ||
-       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-d",          JST_SINGLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "--debug",     JST_SINGLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-e",          JST_DOUBLE_PARAM, 1 ) ) ||
-       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-i",          JST_DOUBLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-l",          JST_DOUBLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-n",          JST_SINGLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-p",          JST_SINGLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "-v",          JST_SINGLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( paramInfos, paramInfoCount++, &numGroovyOpts, "--version",   JST_SINGLE_PARAM, 0 ) ) ) goto end ;
+  if ( !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-c",          JST_DOUBLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "--encoding",  JST_DOUBLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-h",          JST_SINGLE_PARAM, 1 ) ) ||
+       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "--help",      JST_SINGLE_PARAM, 1 ) ) ||
+       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-d",          JST_SINGLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "--debug",     JST_SINGLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-e",          JST_DOUBLE_PARAM, 1 ) ) ||
+       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-i",          JST_DOUBLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-l",          JST_DOUBLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-n",          JST_SINGLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-p",          JST_SINGLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-v",          JST_SINGLE_PARAM, 0 ) ) ||
+       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "--version",   JST_SINGLE_PARAM, 0 ) ) ) goto end ;
   
   if ( !( args = malloc( numArgs * sizeof( char* ) ) ) ) {
     fprintf( stderr, "error: out of memory at startup\n" ) ;
@@ -551,6 +545,10 @@ int rest_of_main( int argc, char** argv ) {
   
   // look up the first terminating launchee param and only search for --classpath and --conf up to that   
   numParamsToCheck = jst_findFirstLauncheeParamIndex( args, numArgs, (char**)terminatingSuffixes, paramInfos, paramInfoCount ) ;
+
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// cygwin compatibility code begin
 
 #  if defined ( _WIN32 ) && defined ( _cwcompat )
     // - - - - - - - - - - - - -
@@ -563,6 +561,12 @@ int rest_of_main( int argc, char** argv ) {
       args[ numParamsToCheck ] = scriptpath_dyn ; 
     }
 #  endif  
+
+// cygwin compatibility end
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+
+
 //  _groovy_launcher_debug = (jst_valueOfParam( args, &numArgs, &numParamsToCheck, "-d", JST_SINGLE_PARAM, JNI_FALSE, &error ) ? JNI_TRUE : JNI_FALSE ) ;
   _groovy_launcher_debug = ( getenv( "__JLAUNCHER_DEBUG" ) ? JNI_TRUE : JNI_FALSE ) ;
   
@@ -573,6 +577,10 @@ int rest_of_main( int argc, char** argv ) {
     classpath = jst_valueOfParam( args, &numArgs, &numParamsToCheck, temp, JST_DOUBLE_PARAM, JNI_TRUE, &error ) ;
     if ( error ) goto end ;
     if ( classpath ) {
+
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// cygwin compatibility code begin
 
 #     if defined ( _WIN32 ) && defined ( _cwcompat )
       // - - - - - - - - - - - - -
@@ -590,7 +598,11 @@ int rest_of_main( int argc, char** argv ) {
       
       args[ cpind ] = classpath = classpath_dyn ;
 #     endif
-      
+
+// cygwin compatibility end
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+
       break ;
     }
   }
@@ -680,6 +692,10 @@ int rest_of_main( int argc, char** argv ) {
   options.paramInfosCount     = paramInfoCount ;
   options.terminatingSuffixes = terminatingSuffixes ;
 
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// cygwin compatibility code begin
+
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   // - - - - - - - - - - - - -
   // for cygwin compatibility
@@ -691,7 +707,11 @@ int rest_of_main( int argc, char** argv ) {
   }
 
 #endif
-  
+
+// cygwin compatibility end
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+
   rval = jst_launchJavaApp( &options ) ;
 
   if ( displayHelp ) { // add to the standard groovy help message
@@ -713,6 +733,10 @@ int rest_of_main( int argc, char** argv ) {
   
 end:
 
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// cygwin compatibility code begin
+
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   // - - - - - - - - - - - - -
   // cygwin compatibility
@@ -722,13 +746,20 @@ end:
   if ( scriptpath_dyn ) free( scriptpath_dyn ) ; 
 #endif
 
-  if ( userJvmOpts )      free( userJvmOpts ) ;
+// cygwin compatibility end
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+
+  if ( paramInfos      )  free( paramInfos ) ;
+  if ( userJvmOpts     )  free( userJvmOpts ) ;
   if ( extraJvmOptions )  free( extraJvmOptions ) ;
-  if ( args )             free( args ) ;
+  if ( args            )  free( args ) ;
   if ( groovyLaunchJar )  free( groovyLaunchJar ) ;
   if ( groovyConfFile && !groovyConfOverridden ) free( groovyConfFile ) ;
   if ( groovyDConf )      free( groovyDConf ) ;
   if ( groovyDHome )      free( groovyDHome ) ;
+  
   return rval ;
+  
 }
 

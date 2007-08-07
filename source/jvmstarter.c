@@ -382,14 +382,14 @@ extern int jst_fileExists(const char* fileName) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-extern JstParamInfo* jst_setParameterDescription(JstParamInfo* paramInfo, int ind, size_t* size, char* name, JstParamClass type, short terminating) {
+extern JstParamInfo* jst_setParameterDescription(JstParamInfo** paramInfo, int ind, size_t* size, char* name, JstParamClass type, short terminating) {
   JstParamInfo pinfo ;
   
   pinfo.name = name ;
   pinfo.type = type ;
   pinfo.terminating = terminating ;
 
-  return (JstParamInfo*)appendArrayItem( paramInfo, ind, size, &pinfo, sizeof( JstParamInfo ) ) ; 
+  return *paramInfo = (JstParamInfo*)appendArrayItem( *paramInfo, ind, size, &pinfo, sizeof( JstParamInfo ) ) ; 
   
 }
 
