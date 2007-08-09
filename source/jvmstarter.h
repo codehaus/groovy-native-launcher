@@ -32,10 +32,6 @@
 
 #endif
 
-#if !defined( byte )
-  typedef unsigned char byte ;
-#endif 
-
 typedef enum { 
   /** a standalone parameter, such as -v */
   JST_SINGLE_PARAM,

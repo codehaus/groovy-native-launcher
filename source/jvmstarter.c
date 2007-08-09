@@ -440,9 +440,11 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
   
 }
 
-
 extern void* appendArrayItem( void* array, int index, size_t* arlen, void* item, int item_size_in_bytes ) {
-  byte *temp ;
+  // we really need here just any data type whose storage size is one byte. 
+  // Since "byte" is not ansi-c, we use char ( sizeof( char ) == 1 ).
+  // Signed / unsigned does not matter here, only the storage size.
+  char *temp ;
 
   if ( !array && ! ( array = malloc( *arlen * item_size_in_bytes ) ) ) {
     fprintf( stderr, "error: out of memory creating an array\n" ) ;
@@ -456,7 +458,7 @@ extern void* appendArrayItem( void* array, int index, size_t* arlen, void* item,
     }
   }
   
-  temp = (byte*)array ;
+  temp = (char*)array ;
   temp += ( index * item_size_in_bytes ) ;
 
   memcpy( temp, item, item_size_in_bytes ) ;
