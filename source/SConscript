@@ -1,0 +1,72 @@
+# -*- mode:python encoding:UTF-8 -*-
+# jedit: :mode=ruby:
+
+#  Groovy -- A native launcher for Groovy
+#
+#  Copyright © 2007 Russel Winder
+#
+#  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
+#  compliance with the License. You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software distributed under the License is
+#  distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+#  implied. See the License for the specific language governing permissions and limitations under the
+#  License.
+#
+#  Author : Russel Winder <russel@russel.org.uk>
+#  $Revision: 7036 $
+#  $Date: 2007-07-27 13:02:47 +0100 (Fri, 27 Jul 2007) $
+
+import os
+
+Import ( 'environment' )
+
+sources = [ 'groovy.c' , 'jvmstarter.c' ]
+
+try :
+    javaHome = os.environ[ 'JAVA_HOME' ]
+except :
+    javaHome = '' 
+if javaHome == '' :
+  if environment[ 'PLATFORM' ] == 'darwin' :
+    putativeDirectory = '/System/Library/Frameworks/JavaVM.framework'
+    if os.path.isdir ( putativeDirectory ) :
+        javaHome = putativeDirectory
+        environment.Append ( CPPFLAGS = '-I"%s/Headers"' % ( javaHome ) )
+    else : raise Exception , 'JAVA_HOME not defined and %s not found.' % ( putativeDirectory )
+  else : raise Exception , 'JAVA_HOME not defined.'
+
+if environment[ 'PLATFORM' ] == 'cygwin' :
+    javaHome = javaHome.replace ( '\\' , '/' )
+    if javaHome.startswith ( 'C:' ) : javaHome = javaHome.replace ( 'C:' , '/cygdrive/c' )
+    environment.Append ( CCFLAGS = ' -s -mno-cygwin' , LINKFLAGS = ' -s -mno-cygwin' )
+
+#  Map from uname operating system names to include directory names.
+includeDirectoryName = {
+    'Linux' : 'linux' ,
+    'SunOS' : 'solaris' ,
+    'Darwin' : 'darwin' ,
+    'CYGWIN_NT-5.1' : 'win32' ,
+    'MINGW32_NT-5.1' : 'win32' ,
+    'Windows' : 'win32'
+    }
+
+#  For Windows native and MinGW us 
+if environment[ 'PLATFORM' ] == 'win32' :
+    environment.Append ( CPPFLAGS = ' -I"%s\include\%s" -I"%s\include"' % ( javaHome , includeDirectoryName [ environment[ 'ARCHITECTURE' ] ] , javaHome ) )
+else :
+    environment.Append ( CPPFLAGS = ' -I"%s/include/%s" -I"%s/include"' % ( javaHome , includeDirectoryName [ environment[ 'ARCHITECTURE' ] ] , javaHome ) )
+
+environment.Append ( CCFLAGS = ' -O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls' )
+
+print environment[ 'PLATFORM' ]
+
+if environment[ 'ARCHITECTURE' ] in [ 'Linux' ] : environment.Append ( LIBS = 'dl' )
+
+if environment[ 'PLATFORM' ] in [ 'Windows' , 'mingw' , 'cygwin' ] :
+    coff = Command ( environment['NAME'] + '.coff' , environment['NAME'] + '.rc' , 'windres -O coff --include-dir source $SOURCE $TARGET' )
+    environment.Program ( environment['NAME'] + '.exe' , sources + [ coff ] )
+else :
+    environment.Program ( environment['NAME'] , sources )
