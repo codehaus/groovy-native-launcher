@@ -21,6 +21,8 @@
 
 import 'c/dependencies'
 
+if [ CYGWIN , MSYS , WINDOWS ].include?( Environment[ 'Architecture' ] ) then Environment[ 'Name' ] += '.exe' end
+
 BuildBaseDirectory = Environment[ 'BuildDirectory' ]
 
 ObjectsDirectory = '../' + BuildBaseDirectory + '/objects'

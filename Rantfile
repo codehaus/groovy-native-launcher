@@ -1,4 +1,4 @@
-# -*- mode: ruby encoding: UTF-8 -*-
+# -*- mode:ruby encoding:UTF-8 -*-
 
 #  Groovy -- A native launcher for Groovy
 #
@@ -31,9 +31,6 @@ WINDOWS = 'windows'
 
 Environment = { }
 
-Environment[ 'Name' ] = 'groovy'
-Environment[ 'BuildDirectory' ] = 'build'
-
 def unknownArchitecture ( ) raise "Unrecognized architecture -- #{Architecture}" end
 
 begin
@@ -54,7 +51,8 @@ rescue
   end
 end
 
-if [ CYGWIN , MSYS , WINDOWS ].include?( Environment[ 'Architecture' ] ) then Environment[ 'Name' ] += '.exe' end
+Environment[ 'Name' ] = 'groovy'
+Environment[ 'BuildDirectory' ] = "build_rant_#{Environment[ 'Architecture' ]}.#{`uname -m`.strip( )}"
 
 desc 'Clean everything.'
 gen Clean , :clean
