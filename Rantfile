@@ -52,7 +52,11 @@ rescue
 end
 
 Environment[ 'Name' ] = 'groovy'
-Environment[ 'BuildDirectory' ] = "build_rant_#{Environment[ 'Architecture' ]}.#{`uname -m`.strip( )}"
+begin
+  Environment[ 'BuildDirectory' ] = "build_rant_#{Environment[ 'Architecture' ]}.#{`uname -m`.strip( )}"
+rescue
+  Environment[ 'BuildDirectory' ] = "build_rant_#{Environment[ 'Architecture' ]}"
+end
 
 desc 'Clean everything.'
 gen Clean , :clean
