@@ -54,7 +54,7 @@ includeDirectoryName = {
     }
 
 environment.Append ( CPPFLAGS = ' -I"%s" -I"%s"' % ( os.path.join ( javaHome , 'include'  , includeDirectoryName [ environment[ 'Architecture' ] ] ) , os.path.join ( javaHome , 'include' ) ) )
-if environment[ 'PLATFORM' ] == 'windows' :
+if environment['CC'] == 'cl' :
     # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
     # c4255 == 'function' : no function prototype given: converting '()' to '(void)'
     # c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
@@ -70,6 +70,7 @@ if environment[ 'PLATFORM' ] == 'windows' :
 #    "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"    
     environment.Append ( CCFLAGS = ' -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820' )
 else :
+    assert environment['CC'] == 'gcc'
     environment.Append ( CCFLAGS = ' -O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls' )
 
 if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = 'dl' )

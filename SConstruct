@@ -30,7 +30,7 @@ environment = Environment ( Name = 'groovy' )
 
 unameResult = platform.uname ( )
 environment[ 'Architecture' ] = unameResult[0]
-buildDirectory = 'build_scons_' + unameResult[0] + '.' + unameResult[4]
+buildDirectory = 'build_scons_' + unameResult[0] + '_' + unameResult[4]
 
 SConscript ( 'source/SConscript' , exports = 'environment' , build_dir = buildDirectory , duplicate = 0 )
 
