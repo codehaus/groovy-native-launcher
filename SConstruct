@@ -1,5 +1,5 @@
 # -*- mode:python encoding:UTF-8 -*-
-# jedit: :mode=ruby:
+# jedit: :mode=python:
 
 #  Groovy -- A native launcher for Groovy
 #
