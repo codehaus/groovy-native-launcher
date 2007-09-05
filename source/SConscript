@@ -16,8 +16,8 @@
 #  License.
 #
 #  Author : Russel Winder <russel@russel.org.uk>
-#  $Revision: 7036 $
-#  $Date: 2007-07-27 13:02:47 +0100 (Fri, 27 Jul 2007) $
+#  $Revision$
+#  $Date$
 
 import os
 
@@ -26,22 +26,22 @@ Import ( 'environment' )
 sources = [ 'groovy.c' , 'jvmstarter.c' ]
 
 try :
-    javaHome = os.environ[ 'JAVA_HOME' ]
+    javaHome = os.environ['JAVA_HOME']
 except :
     javaHome = '' 
 if javaHome == '' :
-  if environment[ 'PLATFORM' ] == 'darwin' :
+  if environment['PLATFORM'] == 'darwin' :
     putativeDirectory = '/System/Library/Frameworks/JavaVM.framework'
     if os.path.isdir ( putativeDirectory ) :
         javaHome = putativeDirectory
-        environment.Append ( CPPFLAGS = '-I"%s/Headers"' % ( javaHome ) )
+        environment.Append ( CPPFLAGS = ' -I"%s/Headers"' % ( javaHome ) )
     else : raise Exception , 'JAVA_HOME not defined and %s not found.' % ( putativeDirectory )
   else : raise Exception , 'JAVA_HOME not defined.'
 
-if environment[ 'PLATFORM' ] == 'cygwin' :
+if environment['PLATFORM'] == 'cygwin' :
     javaHome = javaHome.replace ( '\\' , '/' )
     if javaHome.startswith ( 'C:' ) : javaHome = javaHome.replace ( 'C:' , '/cygdrive/c' )
-    environment.Append ( CCFLAGS = ' -s -mno-cygwin' , LINKFLAGS = ' -s -mno-cygwin' )
+    environment.Append ( CCFLAGS = ' -s -mno-cygwin' , LINKFLAGS = ' -s -mno-cygwin -mwindows' )
 
 #  Map from uname operating system names to include directory names.
 includeDirectoryName = {
@@ -53,21 +53,32 @@ includeDirectoryName = {
     'Windows' : 'win32'
     }
 
-#  For Windows native and MinGW us 
-if environment[ 'PLATFORM' ] == 'win32' :
-    environment.Append ( CPPFLAGS = ' -I"%s\include\%s" -I"%s\include"' % ( javaHome , includeDirectoryName [ environment[ 'ARCHITECTURE' ] ] , javaHome ) )
-# TODO: these flags need to be appended for ms cl compiler. Also the comments for these could be copied from the rantfile?
+environment.Append ( CPPFLAGS = ' -I"%s" -I"%s"' % ( os.path.join ( javaHome , 'include'  , includeDirectoryName [ environment[ 'Architecture' ] ] ) , os.path.join ( javaHome , 'include' ) ) )
+if environment[ 'Architecture' ] == 'Windows' :
+    # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
+    # c4255 == 'function' : no function prototype given: converting '()' to '(void)'
+    # c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
+    # c4820 == padding added into a struct 
+    # This one is disabled as there's a lot of this done intentionally (and there seems to be no way to tell cl that it's intentional):
+    # c4706 == assignment in conditional expression
+    # this one's disabled as it does not seem very interesting:
+    # c4711 == function 'function' selected for inline expansion
+    # the -MD option is important - it is required when using JNI. 
+    # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
+    #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
+    # the -O1 is there just to reduce the size of the executable - it is not mandatory
 #    "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"    
+    environment.Append ( CCFLAGS = ' -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820' )
 else :
-    environment.Append ( CPPFLAGS = ' -I"%s/include/%s" -I"%s/include"' % ( javaHome , includeDirectoryName [ environment[ 'ARCHITECTURE' ] ] , javaHome ) )
     environment.Append ( CCFLAGS = ' -O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls' )
 
-print environment[ 'PLATFORM' ]
+if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = 'dl' )
 
-if environment[ 'ARCHITECTURE' ] in [ 'Linux' ] : environment.Append ( LIBS = 'dl' )
-
-if environment[ 'PLATFORM' ] in [ 'Windows' , 'mingw' , 'cygwin' ] :
-    coff = Command ( environment['NAME'] + '.coff' , environment['NAME'] + '.rc' , 'windres -O coff --include-dir source $SOURCE $TARGET' )
-    environment.Program ( environment['NAME'] + '.exe' , sources + [ coff ] )
+if environment['PLATFORM'] in [ 'Windows' , 'mingw' , 'cygwin' ] :
+    if environment['PLATFORM'] == 'Windows' :
+        resources = Command ( environment['Name'] + '.res' , environment['Name'] + '.rc' , 'rc -fo $SOURCE $TARGET' )
+    else :
+        resources = Command ( environment['Name'] + '.coff' , environment['Name'] + '.rc' , 'windres -O coff --include-dir source $SOURCE $TARGET' )
+    environment.Program ( environment['Name'] + '.exe' , sources + [ resources ] )
 else :
-    environment.Program ( environment['NAME'] , sources )
+    environment.Program ( environment['Name'] , sources )

@@ -16,8 +16,8 @@
 #  License.
 #
 #  Author : Russel Winder <russel@russel.org.uk>
-#  $Revision: 7036 $
-#  $Date: 2007-07-27 13:02:47 +0100 (Fri, 27 Jul 2007) $
+#  $Revision$
+#  $Date$
 
 import glob
 import platform
@@ -26,14 +26,10 @@ import platform
 #  and does not distinguish same operating system on different architectures, so we are forced to do things
 #  a bit more unamish.
 
-environment = Environment ( NAME = 'groovy' )
+environment = Environment ( Name = 'groovy' )
 
 unameResult = platform.uname ( )
-
-print unameResult
-
-environment[ 'ARCHITECTURE' ] = unameResult[0]
-
+environment[ 'Architecture' ] = unameResult[0]
 buildDirectory = 'build_scons_' + unameResult[0] + '.' + unameResult[4]
 
 SConscript ( 'source/SConscript' , exports = 'environment' , build_dir = buildDirectory , duplicate = 0 )
