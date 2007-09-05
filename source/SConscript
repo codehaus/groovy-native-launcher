@@ -54,7 +54,7 @@ includeDirectoryName = {
     }
 
 environment.Append ( CPPFLAGS = ' -I"%s" -I"%s"' % ( os.path.join ( javaHome , 'include'  , includeDirectoryName [ environment[ 'Architecture' ] ] ) , os.path.join ( javaHome , 'include' ) ) )
-if environment[ 'Architecture' ] == 'Windows' :
+if environment[ 'PLATFORM' ] == 'windows' :
     # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
     # c4255 == 'function' : no function prototype given: converting '()' to '(void)'
     # c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
