@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <ctype.h>
 
 #if defined ( __APPLE__ )
 #  include <TargetConditionals.h>
@@ -187,7 +188,12 @@ static jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_
           break ;
         }
         
-        if ( !firstGroovyJarFound && !( firstGroovyJarFound = createCPEntry( groovyHome, jarName ) ) ) goto end ;
+        if ( !firstGroovyJarFound && 
+           // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
+           // aren't available, we'll just check that the char following 
+           // groovy- is a digit
+           isdigit( jarName[ 7 ] ) && 
+          !( firstGroovyJarFound = createCPEntry( groovyHome, jarName ) ) ) goto end ;
         
       }
 
@@ -261,7 +267,12 @@ static jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_
         break ;
       }
 
-      if ( !firstGroovyJarFound && !( firstGroovyJarFound = createCPEntry( groovyHome, jarName ) ) ) goto end ;
+      if ( !firstGroovyJarFound    && 
+           // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
+           // aren't available, we'll just check that the char following 
+           // groovy- is a digit
+           isdigit( jarName[ 7 ] ) && 
+           !( firstGroovyJarFound = createCPEntry( groovyHome, jarName ) ) ) goto end ;
       
     }
   }
@@ -418,8 +429,8 @@ int main( int argc, char** argv ) {
   #endif
   g_pad->stackbase = sbase ;
   
-  if ( g_pad->stackbase - g_pad->end ) {
-    size_t delta = g_pad->stackbase - g_pad->end ;
+  if ( (*(size_t*)(g_pad->stackbase)) - (*(size_t*)(g_pad->end)) ) {
+    size_t delta = (*(size_t*)(g_pad->stackbase)) - (*(size_t*)(g_pad->end)) ; //g_pad->stackbase - g_pad->end ;
     g_pad->backup = malloc( delta ) ;
     if ( !( g_pad->backup ) ) {
       fprintf( stderr, "error: out of mem when copying stack state\n" ) ;
@@ -431,8 +442,8 @@ int main( int argc, char** argv ) {
   mainRval = rest_of_main( argc, argv ) ;
   
   // clean up the stack (is it necessary? we are exiting the program anyway...)
-  if ( g_pad->stackbase - g_pad->end ) {
-    size_t delta = g_pad->stackbase - g_pad->end ;
+  if ( (*(size_t*)(g_pad->stackbase)) - (*(size_t*)(g_pad->end)) ) {
+    size_t delta = (*(size_t*)(g_pad->stackbase)) - (*(size_t*)(g_pad->end)) ;
     memcpy( g_pad->end, g_pad->backup, delta ) ; 
     free( g_pad->backup ) ;
   }  
