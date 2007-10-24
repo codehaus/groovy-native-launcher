@@ -57,7 +57,7 @@ def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources
 
 case Environment[ 'Architecture' ]
 when MAC_OS_X
-  $cppFlags = "-I \"#{javaHome}/Headers\""
+  $cppFlags += " -I'#{javaHome}/Headers'"
 when CYGWIN
   # TODO: do the object files really need to be compiled w/ -mwindows or is it sufficient to use that option just when linking?
   # A quote from the cygwin manual:
