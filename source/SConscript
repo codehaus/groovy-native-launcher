@@ -30,13 +30,13 @@ try :
 except :
     javaHome = '' 
 if javaHome == '' :
-  if environment['PLATFORM'] == 'darwin' :
-    putativeDirectory = '/System/Library/Frameworks/JavaVM.framework'
-    if os.path.isdir ( putativeDirectory ) :
-        javaHome = putativeDirectory
-        environment.Append ( CPPFLAGS = ' -I"%s/Headers"' % ( javaHome ) )
-    else : raise Exception , 'JAVA_HOME not defined and %s not found.' % ( putativeDirectory )
-  else : raise Exception , 'JAVA_HOME not defined.'
+    if environment['PLATFORM'] == 'darwin' :
+        putativeDirectory = '/System/Library/Frameworks/JavaVM.framework'
+        if os.path.isdir ( putativeDirectory ) :
+            javaHome = putativeDirectory
+            environment.Append ( CPPFLAGS = ' -I"%s/Headers"' % ( javaHome ) )
+        else : raise Exception , 'JAVA_HOME not defined and %s not found.' % ( putativeDirectory )
+    else : raise Exception , 'JAVA_HOME not defined.'
 
 if environment['PLATFORM'] == 'cygwin' :
     javaHome = javaHome.replace ( '\\' , '/' )
