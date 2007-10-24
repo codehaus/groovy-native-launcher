@@ -85,8 +85,14 @@
 
 #  elif defined ( __APPLE__ )
 
-#    define PATHS_TO_SERVER_JVM "Libraries/libserver.dylib"
-#    define PATHS_TO_CLIENT_JVM "Libraries/libclient.dylib"
+//  The user could use the /System/Library/Frameworks/JavaVM.framework/Home or
+//  /System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Home as their JAVA_HOME since that is
+//  the more Linux/Solaris/Unix like location (the default is /System/Library/Frameworks/JavaVM.framework).
+//  The issue is that all the dynamic libraries are not in that part of the tree.  To deal with this we try
+//  one rather than two places to search.
+
+#    define PATHS_TO_SERVER_JVM "Libraries/libserver.dylib", "../Libraries/libserver.dylib"
+#    define PATHS_TO_CLIENT_JVM "Libraries/libclient.dylib", "../Libraries/libclient.dylib"
 
 #    define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM_Impl"
 
