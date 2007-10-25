@@ -324,14 +324,14 @@ char* getGroovyHome() {
     strcpy( _ghome, appHome ) ;
     _ghome[ len - 2 * strlen( JST_FILE_SEPARATOR ) - 3 ] = '\0' ; // cut of the "bin" (where the executable lives) from the given path
     // check that conf/groovy-starter.conf ( == 24 chars) exists ( + nul char )
-    gconfFile = calloc( curSize = len + 25, sizeof( char ) ) ;
+    curSize = ( len + 25 ) * sizeof( char ) ;
+    gconfFile = jst_append( NULL, &curSize, _ghome, JST_FILE_SEPARATOR "conf" JST_FILE_SEPARATOR "groovy-starter.conf", NULL ) ; 
     if ( !gconfFile ) {
-      fprintf( stderr, "error: out of memory when figuring out groovy home\n" ) ;
-      return NULL ;
+      free( _ghome ) ;
+      _ghome = NULL ;
+      goto end ;
     }
   
-    if ( !jst_append( gconfFile, &curSize, _ghome, "conf" JST_FILE_SEPARATOR "groovy-starter.conf", NULL ) ) goto end ;
-
     gconfExists = jst_fileExists( gconfFile ) ;
 
     if ( gconfExists ) {
