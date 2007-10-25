@@ -947,14 +947,14 @@ next_arg:
   toolsJarFile = jst_append( NULL, &len, javaHome,  JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR "tools.jar", NULL ) ;  
   if ( !toolsJarFile ) goto end ;
 
-#if defined ( __APPLE__ )
-  // os-x jdk seems to have tools.jar in a different place than other jdks...
-  if ( !jst_fileExists( toolsJarFile ) ) { 
-    toolsJarFile[ 0 ] = '\0' ;
-    toolsJarFile = jst_append( toolsJarFile, &len, "/System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Classes/classes.jar", NULL ) ;
-    if ( !toolsJarFile ) goto end ;
-  } 
-#endif
+// #if defined ( __APPLE__ )
+  // // os-x jdk seems to have tools.jar in a different place than other jdks...
+  // if ( !jst_fileExists( toolsJarFile ) ) { 
+    // toolsJarFile[ 0 ] = '\0' ;
+    // toolsJarFile = jst_append( toolsJarFile, &len, "/System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Classes/classes.jar", NULL ) ;
+    // if ( !toolsJarFile ) goto end ;
+  // } 
+// #endif
   if ( jst_fileExists( toolsJarFile ) ) {
     // add as java env property if requested
     if ( ( options->toolsJarHandling ) & JST_TOOLS_JAR_TO_SYSPROP ) {
