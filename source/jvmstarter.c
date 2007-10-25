@@ -436,6 +436,8 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
         goto end ;
       }
     }
+    // this is not optimal, it would be better to keep track of the current position to add to, 
+    // add there w/ memcpy and then add nul char after the loop in the end of str
     strcat( target, s ) ;
   }
   
@@ -933,31 +935,32 @@ next_arg:
   if(options->jars) {
     char* jarName;
     
-    for(i = 0; (jarName = options->jars[i++]); ) {
-      if(!( classpath = appendCPEntry(classpath, &cpsize, jarName) ) ) goto end;
+    for( i = 0 ; (jarName = options->jars[i++]) ; ) {
+      if ( !( classpath = appendCPEntry( classpath, &cpsize, jarName ) ) ) goto end ;
     }
     
   }
 
   // tools.jar handling
-  toolsJarFile = malloc( strlen(javaHome) + 1 + 2 * strlen(JST_FILE_SEPARATOR) + 12 );
-  if(!toolsJarFile) {
-    fprintf(stderr, "error: out of memory when handling tools jar\n");
-    goto end; 
-  }
-  strcpy(toolsJarFile, javaHome);
-  strcat(toolsJarFile, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR "tools.jar");
+  // tools.jar is not present on a jre, so in that case we omit the -Dtools.jar= option
+  len = strlen( javaHome ) + 2 * strlen( JST_FILE_SEPARATOR ) + 12 + 1 ;
+  toolsJarFile = jst_append( NULL, &len, javaHome,  JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR "tools.jar", NULL ) ;  
+  if ( !toolsJarFile ) goto end ;
 
-  if(jst_fileExists(toolsJarFile)) { // tools.jar is not present on a jre
+#if defined ( __APPLE__ )
+  // os-x jdk seems to have tools.jar in a different place than other jdks...
+  if ( !jst_fileExists( toolsJarFile ) ) { 
+    toolsJarFile[ 0 ] = '\0' ;
+    toolsJarFile = jst_append( toolsJarFile, &len, "/System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Classes/classes.jar", NULL ) ;
+    if ( !toolsJarFile ) goto end ;
+  } 
+#endif
+  if ( jst_fileExists( toolsJarFile ) ) {
     // add as java env property if requested
     if ( ( options->toolsJarHandling ) & JST_TOOLS_JAR_TO_SYSPROP ) {
-      toolsJarD = malloc(strlen(toolsJarFile) + 12 + 1); // "-Dtools.jar=" == 12 chars + null char
-      if( !toolsJarD ) {
-        fprintf( stderr, "error: could not allocate memory for -Dtools.jar sys prop\n" ) ;
-        goto end ;
-      }
-      strcpy( toolsJarD, "-Dtools.jar=" ) ;
-      strcat( toolsJarD, toolsJarFile   ) ;
+      len       = strlen(toolsJarFile) + 12 + 1 ; // "-Dtools.jar=" == 12 chars + null char
+      toolsJarD = jst_append( NULL, &len, "-Dtools.jar=", toolsJarFile, NULL ) ;
+      if ( !toolsJarD ) goto end ;
 
       if ( !( jvmOptions = appendJvmOption( jvmOptions, 
                                             jvmOptionsCount++, 
@@ -965,8 +968,9 @@ next_arg:
                                             toolsJarD, 
                                             NULL ) ) ) goto end ; 
     }
+    
     // add tools.jar to startup classpath if requested
-    if(((options->toolsJarHandling) & JST_TOOLS_JAR_TO_CLASSPATH) 
+    if ( ( (options->toolsJarHandling ) & JST_TOOLS_JAR_TO_CLASSPATH ) 
      && !( classpath = appendCPEntry(classpath, &cpsize, toolsJarFile) ) ) goto end;
   }
   
