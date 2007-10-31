@@ -22,6 +22,7 @@
 #include <stdarg.h>
 
 #include <assert.h>
+#include <errno.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -234,6 +235,117 @@ extern char* jst_getExecutableHome() {
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+/** Tries to find Java home by looking where java command is located on PATH. */
+extern char* jst_findJavaHomeFromPath() {
+  static char* _javaHome = NULL ;
+  char *path = NULL, *p, *javahome = NULL, *p2 = NULL ;
+  size_t jhlen = 0 ;
+  
+  p = getenv( "PATH" ) ;
+  if ( !p ) goto end ;
+  
+  if ( !( path = malloc( strlen( p ) + 1 ) ) ) { fprintf( stderr, strerror( errno ) ) ; goto end ; }
+  strcpy( path, p ) ;
+  
+  p2 = path ; // a var used only as param to strtok
+  while ( ( p = strtok( p2, JST_PATH_SEPARATOR ) ) ) {
+    size_t len = strlen( p ) ;
+    p2 = NULL ;
+    if ( len == 0 ) continue ;
+    if ( len > jhlen ) {
+      jhlen = len + 100 + 1 ; // 100 is arbitrary, big enough
+      javahome = javahome ? realloc( javahome, jhlen ) : malloc( jhlen ) ;
+      if ( !javahome ) { fprintf( stderr, strerror( errno ) ) ; goto end ; } // TODO: maybe signal error to caller in some way?
+    }
+    strcpy( javahome, p ) ;
+    if ( javahome[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) {
+      javahome[ len ] = JST_FILE_SEPARATOR[ 0 ] ;
+      javahome[ len  + 1 ] = '\0' ;
+    }
+    strcat( javahome, "java" 
+#if defined( _WIN32 )
+                      ".exe"
+#endif
+    ) ;
+    if ( jst_fileExists( javahome ) ) {
+#if !defined( _WIN32 )
+      char realPath[ MAX_PATH + 1 ] ;
+      if ( !realpath( javahome, realpath ) ) {
+        fprintf( stderr, "%s\n", strerror( errno ) ) ;
+        goto end ;
+      }
+      if ( jhlen < ( len = strlen( realPath ) + 1 ) {
+        javahome = realloc( javaome, jhlen = len ) ;
+        if ( !javahome ) {
+          fprintf( stderr, strerror( errno ) ) ;
+          goto end ;
+        }
+      }
+      strcpy( javahome, realpath ) ;
+#endif
+      *( strrchr( javahome, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;
+      len = strlen( javahome ) ;
+      if ( len < 4 ) goto end ;
+      // see if we are in the bin dir of java home
+      if ( memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
+        javahome[ len -= 4 ] = '\0' ;
+        _javaHome = malloc( len + 1 ) ;
+        if ( !_javaHome ) { fprintf( stderr, strerror( errno ) ) ; goto end ; }
+        strcpy( _javaHome, javahome ) ;
+      }
+      break ;
+    }
+    // check if this is a valid java home (how?)
+  }
+  
+  end:
+  if ( path     ) free( path ) ;
+  if ( javahome ) free( javahome ) ;
+  return _javaHome ;
+}
+
+#if defined( _WIN32 )
+
+static char* findJavaHomeFromWinRegistry() {
+  static char* _javaHome = NULL ;
+  if ( _javaHome ) return _javaHome ;
+  // TODO
+  return _javaHome ;
+}
+#endif
+
+/** First sees if JAVA_HOME is set and points to an existing location (the validity is not checked).
+ * Next, windows registry is checked (if on windows). Last, java is looked up from the PATH. */
+static char* findJavaHome( JavaHomeHandling javaHomeHandling ) {
+  static char* _javaHome = NULL ;
+  char* javahome ;
+  
+  if ( _javaHome ) return _javaHome ;
+  
+  if ( javaHomeHandling & JST_ALLOW_JH_ENV_VAR_LOOKUP ) {
+    javahome = getenv( "JAVA_HOME" ) ;
+    if ( javahome ) {
+      if ( jst_fileExists( javahome ) ) 
+        return _javaHome = javahome ;
+      else
+        fprintf( stderr, "warning: JAVA_HOME points to an invalid location\n" ) ;
+    }
+  }
+#if defined( _WIN32 )
+  if ( (javaHomeHandling & JST_ALLOW_REGISTRY_LOOKUP) && ( _javaHome = findJavaHomeFromWinRegistry() ) ) return _javaHome ; 
+#endif
+  _javaHome = jst_findJavaHomeFromPath() ;
+#if defined ( __APPLE__ )
+  if ( !_javaHome || !_javaHome[ 0 ] ) _javaHome = "/System/Library/Frameworks/JavaVM.framework" ;
+#endif
+
+  
+  if ( !_javaHome ) fprintf( stderr, "error: could not locate java home\n" ) ;
+  return _javaHome ;
+  
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 extern int jst_contains(char** args, int* numargs, const char* option, const jboolean removeIfFound) {
   int i       = 0, 
@@ -330,7 +442,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, jboolean useServerVm) {
 
   rval.creatorFunc  = NULL;
   rval.dynLibHandle = NULL;
-
+  // TODO: if client mode and client jvm is not found, fall back to server jvm (if exists), unless -client is explicit
   if(useServerVm) {
     mode = "server";
     lookupDirs = potentialPathsToServerJVM;
@@ -419,7 +531,7 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
   char *s ;
   
   if ( !target && !( target = calloc( *bufsize, sizeof( char ) ) ) ) {
-    fprintf( stderr, "error: out of memory creating a string\n" ) ;
+    fprintf( stderr, strerror( errno ) ) ;
     return NULL ;
   }
   
@@ -432,7 +544,7 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
     if ( newSize > *bufsize ) {
       *bufsize = newSize + INCREMENT ; 
       if ( ! ( target = realloc( target, *bufsize ) ) ) {
-        fprintf( stderr, "error: out of memory when concatenating strings. Currently adding \"%s\"\n", s ) ;
+        fprintf( stderr, "%serror: out of memory when concatenating strings. Currently adding \"%s\"\n", strerror( errno ), s ) ;
         goto end ;
       }
     }
@@ -868,12 +980,8 @@ next_arg:
 
   // handle java home
   // it is null if it was not given as a param
-  if(!javaHome) javaHome = options->java_home;
-  if(!javaHome && ((options->javahomeHandling) & JST_ALLOW_JH_ENV_VAR_LOOKUP)) javaHome = getenv("JAVA_HOME");
-
-#if defined ( __APPLE__ )
-  if ( ! javaHome || ! javaHome[0] ) { javaHome = "/System/Library/Frameworks/JavaVM.framework" ; }
-#endif
+  if ( !javaHome ) javaHome = options->java_home ;
+  if ( !javaHome ) javaHome = findJavaHome( options->javahomeHandling ) ; 
 
   if(!javaHome || !javaHome[0]) { // not found or an empty string
     fprintf(stderr, ((options->javahomeHandling) & JST_ALLOW_JH_ENV_VAR_LOOKUP) ? "error: JAVA_HOME not set\n" : 
@@ -954,7 +1062,7 @@ next_arg:
     // toolsJarFile = jst_append( toolsJarFile, &len, "/System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Classes/classes.jar", NULL ) ;
     // if ( !toolsJarFile ) goto end ;
   // } 
-// #endif
+// #endif // TODO: check if we are in a jre under a jdk. In that case the tools jar can be found by taking away the lib before appending lib/tools.jar
   if ( jst_fileExists( toolsJarFile ) ) {
     // add as java env property if requested
     if ( ( options->toolsJarHandling ) & JST_TOOLS_JAR_TO_SYSPROP ) {
@@ -1159,15 +1267,15 @@ next_arg:
   launcheeMainClassHandle = (*env)->FindClass(env, options->mainClassName);
   if(!launcheeMainClassHandle) {
     clearException(env);
-    fprintf(stderr, "error: could not find groovy startup class %s\n", options->mainClassName);
-    goto end;
+    fprintf( stderr, "error: could not find startup class %s\n", options->mainClassName ) ;
+    goto end ;
   }
   launcheeMainMethodID = (*env)->GetStaticMethodID(env, launcheeMainClassHandle, options->mainMethodName, "([Ljava/lang/String;)V");
   if(!launcheeMainMethodID) {
     clearException(env);
-    fprintf(stderr, "error: could not find groovy startup method \"%s\" in class %s\n", 
+    fprintf(stderr, "error: could not find startup method \"%s\" in class %s\n", 
                     options->mainMethodName, options->mainClassName);
-    goto end;
+    goto end ;
   }
 
   // finally: launch the java application!

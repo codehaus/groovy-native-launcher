@@ -1,4 +1,4 @@
-//  Groovy -- A native launcher for Groovy
+//  A simple library for creating a native launcher for a java app
 //
 //  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) iki dot fi) 
 //
@@ -17,7 +17,12 @@
 //  $Date$
 
 
-#ifndef _JVMSTARTER_H_
+#if !defined( _JVMSTARTER_H_ )
+
+#if defined( __cplusplus )
+  extern "C" {
+#endif
+
 #define _JVMSTARTER_H_
 
 #if defined(_WIN32)
@@ -48,30 +53,40 @@ typedef struct {
   JstParamClass type;
 } JstParamInfo;
 
+typedef enum {
 // classpath handling constants
 /** if neiyher of these first two is given, CLASSPATH value is always appended to jvm classpath */
-#define JST_IGNORE_GLOBAL_CP 1
+  JST_IGNORE_GLOBAL_CP = 1,
 /** global CLASSPATH is appended to jvm startup classpath only if -cp / --classpath is not given */
-#define JST_IGNORE_GLOBAL_CP_IF_PARAM_GIVEN 2
+  JST_IGNORE_GLOBAL_CP_IF_PARAM_GIVEN = 2,
 /** this can be given w/ the following */
-#define JST_CP_PARAM_TO_APP 4
-/**  */
-#define JST_CP_PARAM_TO_JVM 8
+  JST_CP_PARAM_TO_APP = 4,
+/** pass the given cp param to jvm startup classpath */
+  JST_CP_PARAM_TO_JVM = 8
+} ClasspathHandling ;
 
-
-// javahome handling constants
-#define JST_USE_ONLY_GIVEN_JAVA_HOME 0
+/** javahome handling constants.
+ * In order of precedence: programmatically given jh -> jh-para -> env var -> path -> win registry (ms windows only)
+ */
+typedef enum {
+  JST_USE_ONLY_GIVEN_JAVA_HOME = 0,
 /** If given java_home == null, try to look it up from JAVA_HOME environment variable. */
-#define JST_ALLOW_JH_ENV_VAR_LOOKUP 1
+  JST_ALLOW_JH_ENV_VAR_LOOKUP = 1,
 /** Allow giving java home as -jh / --javahome parameter. The precedence is 
  * -jh command line parameter, java_home argument and then JAVA_HOME env var (if allowed). */
-#define JST_ALLOW_JH_PARAMETER 2
+  JST_ALLOW_JH_PARAMETER = 2,
+/** Check windows registry when looking for java home. */
+  JST_ALLOW_REGISTRY_LOOKUP = 4,
+  /** Check if java home can be found by inspecting where java executable is located on the path. */ 
+  JST_ALLOW_PATH_LOOKUP     = 8
+} JavaHomeHandling ;
 
 // these can be or:d together w/ |
-#define JST_IGNORE_TOOLS_JAR 0
-#define JST_TOOLS_JAR_TO_CLASSPATH 1
-#define JST_TOOLS_JAR_TO_SYSPROP 2
-
+typedef enum {
+  JST_IGNORE_TOOLS_JAR       = 0,
+  JST_TOOLS_JAR_TO_CLASSPATH = 1,
+  JST_TOOLS_JAR_TO_SYSPROP = 2
+} ToolsJarHandling ;
  /** Note that if you tell that -cp / --classpath and/or -jh / --javahome params are handled automatically. 
   * If you do not want the user to be able to affect 
   * javahome, specify these two as double params and their processing is up to you. 
@@ -82,11 +97,11 @@ typedef struct {
   /** The name of the env var where to take extra jvm params from. May be NULL. */
   char* javaOptsEnvVar ;
   /** what to do about tools.jar */
-  int toolsJarHandling;
+  ToolsJarHandling toolsJarHandling ;
   /** See the constants above. */
-  int javahomeHandling; 
+  JavaHomeHandling javahomeHandling ; 
   /** See the constants above. */
-  int classpathHandling; 
+  ClasspathHandling classpathHandling ; 
   /** The arguments the user gave. Usually just give argv + 1 */
   char** arguments; 
   /** The arguments the user gave. Usually just give argv - 1 */
@@ -148,7 +163,7 @@ int jst_indexOfParam( char** args, int numargs, char* paramToSearch) ;
 /** Appends the given strings to target. size param tells the current size of target (target must have been
  * dynamically allocated, i.e. not from stack). If necessary, target is reallocated into a bigger space. 
  * Returns the possibly new location of target, and modifies the size inout parameter accordingly. 
- * If target is NULL, it is allocated w/ the given size. */
+ * If target is NULL, it is allocated w/ the given size (or bigger if given size does not fit all the given strings). */
 char* jst_append( char* target, size_t* size, ... ) ; 
 
 /** If array is NULL, a new one will be created, size arlen. */
@@ -157,6 +172,10 @@ void* appendArrayItem( void* array, int index, size_t* arlen, void* item, int it
 /** As the previous, but specifically for jvm options. 
  * @param extraInfo JavaVMOption.extraInfo. See jni.h or jni documentation (JavaVMOption is defined in jni.h). */
 JavaVMOption* appendJvmOption( JavaVMOption* opts, int index, size_t* optsSize, char* optStr, void* extraInfo ) ;
+
+#if defined( __cplusplus )
+  } // end extern "C"
+#endif
 
 #endif // ifndef _JVMSTARTER_H_
 
