@@ -116,6 +116,11 @@
 
 #endif
 
+typedef enum {
+  CLIENT_JVM = 1,
+  SERVER_JVM = 2,
+  NO_MODE_SELECTED = 0
+} JVMMode ;
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 static jboolean _jst_debug = JNI_FALSE;
@@ -429,26 +434,30 @@ extern char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const c
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 /** In case there are errors, the returned struct contains only NULLs. */
-static JavaDynLib findJVMDynamicLibrary(char* java_home, jboolean useServerVm) {
+static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMMode jvmmode ) {
   
   char path[PATH_MAX + 1], *mode;
   JavaDynLib rval;
   int i = 0, j = 0;
   DLHandle jvmLib = (DLHandle)0;
-  char* potentialPathsToServerJVM[]   = { PATHS_TO_SERVER_JVM, NULL};
-  char*   potentialPathsToClientJVM[] = { PATHS_TO_CLIENT_JVM, NULL};
+  char* potentialPathsToServerJVM[] = { PATHS_TO_SERVER_JVM, NULL } ;
+  char* potentialPathsToClientJVM[] = { PATHS_TO_CLIENT_JVM, NULL } ;
+  char* potentialPathsToAnyJVM[]    = { PATHS_TO_SERVER_JVM, PATHS_TO_CLIENT_JVM, NULL } ;
   char** lookupDirs = NULL;
   char*  dynLibFile;
 
   rval.creatorFunc  = NULL;
   rval.dynLibHandle = NULL;
   // TODO: if client mode and client jvm is not found, fall back to server jvm (if exists), unless -client is explicit
-  if(useServerVm) {
+  if ( jvmmode == SERVER_JVM ) {
     mode = "server";
-    lookupDirs = potentialPathsToServerJVM;
-  } else {
+    lookupDirs = potentialPathsToServerJVM ;
+  } else if ( jvmmode == CLIENT_JVM ) {
     mode = "client";
-    lookupDirs = potentialPathsToClientJVM;
+    lookupDirs = potentialPathsToClientJVM ;
+  } else {
+    mode = "client or server" ;
+    lookupDirs = potentialPathsToAnyJVM ;
   }
   
   for(i = 0; i < 2; i++) { // try both jdk and jre style paths
@@ -843,7 +852,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
                  userJvmOptionsCount  = 0,
                  jvmOptionsCount      = 0 ;
 
-  jboolean     serverVMRequested        = JNI_FALSE;
+  JVMMode      jvmmode                  = NO_MODE_SELECTED ;
   jclass       launcheeMainClassHandle  = NULL;
   jclass       strClass                 = NULL;
   jmethodID    launcheeMainMethodID     = NULL;
@@ -932,12 +941,12 @@ extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
       } // switch
     } // for j
 
-    if(strcmp("-server", argument) == 0) { // jvm client or server
-      serverVMRequested = JNI_TRUE;
-      continue;
-    } else if(strcmp("-client", argument) == 0) {
-      // do nothing - client jvm is the default
-      continue;
+    if ( strcmp( "-server", argument) == 0 ) { // jvm client or server
+      jvmmode = SERVER_JVM ;
+      continue ;
+    } else if ( strcmp("-client", argument) == 0 ) {
+      jvmmode = CLIENT_JVM ;
+      continue ;
     } else if( ((options->javahomeHandling) & JST_ALLOW_JH_PARAMETER) &&  
                ( (strcmp("-jh", argument) == 0)
               || (strcmp("--javahome", argument) == 0) 
@@ -1162,7 +1171,7 @@ next_arg:
 
   
   // fetch the pointer to jvm creator func and invoke it
-  javaLib = findJVMDynamicLibrary(javaHome, serverVMRequested);
+  javaLib = findJVMDynamicLibrary( javaHome, jvmmode ) ;
   if(!javaLib.creatorFunc) goto end; // error message already printed
   
   // the cast to void* before void** serves to remove a gcc warning
