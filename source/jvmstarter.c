@@ -243,7 +243,7 @@ extern char* jst_getExecutableHome() {
 /** Tries to find Java home by looking where java command is located on PATH. */
 extern char* jst_findJavaHomeFromPath() {
   static char* _javaHome = NULL ;
-  char *path = NULL, *p, *javahome = NULL, *p2 = NULL ;
+  char *path = NULL, *p, *javahome = NULL, *p2 ;
   size_t jhlen = 0 ;
   
   p = getenv( "PATH" ) ;
@@ -252,10 +252,8 @@ extern char* jst_findJavaHomeFromPath() {
   if ( !( path = malloc( strlen( p ) + 1 ) ) ) { fprintf( stderr, strerror( errno ) ) ; goto end ; }
   strcpy( path, p ) ;
   
-  p2 = path ; // a var used only as param to strtok
-  while ( ( p = strtok( p2, JST_PATH_SEPARATOR ) ) ) {
+  for ( p2 = path ; ( p = strtok( p2, JST_PATH_SEPARATOR ) ) ; p2 = NULL ) {
     size_t len = strlen( p ) ;
-    p2 = NULL ;
     if ( len == 0 ) continue ;
     if ( len > jhlen ) {
       jhlen = len + 100 + 1 ; // 100 is arbitrary, big enough
@@ -274,7 +272,7 @@ extern char* jst_findJavaHomeFromPath() {
     ) ;
     if ( jst_fileExists( javahome ) ) {
 #if !defined( _WIN32 )
-      char realPath[ MAX_PATH + 1 ] ;
+      char realPath[ PATH_MAX + 1 ] ;
       if ( !realpath( javahome, realpath ) ) {
         fprintf( stderr, "%s\n", strerror( errno ) ) ;
         goto end ;
@@ -313,6 +311,7 @@ extern char* jst_findJavaHomeFromPath() {
 
 static char* findJavaHomeFromWinRegistry() {
   static char* _javaHome = NULL ;
+  LONG status ;
   if ( _javaHome ) return _javaHome ;
   // TODO
   return _javaHome ;
