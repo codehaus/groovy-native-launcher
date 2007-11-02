@@ -255,7 +255,7 @@ extern char* jst_findJavaHomeFromPath() {
   for ( p2 = path ; ( p = strtok( p2, JST_PATH_SEPARATOR ) ) ; p2 = NULL ) {
     size_t len = strlen( p ) ;
     if ( len == 0 ) continue ;
-    if ( len > jhlen ) {
+    if ( ( len + 100 + 1 ) > jhlen ) {
       jhlen = len + 100 + 1 ; // 100 is arbitrary, big enough
       javahome = javahome ? realloc( javahome, jhlen ) : malloc( jhlen ) ;
       if ( !javahome ) { fprintf( stderr, strerror( errno ) ) ; goto end ; } // TODO: maybe signal error to caller in some way?
@@ -292,6 +292,7 @@ extern char* jst_findJavaHomeFromPath() {
       // see if we are in the bin dir of java home
       if ( memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
         javahome[ len -= 4 ] = '\0' ;
+        assert( len == strlen( javahome ) ) ;
         _javaHome = malloc( len + 1 ) ;
         if ( !_javaHome ) { fprintf( stderr, strerror( errno ) ) ; goto end ; }
         strcpy( _javaHome, javahome ) ;
@@ -302,7 +303,7 @@ extern char* jst_findJavaHomeFromPath() {
   }
   
   end:
-  if ( path     ) free( path ) ;
+  if ( path     ) free( path     ) ;
   if ( javahome ) free( javahome ) ;
   return _javaHome ;
 }
