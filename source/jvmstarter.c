@@ -278,7 +278,7 @@ extern char* jst_findJavaHomeFromPath() {
         goto end ;
       }
       if ( jhlen < ( len = strlen( realPath ) + 1 ) ) {
-        javahome = realloc( javaome, jhlen = len ) ;
+        javahome = realloc( javahome, jhlen = len ) ;
         if ( !javahome ) {
           fprintf( stderr, strerror( errno ) ) ;
           goto end ;
