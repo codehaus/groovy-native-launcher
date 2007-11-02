@@ -335,10 +335,13 @@ static char* findJavaHome( JavaHomeHandling javaHomeHandling ) {
         fprintf( stderr, "warning: JAVA_HOME points to an invalid location\n" ) ;
     }
   }
+  
+  if ( (javaHomeHandling & JST_ALLOW_PATH_LOOKUP)     && ( _javaHome = jst_findJavaHomeFromPath()    ) ) return _javaHome ;
+  
 #if defined( _WIN32 )
   if ( (javaHomeHandling & JST_ALLOW_REGISTRY_LOOKUP) && ( _javaHome = findJavaHomeFromWinRegistry() ) ) return _javaHome ; 
 #endif
-  _javaHome = jst_findJavaHomeFromPath() ;
+
 #if defined ( __APPLE__ )
   if ( !_javaHome || !_javaHome[ 0 ] ) _javaHome = "/System/Library/Frameworks/JavaVM.framework" ;
 #endif

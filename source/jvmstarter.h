@@ -65,8 +65,27 @@ typedef enum {
   JST_CP_PARAM_TO_JVM = 8
 } ClasspathHandling ;
 
+/** The strategy to use when selecting between using client and server jvm *if* no explicit -client/-server param. If explicit param
+ * is given, then that type of jvm is used, period.
+ *  is given by the user. Bitwise meaning:
+ *  001 -> allow using client jvm
+ *  010 -> allow using server jvm
+ *  100 -> prefer client over server
+ * If you're just passing this as a param, you need not worry about the bitwise meaning, it's just an implementation detail. */
+typedef enum { // TODO: support for this!
+  JST_CLIENT_FIRST     = 7,
+  JST_SERVER_FIRST     = 6,
+  JST_TRY_CLIENT_ONLY  = 1,
+  JST_TRY_SERVER_ONLY  = 2
+} JVMSelectStrategy ;
+
 /** javahome handling constants.
- * In order of precedence: programmatically given jh -> jh-para -> env var -> path -> win registry (ms windows only)
+ * In order of precedence: 
+ *  - programmatically given jh 
+ *  - jh user parameter 
+ *  - JAVA_HOME env var 
+ *  - java home deduced from java executable found on path 
+ *  - win registry (ms windows only) / "/System/Library/Frameworks/JavaVM.framework" (os-x only)
  */
 typedef enum {
   JST_USE_ONLY_GIVEN_JAVA_HOME = 0,

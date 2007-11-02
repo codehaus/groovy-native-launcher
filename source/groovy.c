@@ -688,7 +688,7 @@ int rest_of_main( int argc, char** argv ) {
   options.java_home           = NULL ; // let the launcher func figure it out
   options.javaOptsEnvVar      = "JAVA_OPTS" ;
   options.toolsJarHandling    = JST_TOOLS_JAR_TO_SYSPROP ;
-  options.javahomeHandling    = JST_ALLOW_JH_ENV_VAR_LOOKUP|JST_ALLOW_JH_PARAMETER ; 
+  options.javahomeHandling    = JST_ALLOW_JH_ENV_VAR_LOOKUP | JST_ALLOW_JH_PARAMETER | JST_ALLOW_PATH_LOOKUP | JST_ALLOW_REGISTRY_LOOKUP ; 
   options.classpathHandling   = JST_IGNORE_GLOBAL_CP ; 
   options.arguments           = args ;
   options.numArguments        = numArgs ;
