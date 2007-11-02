@@ -273,7 +273,7 @@ extern char* jst_findJavaHomeFromPath() {
     if ( jst_fileExists( javahome ) ) {
 #if !defined( _WIN32 )
       char realPath[ PATH_MAX + 1 ] ;
-      if ( !realpath( javahome, realpath ) ) {
+      if ( !realpath( javahome, realPath ) ) {
         fprintf( stderr, "%s\n", strerror( errno ) ) ;
         goto end ;
       }
@@ -284,7 +284,7 @@ extern char* jst_findJavaHomeFromPath() {
           goto end ;
         }
       }
-      strcpy( javahome, realpath ) ;
+      strcpy( javahome, realPath ) ;
 #endif
       *( strrchr( javahome, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;
       len = strlen( javahome ) ;
