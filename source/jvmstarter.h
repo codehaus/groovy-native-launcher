@@ -145,6 +145,12 @@ typedef struct {
   char** terminatingSuffixes;
 } JavaLauncherOptions;
 
+/** These wrap the corresponding memory allocation routines. The only difference is that these print an error message if
+ * the call fails. */
+extern void* jst_malloc( size_t size ) ;
+extern void* jst_calloc( size_t nelem, size_t elsize ) ;
+extern void* jst_realloc( void* ptr, size_t size ) ;
+
 
 extern int jst_launchJavaApp(JavaLauncherOptions* options);
 

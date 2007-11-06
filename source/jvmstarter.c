@@ -130,6 +130,25 @@ typedef struct {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+// the only difference to originals is that these print an error msg if they fail
+extern void* jst_malloc( size_t size ) {
+  void* rval = malloc( size ) ;
+  if ( !rval ) fprintf( stderr, "error %d in malloc: %s", errno, strerror( errno ) ) ;
+  return rval ;
+}
+
+extern void* jst_calloc( size_t nelem, size_t elsize ) {
+  void* rval = calloc( nelem, elsize ) ;
+  if ( !rval ) fprintf( stderr, "error %d in calloc: %s", errno, strerror( errno ) ) ;
+  return rval ;  
+}
+
+extern void* jst_realloc( void* ptr, size_t size ) {
+  void* rval = realloc( ptr, size ) ;
+  if ( !rval ) fprintf( stderr, "error %d in realloc: %s", errno, strerror( errno ) ) ;
+  return rval ;
+}
+
 extern char* jst_getExecutableHome() {
   static char* _execHome = NULL;
   
@@ -150,15 +169,13 @@ extern char* jst_getExecutableHome() {
   do {
     if(currentBufSize == 0) {
       currentBufSize = PATH_MAX + 1;
-      execHome = malloc(currentBufSize * sizeof(char));
+      execHome = jst_malloc( currentBufSize * sizeof( char ) ) ;
     } else {
-      execHome = realloc(execHome, (currentBufSize += 100) * sizeof(char));
+      execHome = jst_realloc( execHome, (currentBufSize += 100) * sizeof( char ) ) ;
     }
     
-    if(!execHome) {
-      fprintf(stderr, strerror( errno ) ) ;
-      return NULL; 
-    }
+    if ( !execHome ) return NULL ; 
+    
 
     // reset the error state, just in case it has been left dangling somewhere and 
     // GetModuleFileNameA does not reset it (its docs don't tell). 
@@ -178,10 +195,9 @@ extern char* jst_getExecutableHome() {
 # elif defined( __linux__ ) || defined( __sun__ )
 
   // TODO - remove space for this from the stack, not dynamically
-  procSymlink = malloc(40 * sizeof(char) ); // big enough
-  execHome = malloc((PATH_MAX + 1) * sizeof(char));
+  procSymlink = jst_malloc( 40 * sizeof( char ) ) ; // big enough
+  execHome    = jst_malloc( ( PATH_MAX + 1 ) * sizeof( char ) ) ;
   if( !procSymlink || !execHome ) {
-    fprintf( stderr, strerror( errno ) ) ;
     if ( procSymlink ) free( procSymlink ) ; 
     if ( execHome    ) free( execHome    ) ;
     return NULL ;
@@ -222,9 +238,9 @@ extern char* jst_getExecutableHome() {
   // cut off the executable name
   *(strrchr(execHome, JST_FILE_SEPARATOR[0]) + 1) = '\0';   
   len = strlen(execHome);
-  execHome = realloc(execHome, len + 1); // should not fail as we are shrinking the buffer
-  assert(execHome);
-  return _execHome = execHome;
+  execHome = jst_realloc( execHome, len + 1 ) ; // should not fail as we are shrinking the buffer
+  assert( execHome ) ;
+  return _execHome = execHome ;
   
 # else
   // FIXME - remove this once this feature is supported for __APPLE__
@@ -243,7 +259,7 @@ extern char* jst_findJavaHomeFromPath() {
   p = getenv( "PATH" ) ;
   if ( !p ) goto end ;
   
-  if ( !( path = malloc( strlen( p ) + 1 ) ) ) { fprintf( stderr, strerror( errno ) ) ; goto end ; }
+  if ( !( path = jst_malloc( strlen( p ) + 1 ) ) ) goto end ;
   strcpy( path, p ) ;
   
   for ( p2 = path ; ( p = strtok( p2, JST_PATH_SEPARATOR ) ) ; p2 = NULL ) {
@@ -251,8 +267,8 @@ extern char* jst_findJavaHomeFromPath() {
     if ( len == 0 ) continue ;
     if ( ( len + 100 + 1 ) > jhlen ) {
       jhlen = len + 100 + 1 ; // 100 is arbitrary, big enough
-      javahome = javahome ? realloc( javahome, jhlen ) : malloc( jhlen ) ;
-      if ( !javahome ) { fprintf( stderr, strerror( errno ) ) ; goto end ; } // TODO: maybe signal error to caller in some way?
+      javahome = javahome ? jst_realloc( javahome, jhlen ) : jst_malloc( jhlen ) ;
+      if ( !javahome ) goto end ;  // TODO: maybe signal error to caller in some way?
     }
     strcpy( javahome, p ) ;
     if ( javahome[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) {
@@ -272,11 +288,8 @@ extern char* jst_findJavaHomeFromPath() {
         goto end ;
       }
       if ( jhlen < ( len = strlen( realPath ) + 1 ) ) {
-        javahome = realloc( javahome, jhlen = len ) ;
-        if ( !javahome ) {
-          fprintf( stderr, strerror( errno ) ) ;
-          goto end ;
-        }
+        javahome = jst_realloc( javahome, jhlen = len ) ;
+        if ( !javahome ) goto end ;
       }
       strcpy( javahome, realPath ) ;
 #endif
@@ -287,8 +300,8 @@ extern char* jst_findJavaHomeFromPath() {
       if ( memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
         javahome[ len -= 4 ] = '\0' ;
         assert( len == strlen( javahome ) ) ;
-        _javaHome = malloc( len + 1 ) ;
-        if ( !_javaHome ) { fprintf( stderr, strerror( errno ) ) ; goto end ; }
+        _javaHome = jst_malloc( len + 1 ) ;
+        if ( !_javaHome ) goto end ; 
         strcpy( _javaHome, javahome ) ;
       }
       break ;
@@ -547,10 +560,7 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
   size_t targetlen = ( target ? strlen( target ) : 0 ) ;
   char *s ;
   
-  if ( !target && !( target = calloc( *bufsize, sizeof( char ) ) ) ) {
-    fprintf( stderr, strerror( errno ) ) ;
-    return NULL ;
-  }
+  if ( !target && !( target = jst_calloc( *bufsize, sizeof( char ) ) ) ) return NULL ;
   
   va_start( args, bufsize ) ;
   
@@ -560,10 +570,7 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
     if ( sSize == 0 ) continue ;
     if ( newSize > *bufsize ) {
       *bufsize = newSize + INCREMENT ; 
-      if ( ! ( target = realloc( target, *bufsize ) ) ) {
-        fprintf( stderr, strerror( errno ) ) ;
-        goto end ;
-      }
+      if ( ! ( target = jst_realloc( target, *bufsize ) ) ) goto end ;
     }
     // this is not optimal, it would be better to keep track of the current position to add to, 
     // add there w/ memcpy and then add nul char after the loop in the end of str
@@ -583,16 +590,10 @@ extern void* appendArrayItem( void* array, int indx, size_t* arlen, void* item, 
   // Signed / unsigned does not matter here, only the storage size.
   char *temp ;
 
-  if ( !array && ! ( array = malloc( *arlen * item_size_in_bytes ) ) ) {
-    fprintf( stderr, strerror( errno ) ) ;
-    return NULL ;
-  }
+  if ( !array && ! ( array = jst_malloc( *arlen * item_size_in_bytes ) ) ) return NULL ;
   
   if ( ((size_t)indx) >= *arlen ) {
-    if ( !( array = realloc( array, ( *arlen += 5 ) * item_size_in_bytes ) ) ) {
-      fprintf( stderr, strerror( errno ) ) ;
-      return NULL ;
-    }
+    if ( !( array = jst_realloc( array, ( *arlen += 5 ) * item_size_in_bytes ) ) ) return NULL ;
   }
   
   temp = (char*)array ;
@@ -643,11 +644,8 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
   
   dirNameEndsWithSeparator = ( strcmp(dirName + strlen(dirName) - strlen(JST_FILE_SEPARATOR), JST_FILE_SEPARATOR) == 0 ) ? JNI_TRUE : JNI_FALSE;
   
-  jarEntrySpecifier = malloc((strlen(dirName) + 15) * sizeof(char));
-  if(!jarEntrySpecifier) {
-    fprintf( stderr, strerror( errno ) ) ;
-    return JNI_TRUE ;
-  }
+  jarEntrySpecifier = jst_malloc( ( strlen(dirName) + 15 ) * sizeof( char ) ) ;
+  if ( !jarEntrySpecifier ) return JNI_TRUE ;
   
   // this only works w/ FindFirstFileW. If need be, use that.
 //  strcpy(jarEntrySpecifier, "\\\\?\\"); // to allow long paths, see documentation of FindFirstFile
@@ -884,12 +882,9 @@ extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
   javaLib.dynLibHandle = NULL ;  
 
   // calloc effectively sets all elems to JNI_FALSE.  
-  if(options->numArguments) isLauncheeOption = calloc(options->numArguments, sizeof(jboolean));
+  if ( options->numArguments ) isLauncheeOption = jst_calloc( options->numArguments, sizeof( jboolean ) ) ;
 
-  if ( launcheeParamBeginIndex && !isLauncheeOption ) {
-    fprintf( stderr, strerror( errno ) ) ;
-    goto end ;
-  }
+  if ( launcheeParamBeginIndex && !isLauncheeOption ) goto end ;
   
   
   // find out the argument index after which all the params are launchee (prg being launched) params 
@@ -1031,10 +1026,7 @@ next_arg:
     }
   } 
     
-  if( !( classpath = malloc(cpsize) ) ) {
-    fprintf( stderr, strerror( errno ) ) ;
-    goto end;
-  }
+  if( !( classpath = jst_malloc(cpsize) ) ) goto end ;
 
   strcpy(classpath, "-Djava.class.path=");
   
@@ -1136,10 +1128,8 @@ next_arg:
     if ( userOpts && userOpts[ 0 ] ) {
       userJvmOptCount = 1 ;
       for ( i = 0 ; userOpts[ i ] ; i++ ) if ( userOpts[ i ] == ' ' ) userJvmOptCount++ ;
-      if ( !( userJvmOptsS = malloc( ( strlen( userOpts ) + 1 ) * sizeof( char ) ) ) ) {
-        fprintf( stderr, strerror( errno ) ) ;
-        goto end ;        
-      }
+      if ( !( userJvmOptsS = jst_malloc( ( strlen( userOpts ) + 1 ) * sizeof( char ) ) ) ) goto end ;        
+
       strcpy( userJvmOptsS, userOpts ) ;
 
       while ( ( s = strtok( firstTime ? userJvmOptsS : NULL, " " ) ) ) {
