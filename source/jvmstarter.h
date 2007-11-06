@@ -72,7 +72,7 @@ typedef enum {
  *  010 -> allow using server jvm
  *  100 -> prefer client over server
  * If you're just passing this as a param, you need not worry about the bitwise meaning, it's just an implementation detail. */
-typedef enum { // TODO: support for this!
+typedef enum { 
   JST_CLIENT_FIRST     = 7,
   JST_SERVER_FIRST     = 6,
   JST_TRY_CLIENT_ONLY  = 1,
@@ -112,7 +112,9 @@ typedef enum {
   */
 typedef struct {
   /** May be null. */
-  char* java_home; 
+  char* java_home ;
+  /** what kind of jvm to use. */
+  JVMSelectStrategy jvmSelectStrategy ;
   /** The name of the env var where to take extra jvm params from. May be NULL. */
   char* javaOptsEnvVar ;
   /** what to do about tools.jar */

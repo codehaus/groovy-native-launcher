@@ -54,11 +54,10 @@
 #  define dlclose(handle) FreeLibrary(handle)
 #  define dlerror() NULL
 
-// windows' limits.h does not automatically define this:
-# if !defined( PATH_MAX )   
-#    define PATH_MAX 512
-# endif
-
+#if !defined( PATH_MAX )
+#  define PATH_MAX 512
+#endif
+   
 #else
 
 #  if defined( __linux__ ) && defined( __i386__ )
@@ -116,11 +115,6 @@
 
 #endif
 
-typedef enum {
-  CLIENT_JVM = 1,
-  SERVER_JVM = 2,
-  NO_MODE_SELECTED = 0
-} JVMMode ;
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 static jboolean _jst_debug = JNI_FALSE;
@@ -162,7 +156,7 @@ extern char* jst_getExecutableHome() {
     }
     
     if(!execHome) {
-      fprintf(stderr, "error: out of memory when figuring out executable home dir\n");
+      fprintf(stderr, strerror( errno ) ) ;
       return NULL; 
     }
 
@@ -187,10 +181,10 @@ extern char* jst_getExecutableHome() {
   procSymlink = malloc(40 * sizeof(char) ); // big enough
   execHome = malloc((PATH_MAX + 1) * sizeof(char));
   if( !procSymlink || !execHome ) {
-    fprintf(stderr, "error: out of memory when finding out executable path\n");
-    if(procSymlink) free(procSymlink); 
-    if(execHome)    free(execHome);
-    return NULL;
+    fprintf( stderr, strerror( errno ) ) ;
+    if ( procSymlink ) free( procSymlink ) ; 
+    if ( execHome    ) free( execHome    ) ;
+    return NULL ;
   }
 
   sprintf(procSymlink,
@@ -211,9 +205,9 @@ extern char* jst_getExecutableHome() {
   }
 
   if( !realpath( procSymlink, execHome ) ) {
-    fprintf( stderr, "error: error occurred when trying to find out executable location\n" ) ;
+    fprintf( stderr, strerror( errno ) ) ;
     free( procSymlink ) ;
-    free( execHome ) ;
+    free( execHome    ) ;
     return NULL ;
   }
   free( procSymlink ) ;
@@ -274,7 +268,7 @@ extern char* jst_findJavaHomeFromPath() {
 #if !defined( _WIN32 )
       char realPath[ PATH_MAX + 1 ] ;
       if ( !realpath( javahome, realPath ) ) {
-        fprintf( stderr, "%s\n", strerror( errno ) ) ;
+        fprintf( stderr, strerror( errno ) ) ;
         goto end ;
       }
       if ( jhlen < ( len = strlen( realPath ) + 1 ) ) {
@@ -333,7 +327,7 @@ static char* findJavaHome( JavaHomeHandling javaHomeHandling ) {
       if ( jst_fileExists( javahome ) ) 
         return _javaHome = javahome ;
       else
-        fprintf( stderr, "warning: JAVA_HOME points to an invalid location\n" ) ;
+        fprintf( stderr, "warning: JAVA_HOME points to a nonexistent location\n" ) ;
     }
   }
   
@@ -437,45 +431,56 @@ extern char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const c
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 /** In case there are errors, the returned struct contains only NULLs. */
-static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMMode jvmmode ) {
+static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSelectStrategy ) {
   
-  char path[PATH_MAX + 1], *mode;
+  char path[ PATH_MAX + 1 ], *mode ;
   JavaDynLib rval;
   int i = 0, j = 0;
   DLHandle jvmLib = (DLHandle)0;
   char* potentialPathsToServerJVM[] = { PATHS_TO_SERVER_JVM, NULL } ;
   char* potentialPathsToClientJVM[] = { PATHS_TO_CLIENT_JVM, NULL } ;
-  char* potentialPathsToAnyJVM[]    = { PATHS_TO_SERVER_JVM, PATHS_TO_CLIENT_JVM, NULL } ;
+  char* potentialPathsToAnyJVMPreferringServer[] = { PATHS_TO_SERVER_JVM, PATHS_TO_CLIENT_JVM, NULL } ;
+  char* potentialPathsToAnyJVMPreferringClient[] = { PATHS_TO_CLIENT_JVM, PATHS_TO_SERVER_JVM, NULL } ;
   char** lookupDirs = NULL;
   char*  dynLibFile;
-
+  jboolean preferClient = ( jvmSelectStrategy & 4 ) ? JNI_TRUE : JNI_FALSE,  // third bit
+           allowClient  = ( jvmSelectStrategy & 1 ) ? JNI_TRUE : JNI_FALSE,  // first bit
+           allowServer  = ( jvmSelectStrategy & 2 ) ? JNI_TRUE : JNI_FALSE ; // secons bit
+  
+  assert( allowClient || allowServer ) ;
+  
   rval.creatorFunc  = NULL;
   rval.dynLibHandle = NULL;
-  // TODO: if client mode and client jvm is not found, fall back to server jvm (if exists), unless -client is explicit
-  if ( jvmmode == SERVER_JVM ) {
-    mode = "server";
+
+  if ( allowServer && !allowClient ) {
+    mode = "server" ;
     lookupDirs = potentialPathsToServerJVM ;
-  } else if ( jvmmode == CLIENT_JVM ) {
-    mode = "client";
+  } else if ( allowClient && !allowServer ) {
+    mode = "client" ;
     lookupDirs = potentialPathsToClientJVM ;
   } else {
     mode = "client or server" ;
-    lookupDirs = potentialPathsToAnyJVM ;
+    lookupDirs = preferClient ? potentialPathsToAnyJVMPreferringClient : potentialPathsToAnyJVMPreferringServer ;
   }
   
-  for(i = 0; i < 2; i++) { // try both jdk and jre style paths
-    for(j = 0; ( dynLibFile = lookupDirs[j] ); j++) {
-      strcpy(path, java_home);
-      strcat(path, JST_FILE_SEPARATOR);
-      if(i == 0) { // on a jdk, we need to add jre at this point of the path
-        strcat(path, "jre" JST_FILE_SEPARATOR);
+  for ( i = 0 ; i < 2 ; i++ ) { // try both jdk and jre style paths
+    for ( j = 0; ( dynLibFile = lookupDirs[ j ] ) ; j++ ) {
+      strcpy( path, java_home ) ;
+      strcat( path, JST_FILE_SEPARATOR ) ;
+      if ( i == 0 ) { // on a jdk, we need to add jre at this point of the path
+        strcat( path, "jre" JST_FILE_SEPARATOR ) ;
       }
-      strcat(path, dynLibFile);
-      if(jst_fileExists(path)) {
-        if(!( jvmLib = dlopen(path, RTLD_LAZY) ) )  {
-          fprintf(stderr, "error: dynamic library %s exists but could not be loaded!\n", path);
+      strcat( path, dynLibFile ) ;
+      if ( jst_fileExists( path ) ) {
+        errno = 0 ;
+        if ( !( jvmLib = dlopen( path, RTLD_LAZY ) ) )  {
+          fprintf( stderr, "error: dynamic library %s exists but could not be loaded!\n", path ) ;
+          if ( errno ) fprintf( stderr, strerror( errno ) ) ;
+#         if defined( _WIN32 )
+          fprintf( stderr, "win error code: %u\n", (unsigned int)GetLastError() ) ;
+#         endif
         } 
-        goto exitlookup; // just break out of 2 nested loops
+        goto exitlookup ; // just break out of 2 nested loops
       }
     }
   }
@@ -488,13 +493,13 @@ exitlookup:
     return rval;
   }
 
-  rval.creatorFunc = (JVMCreatorFunc)dlsym(jvmLib, CREATE_JVM_FUNCTION_NAME);
+  rval.creatorFunc = (JVMCreatorFunc)dlsym( jvmLib, CREATE_JVM_FUNCTION_NAME ) ;
 
   if(rval.creatorFunc) {
-    rval.dynLibHandle = jvmLib;
+    rval.dynLibHandle = jvmLib ;
   } else {
     char* errorMsg = dlerror() ;
-    fprintf(stderr, "strange bug: jvm creator function not found in jvm dynamic library %s\n", path);
+    fprintf( stderr, "strange bug: jvm creator function not found in jvm dynamic library %s\n", path ) ;
     if ( errorMsg ) fprintf( stderr, "%s\n", errorMsg ) ; 
   }
   return rval;
@@ -556,7 +561,7 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
     if ( newSize > *bufsize ) {
       *bufsize = newSize + INCREMENT ; 
       if ( ! ( target = realloc( target, *bufsize ) ) ) {
-        fprintf( stderr, "%serror: out of memory when concatenating strings. Currently adding \"%s\"\n", strerror( errno ), s ) ;
+        fprintf( stderr, strerror( errno ) ) ;
         goto end ;
       }
     }
@@ -572,38 +577,38 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
   
 }
 
-extern void* appendArrayItem( void* array, int index, size_t* arlen, void* item, int item_size_in_bytes ) {
+extern void* appendArrayItem( void* array, int indx, size_t* arlen, void* item, int item_size_in_bytes ) {
   // we really need here just any data type whose storage size is one byte. 
   // Since "byte" is not ansi-c, we use char ( sizeof( char ) == 1 ).
   // Signed / unsigned does not matter here, only the storage size.
   char *temp ;
 
   if ( !array && ! ( array = malloc( *arlen * item_size_in_bytes ) ) ) {
-    fprintf( stderr, "error: out of memory creating an array\n" ) ;
+    fprintf( stderr, strerror( errno ) ) ;
     return NULL ;
   }
   
-  if ( ((size_t)index) >= *arlen ) {
+  if ( ((size_t)indx) >= *arlen ) {
     if ( !( array = realloc( array, ( *arlen += 5 ) * item_size_in_bytes ) ) ) {
-      fprintf( stderr, "error: out of memory when adding items to array\n" ) ;
+      fprintf( stderr, strerror( errno ) ) ;
       return NULL ;
     }
   }
   
   temp = (char*)array ;
-  temp += ( index * item_size_in_bytes ) ;
+  temp += ( indx * item_size_in_bytes ) ;
 
   memcpy( temp, item, item_size_in_bytes ) ;
   return array ;
 }
 
-extern JavaVMOption* appendJvmOption( JavaVMOption* opts, int index, size_t* optsSize, char* optStr, void* extraInfo ) {
+extern JavaVMOption* appendJvmOption( JavaVMOption* opts, int indx, size_t* optsSize, char* optStr, void* extraInfo ) {
   JavaVMOption tmp ;
   
   tmp.optionString = optStr    ;
   tmp.extraInfo    = extraInfo ;
   
-  return appendArrayItem( opts, index, optsSize, &tmp, sizeof( JavaVMOption ) ) ;
+  return appendArrayItem( opts, indx, optsSize, &tmp, sizeof( JavaVMOption ) ) ;
   
 }
 
@@ -633,14 +638,14 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
   HANDLE          fileHandle = INVALID_HANDLE_VALUE;
   WIN32_FIND_DATA fdata;
   char            *jarEntrySpecifier = NULL;
-  int             lastError;
+  DWORD           lastError;
   jboolean        dirNameEndsWithSeparator, rval = JNI_TRUE ;
   
   dirNameEndsWithSeparator = ( strcmp(dirName + strlen(dirName) - strlen(JST_FILE_SEPARATOR), JST_FILE_SEPARATOR) == 0 ) ? JNI_TRUE : JNI_FALSE;
   
   jarEntrySpecifier = malloc((strlen(dirName) + 15) * sizeof(char));
   if(!jarEntrySpecifier) {
-    fprintf(stderr, "error: out of mem when accessing dir %s\n", dirName);
+    fprintf( stderr, strerror( errno ) ) ;
     return JNI_TRUE ;
   }
   
@@ -650,16 +655,16 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
   if( !dirNameEndsWithSeparator ) strcat(jarEntrySpecifier, JST_FILE_SEPARATOR);
   strcat(jarEntrySpecifier, "*.jar");
   
-  SetLastError(0);
+  SetLastError( 0 ) ;
   fileHandle = FindFirstFile(jarEntrySpecifier, &fdata);
   
   if(fileHandle == INVALID_HANDLE_VALUE) {
-    fprintf(stderr, "error: opening directory %s failed w/ error code %d\n", dirName, (int)GetLastError());
-    goto end;
+    fprintf( stderr, "error: opening directory %s failed w/ error code %u\n", dirName, (unsigned int)GetLastError() ) ;
+    goto end ;
   }
   
-  lastError = GetLastError();
-  if(!lastError) {
+  lastError = GetLastError() ;
+  if ( !lastError ) {
   
     do {
       // this if and the contained ||s are used so that if any of the
@@ -672,18 +677,18 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
     
   }
     
-  if(!lastError) lastError = GetLastError();
-  if(lastError != ERROR_NO_MORE_FILES) {
-    fprintf(stderr, "error: error %d occurred when finding jars from %s\n", lastError, dirName);
-    goto end;
+  if ( !lastError ) lastError = GetLastError() ;
+  if ( lastError != ERROR_NO_MORE_FILES ) {
+    fprintf( stderr, "error: error %u occurred when finding jars from %s\n", (unsigned int)lastError, dirName ) ;
+    goto end ;
   }
   
   rval = JNI_FALSE ;
   
   end:
-  if(fileHandle != INVALID_HANDLE_VALUE) FindClose(fileHandle);
-  if(jarEntrySpecifier) free(jarEntrySpecifier);
-  return rval;
+  if ( fileHandle != INVALID_HANDLE_VALUE ) FindClose( fileHandle ) ;
+  if ( jarEntrySpecifier ) free( jarEntrySpecifier ) ;
+  return rval ;
       
 # else      
 
@@ -698,7 +703,7 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
 
   dir = opendir(dirName);
   if(!dir) {
-    fprintf(stderr, "error: could not read directory %s to append jar files from\n", dirName);
+    fprintf( stderr, "error: could not read directory %s to append jar files from\n%s", dirName, strerror( errno ) ) ;
     return JNI_TRUE ;
   }
 
@@ -716,7 +721,7 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
 
   end:
   if ( !rval ) {
-    fprintf( stderr, "error: out of memory when adding entries from %s to classpath\n", dirName ) ;
+    fprintf( stderr, strerror( errno ) ) ;
   }
   closedir( dir ) ;
   return rval ;
@@ -855,7 +860,6 @@ extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
                  userJvmOptionsCount  = 0,
                  jvmOptionsCount      = 0 ;
 
-  JVMMode      jvmmode                  = NO_MODE_SELECTED ;
   jclass       launcheeMainClassHandle  = NULL;
   jclass       strClass                 = NULL;
   jmethodID    launcheeMainMethodID     = NULL;
@@ -872,6 +876,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
   char      *javaHome     = NULL, 
             *toolsJarD    = NULL,
             *toolsJarFile = NULL ;
+  JVMSelectStrategy jvmSelectStrategy = options->jvmSelectStrategy ;
 
   if( getenv( "__JLAUNCHER_DEBUG" ) ) _jst_debug = JNI_TRUE;
             
@@ -882,8 +887,8 @@ extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
   if(options->numArguments) isLauncheeOption = calloc(options->numArguments, sizeof(jboolean));
 
   if ( launcheeParamBeginIndex && !isLauncheeOption ) {
-    fprintf(stderr, "error: out of memory at startup!\n");
-    goto end;
+    fprintf( stderr, strerror( errno ) ) ;
+    goto end ;
   }
   
   
@@ -945,10 +950,10 @@ extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
     } // for j
 
     if ( strcmp( "-server", argument) == 0 ) { // jvm client or server
-      jvmmode = SERVER_JVM ;
+      jvmSelectStrategy = JST_TRY_SERVER_ONLY ;
       continue ;
     } else if ( strcmp("-client", argument) == 0 ) {
-      jvmmode = CLIENT_JVM ;
+      jvmSelectStrategy = JST_TRY_CLIENT_ONLY ;
       continue ;
     } else if( ((options->javahomeHandling) & JST_ALLOW_JH_PARAMETER) &&  
                ( (strcmp("-jh", argument) == 0)
@@ -1027,7 +1032,7 @@ next_arg:
   } 
     
   if( !( classpath = malloc(cpsize) ) ) {
-    fprintf(stderr, "error: out of memory when allocating space for classpath\n");
+    fprintf( stderr, strerror( errno ) ) ;
     goto end;
   }
 
@@ -1132,7 +1137,7 @@ next_arg:
       userJvmOptCount = 1 ;
       for ( i = 0 ; userOpts[ i ] ; i++ ) if ( userOpts[ i ] == ' ' ) userJvmOptCount++ ;
       if ( !( userJvmOptsS = malloc( ( strlen( userOpts ) + 1 ) * sizeof( char ) ) ) ) {
-        fprintf( stderr, "error: out of memory when allocating jvm opts\n" ) ;
+        fprintf( stderr, strerror( errno ) ) ;
         goto end ;        
       }
       strcpy( userJvmOptsS, userOpts ) ;
@@ -1174,7 +1179,7 @@ next_arg:
 
   
   // fetch the pointer to jvm creator func and invoke it
-  javaLib = findJVMDynamicLibrary( javaHome, jvmmode ) ;
+  javaLib = findJVMDynamicLibrary( javaHome, jvmSelectStrategy ) ;
   if(!javaLib.creatorFunc) goto end; // error message already printed
   
   // the cast to void* before void** serves to remove a gcc warning
@@ -1231,10 +1236,10 @@ next_arg:
   }
    
   if( (result = (*env)->EnsureLocalCapacity(env, launcheeParamCount + 1)) ) { // + 1 for the String[] to hold the params
-    clearException(env);
-    fprintf(stderr, "error: could not allocate memory for groovy parameters (how much params did you give, dude?)\n");
-    rval = result;
-    goto end;
+    clearException( env ) ;
+    fprintf( stderr, "error: could not allocate memory to hold references for groovy parameters (how many params did you give, dude?)\n" ) ;
+    rval = result ;
+    goto end ;
   }
 
   if(! ( strClass = (*env)->FindClass(env, "java/lang/String") ) ) {
@@ -1247,7 +1252,7 @@ next_arg:
   launcheeJOptions = (*env)->NewObjectArray(env, launcheeParamCount, strClass, NULL);
   if(!launcheeJOptions) {
     clearException(env);
-    fprintf(stderr, "error: could not allocate memory for array to hold groovy parameters (how much params did you give, dude?)\n");
+    fprintf( stderr, "error: could not allocate memory for java String array to hold groovy parameters (how many params did you give, dude?)\n" ) ;
     goto end;
   }
 

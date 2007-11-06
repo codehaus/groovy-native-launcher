@@ -59,7 +59,7 @@
     
     temp = malloc( MAX_PATH * sizeof( char ) ) ;
     if ( !temp ) {
-      fprintf( stderr, "error: out of mem when converting paths from cygwin format to win format\n" ) ;
+      fprintf( stderr, strerror( errno ) ) ;
       return NULL ; 
     }
 
@@ -98,15 +98,6 @@
 
 #include "jvmstarter.h"
 
-#define GROOVY_MAIN_CLASS "org/codehaus/groovy/tools/GroovyStarter"
-// the name of the method can be something else, but it needs to be 
-// static void and take a String[] as param
-#define GROOVY_MAIN_METHOD "main"
-
-// in groovy 1.0 and previous versions, the startup class is here.
-// In later versions the jar is not of a constant name. The func to find the correct jar is below. 
-#define GROOVY_START_JAR_10 "groovy-starter.jar"
-
 #define GROOVY_CONF "groovy-starter.conf"
 
 static jboolean _groovy_launcher_debug = JNI_FALSE ;
@@ -118,7 +109,7 @@ static char* createCPEntry( const char* groovyHome, const char* jarName ) {
   jboolean ghomeEndWithSeparator = ( groovyHome[ strlen( groovyHome ) ] == JST_FILE_SEPARATOR[ 0 ] ) ;
   
   if ( ! ( firstGroovyJarFound = calloc( len, sizeof( char ) ) ) ) {
-    fprintf( stderr, "error: out of memory" ) ;
+    fprintf( stderr, strerror( errno ) ) ;
     return NULL ;
   }
   
@@ -142,8 +133,8 @@ static jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_
   HANDLE          fileHandle = INVALID_HANDLE_VALUE ;
   WIN32_FIND_DATA fdata ;
   char*           jarEntrySpecifier ;
-  size_t           jarEntryLen ;
-  int             lastError ;
+  size_t          jarEntryLen ;
+  DWORD           lastError ;
   jboolean        rval = JNI_FALSE,
                   ghomeEndWithSeparator ; 
   
@@ -151,7 +142,7 @@ static jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_
   jarEntryLen = strlen( groovyHome ) + 100 ;
   jarEntrySpecifier = calloc( jarEntryLen, sizeof( char ) ) ;
   if ( !jarEntrySpecifier ) {
-    fprintf( stderr, "error: out of mem when accessing dir %s\n", groovyHome ) ;
+    fprintf( stderr, strerror( errno ) ) ;
     goto end ;
   }
   
@@ -166,7 +157,7 @@ static jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_
   fileHandle = FindFirstFile( jarEntrySpecifier, &fdata ) ;
   
   if ( fileHandle == INVALID_HANDLE_VALUE ) {
-    fprintf( stderr, "error: opening directory %s%s failed w/ error code %d\n", groovyHome, JST_FILE_SEPARATOR "lib", (int)GetLastError() ) ;
+    fprintf( stderr, "error: opening directory %s%s failed w/ error code %u\n", groovyHome, JST_FILE_SEPARATOR "lib", (unsigned int)GetLastError() ) ;
     goto end ;
   }
   
@@ -209,7 +200,7 @@ static jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_
     
   if( !lastError ) lastError = GetLastError() ;
   if( lastError && ( lastError != ERROR_NO_MORE_FILES ) ) {
-    fprintf( stderr, "error: error %d occurred when finding jars %s\n", lastError, jarEntrySpecifier ) ;
+    fprintf( stderr, "error: error %u occurred when finding jars %s\n", (unsigned int)lastError, jarEntrySpecifier ) ;
     rval = JNI_FALSE ;
   }
   
@@ -235,7 +226,7 @@ static jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_
   // groovy startup jar is called groovy-XXXXXXX.jar. 100 == big enough
   len = strlen( groovyHome ) + 100  ;
   if ( !( groovyLibDir = calloc( len, sizeof( char ) ) ) ) {
-    fprintf( stderr, "error: out of mem when looking for groovy jar\n" ) ;
+    fprintf( stderr, strerror( errno ) ) ;
     goto end ;
   }
   ghomeEndsWithSeparator = ( strcmp( groovyHome + len - strlen(JST_FILE_SEPARATOR), JST_FILE_SEPARATOR) == 0 ) ;
@@ -247,7 +238,7 @@ static jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_
   dir = opendir( groovyLibDir ) ;
   
   if ( !dir ) {
-    fprintf( stderr, "error: could not read groovy lib directory %s\n", groovyLibDir ) ;
+    fprintf( stderr, "error: could not read groovy lib directory %s\n%s", groovyLibDir, strerror( errno ) ) ;
     return JNI_FALSE ;
   }
 
@@ -287,7 +278,7 @@ static jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_
   
   if ( firstGroovyJarFound ) free( firstGroovyJarFound ) ;
   if ( !rval ) {
-    fprintf( stderr, "error: out of memory when handling groovy lib dir\n" ) ;
+    fprintf( stderr, strerror( errno ) ) ;
   }
   closedir( dir ) ;
   return rval ;
@@ -318,7 +309,7 @@ char* getGroovyHome() {
     
     _ghome = malloc( ( len + 1 ) * sizeof( char ) ) ;
     if ( !_ghome ) {
-      fprintf( stderr, "error: out of memory when figuring out groovy home\n" ) ;
+      fprintf( stderr, strerror( errno ) ) ;
       return NULL ;
     }
     strcpy( _ghome, appHome ) ;
@@ -433,7 +424,7 @@ int main( int argc, char** argv ) {
     size_t delta = (*(size_t*)(g_pad->stackbase)) - (*(size_t*)(g_pad->end)) ; //g_pad->stackbase - g_pad->end ;
     g_pad->backup = malloc( delta ) ;
     if ( !( g_pad->backup ) ) {
-      fprintf( stderr, "error: out of mem when copying stack state\n" ) ;
+      fprintf( stderr, strerror( errno ) ) ;
       return -1 ;
     }
     memcpy( g_pad->backup, g_pad->end, delta ) ; 
@@ -514,13 +505,14 @@ int rest_of_main( int argc, char** argv ) {
   HINSTANCE cygwinDllHandle = LoadLibrary( "cygwin1.dll" ) ;
 
   if ( cygwinDllHandle ) {
-
-    cygwin_initfunc            = (cygwin_initfunc_type)      GetProcAddress( cygwinDllHandle, "cygwin_dll_init"                 ) ;
-    cygwin_posix2win_path      = (cygwin_conversionfunc_type)GetProcAddress( cygwinDllHandle, "cygwin_conv_to_win32_path"       ) ;
-    cygwin_posix2win_path_list = (cygwin_conversionfunc_type)GetProcAddress( cygwinDllHandle, "cygwin_posix_to_win32_path_list" ) ;
+    SetLastError( 0 ) ;
+    cygwin_initfunc            = (cygwin_initfunc_type)      GetProcAddress( cygwinDllHandle, "cygwin_dll_init" ) ;
+    // only proceed getting more proc addresses if the last call was successfull in order not to hide the original error
+    if ( cygwin_initfunc       ) cygwin_posix2win_path      = (cygwin_conversionfunc_type)GetProcAddress( cygwinDllHandle, "cygwin_conv_to_win32_path"       ) ;
+    if ( cygwin_posix2win_path ) cygwin_posix2win_path_list = (cygwin_conversionfunc_type)GetProcAddress( cygwinDllHandle, "cygwin_posix_to_win32_path_list" ) ;
     
     if ( !cygwin_initfunc || !cygwin_posix2win_path || !cygwin_posix2win_path_list ) {
-      fprintf( stderr, "strange bug: could not find appropriate init and conversion functions inside cygwin1.dll\n" ) ;
+      fprintf( stderr, "strange bug: could not find appropriate init and conversion functions inside cygwin1.dll, error %u\n", (unsigned int)GetLastError() ) ;
       goto end ;
     }
     cygwin_initfunc() ;
@@ -549,7 +541,7 @@ int rest_of_main( int argc, char** argv ) {
        !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "--version",   JST_SINGLE_PARAM, 0 ) ) ) goto end ;
   
   if ( !( args = malloc( numArgs * sizeof( char* ) ) ) ) {
-    fprintf( stderr, "error: out of memory at startup\n" ) ;
+    fprintf( stderr, strerror( errno ) ) ;
     goto end ;
   }
   for( i = 0 ; i < numArgs ; i++ ) args[ i ] = argv[ i + 1 ] ; // skip the program name
@@ -601,7 +593,7 @@ int rest_of_main( int argc, char** argv ) {
       
       classpath_dyn = malloc( MAX_PATH ) ;
       if ( !classpath_dyn ) {
-        fprintf( stderr, "error: out of mem when converting classpath to dyn allocated\n" ) ;
+        fprintf( stderr, strerror( errno ) ) ;
         goto end ;
       }
       classpath_dyn = jst_convertCygwin2winPathList( classpath ) ; 
@@ -644,7 +636,7 @@ int rest_of_main( int argc, char** argv ) {
           // ghome path len + nul + "conf" + 2 file seps + file name len
   if ( !groovyConfOverridden ) groovyConfFile = malloc( len + 1 + 4 + 2 * strlen( JST_FILE_SEPARATOR ) + strlen( GROOVY_CONF ) ) ;
   if ( !groovyLaunchJar || ( !groovyConfOverridden && !groovyConfFile ) ) {
-    fprintf( stderr, "error: out of memory when allocating space for dir names\n" ) ;
+    fprintf( stderr, strerror( errno ) ) ;
     goto end ;
   }
 
@@ -661,7 +653,7 @@ int rest_of_main( int argc, char** argv ) {
   // "-Dgroovy.home=" => 14 + 1 for nul char 
   groovyDHome = malloc(  14 + 1 + strlen( groovyHome ) ) ;
   if ( !groovyDConf || !groovyDHome ) {
-    fprintf( stderr, "error: out of memory when allocating space for groovy jvm params\n" ) ;
+    fprintf( stderr, strerror( errno ) ) ;
     goto end ;
   }
   strcpy( groovyDConf, "-Dgroovy.starter.conf=" ) ;
@@ -686,6 +678,7 @@ int rest_of_main( int argc, char** argv ) {
   // populate the startup parameters
 
   options.java_home           = NULL ; // let the launcher func figure it out
+  options.jvmSelectStrategy   = JST_SERVER_FIRST ;
   options.javaOptsEnvVar      = "JAVA_OPTS" ;
   options.toolsJarHandling    = JST_TOOLS_JAR_TO_SYSPROP ;
   options.javahomeHandling    = JST_ALLOW_JH_ENV_VAR_LOOKUP | JST_ALLOW_JH_PARAMETER | JST_ALLOW_PATH_LOOKUP | JST_ALLOW_REGISTRY_LOOKUP ; 
@@ -695,8 +688,8 @@ int rest_of_main( int argc, char** argv ) {
   options.jvmOptions          = extraJvmOptions ;
   options.numJvmOptions       = extraJvmOptionsCount ;
   options.extraProgramOptions = extraProgramOptions ;
-  options.mainClassName       = GROOVY_MAIN_CLASS ;
-  options.mainMethodName      = GROOVY_MAIN_METHOD ;
+  options.mainClassName       = "org/codehaus/groovy/tools/GroovyStarter" ;
+  options.mainMethodName      = "main" ;
   options.jarDirs             = NULL ;
   options.jars                = jars ;
   options.paramInfos          = paramInfos ;
