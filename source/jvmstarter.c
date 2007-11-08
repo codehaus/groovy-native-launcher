@@ -619,6 +619,7 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
   // target[ totalSize - 1 ] = '\0' ;
 
   assert( s == ( target + totalSize - 1 ) ) ; 
+  assert( ( strlen( target ) + 1 ) == totalSize ) ;
   
   end:
   
