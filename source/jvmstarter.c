@@ -865,7 +865,7 @@ extern int jst_findFirstLauncheeParamIndex(char** args, int numArgs, char** term
 
 /** See the header file for information.
  */
-extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
+extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   int            rval    = -1 ;
   
   JavaVM         *javavm = NULL;
@@ -882,7 +882,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
                  // all jvm options combined
                  jvmOptionsSize = 5 ;
   int            i, j, 
-                 launcheeParamBeginIndex = options->numArguments,
+                 launcheeParamBeginIndex = launchOptions->numArguments,
                  userJvmOptionsCount  = 0,
                  jvmOptionsCount      = 0 ;
 
@@ -902,7 +902,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
   char      *javaHome     = NULL, 
             *toolsJarD    = NULL,
             *toolsJarFile = NULL ;
-  JVMSelectStrategy jvmSelectStrategy = options->jvmSelectStrategy ;
+  JVMSelectStrategy jvmSelectStrategy = launchOptions->jvmSelectStrategy ;
 
   if( getenv( "__JLAUNCHER_DEBUG" ) ) _jst_debug = JNI_TRUE;
             
@@ -910,52 +910,52 @@ extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
   javaLib.dynLibHandle = NULL ;  
 
   // calloc effectively sets all elems to JNI_FALSE.  
-  if ( options->numArguments ) isLauncheeOption = jst_calloc( options->numArguments, sizeof( jboolean ) ) ;
+  if ( launchOptions->numArguments ) isLauncheeOption = jst_calloc( launchOptions->numArguments, sizeof( jboolean ) ) ;
 
   if ( launcheeParamBeginIndex && !isLauncheeOption ) goto end ;
   
   
   // find out the argument index after which all the params are launchee (prg being launched) params 
 
-  launcheeParamBeginIndex = jst_findFirstLauncheeParamIndex(options->arguments, options->numArguments, options->terminatingSuffixes, options->paramInfos, options->paramInfosCount);
+  launcheeParamBeginIndex = jst_findFirstLauncheeParamIndex(launchOptions->arguments, launchOptions->numArguments, launchOptions->terminatingSuffixes, launchOptions->paramInfos, launchOptions->paramInfosCount);
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
   // classify the arguments as jvm or launchee params. Some are passed to neither as they are handled in this func.
   // An example is the -client / -server option that selects the type of jvm
   for(i = 0; i < launcheeParamBeginIndex; i++) {
-    char* argument = options->arguments[i];
+    char* argument = launchOptions->arguments[i];
     len = strlen(argument);
 
     if(strcmp("-cp", argument) == 0 
     || strcmp("-classpath", argument) == 0
     || strcmp("--classpath", argument) == 0
     ) {
-      if(i == (options->numArguments - 1)) { // check that this is not the last param as it requires additional info
+      if(i == (launchOptions->numArguments - 1)) { // check that this is not the last param as it requires additional info
         fprintf(stderr, "erroneous use of %s\n", argument);
         goto end;
       }
-      if((options->classpathHandling) & JST_CP_PARAM_TO_APP) {
+      if((launchOptions->classpathHandling) & JST_CP_PARAM_TO_APP) {
         isLauncheeOption[i]     = JNI_TRUE;
         isLauncheeOption[i + 1] = JNI_TRUE;
       } 
-      if((options->classpathHandling) & JST_CP_PARAM_TO_JVM) userClasspath = argument;
+      if((launchOptions->classpathHandling) & JST_CP_PARAM_TO_JVM) userClasspath = argument;
       i++;
       continue;
     }
 
     // check the param infos for params particular to the app we are launching
-    for(j = 0; j < options->paramInfosCount; j++) {
-      switch(options->paramInfos[j].type) {
+    for(j = 0; j < launchOptions->paramInfosCount; j++) {
+      switch(launchOptions->paramInfos[j].type) {
         case JST_SINGLE_PARAM :
-          if(strcmp(argument, options->paramInfos[j].name) == 0) {
+          if(strcmp(argument, launchOptions->paramInfos[j].name) == 0) {
             isLauncheeOption[i] = JNI_TRUE;
             goto next_arg;
           }
           break;
         case JST_DOUBLE_PARAM :
-          if(strcmp(argument, options->paramInfos[j].name) == 0) {
+          if(strcmp(argument, launchOptions->paramInfos[j].name) == 0) {
             isLauncheeOption[i] = JNI_TRUE;
-            if(i == (options->numArguments - 1)) { // check that this is not the last param as it requires additional info
+            if(i == (launchOptions->numArguments - 1)) { // check that this is not the last param as it requires additional info
               fprintf(stderr, "erroneous use of %s\n", argument);
               goto end;
             }
@@ -964,7 +964,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
           }
           break;
         case JST_PREFIX_PARAM :
-          if(memcmp(argument, options->paramInfos[j].name, len) == 0) {
+          if(memcmp(argument, launchOptions->paramInfos[j].name, len) == 0) {
             isLauncheeOption[i] = JNI_TRUE;
             goto next_arg;            
           }
@@ -978,16 +978,16 @@ extern int jst_launchJavaApp( JavaLauncherOptions *options ) {
     } else if ( strcmp("-client", argument) == 0 ) {
       jvmSelectStrategy = JST_TRY_CLIENT_ONLY ;
       continue ;
-    } else if( ((options->javahomeHandling) & JST_ALLOW_JH_PARAMETER) &&  
+    } else if( ((launchOptions->javahomeHandling) & JST_ALLOW_JH_PARAMETER) &&  
                ( (strcmp("-jh", argument) == 0)
               || (strcmp("--javahome", argument) == 0) 
                )
               ) {
-        if(i == (options->numArguments - 1)) { // check that this is not the last param as it requires additional info
+        if(i == (launchOptions->numArguments - 1)) { // check that this is not the last param as it requires additional info
           fprintf(stderr, "erroneous use of %s\n", argument);
           goto end;
         }
-        javaHome = options->arguments[++i];
+        javaHome = launchOptions->arguments[++i];
     } else { // jvm option
       // add these to a separate array and add these last. This way the ones given by the user override
       // the ones set automatically, so user can override e.g. -Dgroovy.home= and the options given in JAVA_OPTS
@@ -1005,10 +1005,10 @@ next_arg:
 
   // print debug if necessary
   if( _jst_debug ) { 
-    if( options->numArguments != 0 ) {
+    if( launchOptions->numArguments != 0 ) {
       fprintf(stderr, "DEBUG: param classication\n");
-      for(i = 0; i < options->numArguments; i++) {
-        fprintf(stderr, "  %s\t: %s\n", options->arguments[i], (isLauncheeOption[i] || i >= launcheeParamBeginIndex) ? "launcheeparam" : "non launchee param");  
+      for(i = 0; i < launchOptions->numArguments; i++) {
+        fprintf(stderr, "  %s\t: %s\n", launchOptions->arguments[i], (isLauncheeOption[i] || i >= launcheeParamBeginIndex) ? "launcheeparam" : "non launchee param");  
       }
     } else {
       fprintf(stderr, "DEBUG: no parameters\n");
@@ -1020,11 +1020,11 @@ next_arg:
 
   // handle java home
   // it is null if it was not given as a param
-  if ( !javaHome ) javaHome = options->java_home ;
-  if ( !javaHome ) javaHome = findJavaHome( options->javahomeHandling ) ; 
+  if ( !javaHome ) javaHome = launchOptions->java_home ;
+  if ( !javaHome ) javaHome = findJavaHome( launchOptions->javahomeHandling ) ; 
 
   if(!javaHome || !javaHome[0]) { // not found or an empty string
-    fprintf(stderr, ((options->javahomeHandling) & JST_ALLOW_JH_ENV_VAR_LOOKUP) ? "error: JAVA_HOME not set\n" : 
+    fprintf(stderr, ((launchOptions->javahomeHandling) & JST_ALLOW_JH_ENV_VAR_LOOKUP) ? "error: JAVA_HOME not set\n" : 
                                                                                   "error: java home not provided\n");
     goto end;
   } else if( _jst_debug ) {
@@ -1035,7 +1035,7 @@ next_arg:
   
 
   // count the params going to the launchee so we can construct the right size java String[] as param to the java main being invoked
-  for(i = 0; i < options->numArguments; i++) {
+  for(i = 0; i < launchOptions->numArguments; i++) {
     if(isLauncheeOption[i] || i >= launcheeParamBeginIndex) {
       isLauncheeOption[i] = JNI_TRUE;
       launcheeParamCount++;
@@ -1046,8 +1046,8 @@ next_arg:
   // construct classpath for the jvm
 
   // look up CLASSPATH env var if necessary  
-  if( !( JST_IGNORE_GLOBAL_CP & (options->classpathHandling) ) ) { // first check if CLASSPATH is ignored altogether
-    if(JST_IGNORE_GLOBAL_CP_IF_PARAM_GIVEN & (options->classpathHandling)) { // use CLASSPATH only if -cp not provided
+  if( !( JST_IGNORE_GLOBAL_CP & (launchOptions->classpathHandling) ) ) { // first check if CLASSPATH is ignored altogether
+    if(JST_IGNORE_GLOBAL_CP_IF_PARAM_GIVEN & (launchOptions->classpathHandling)) { // use CLASSPATH only if -cp not provided
       if(!userClasspath) envCLASSPATH = getenv("CLASSPATH");
     } else {
       envCLASSPATH = getenv("CLASSPATH");
@@ -1059,17 +1059,17 @@ next_arg:
   strcpy(classpath, "-Djava.class.path=");
   
   // add the jars from the given dirs
-  if(options->jarDirs) {
+  if(launchOptions->jarDirs) {
 
     char *dirName;
 
-    for( i = 0 ; (dirName = options->jarDirs[i++]) ; ) {
+    for( i = 0 ; (dirName = launchOptions->jarDirs[i++]) ; ) {
       if( appendJarsFromDir( dirName, &classpath, &cpsize ) ) goto end ; // error msg already printed
     }
     
   }
 
-  if( userClasspath && ((options->classpathHandling) & JST_CP_PARAM_TO_JVM)) {
+  if( userClasspath && ((launchOptions->classpathHandling) & JST_CP_PARAM_TO_JVM)) {
     if( !( classpath = appendCPEntry(classpath, &cpsize, userClasspath) ) ) goto end;
   }
 
@@ -1077,10 +1077,10 @@ next_arg:
 
   // add the provided single jars
   
-  if(options->jars) {
+  if(launchOptions->jars) {
     char* jarName;
     
-    for( i = 0 ; (jarName = options->jars[i++]) ; ) {
+    for( i = 0 ; (jarName = launchOptions->jars[i++]) ; ) {
       if ( !( classpath = appendCPEntry( classpath, &cpsize, jarName ) ) ) goto end ;
     }
     
@@ -1102,7 +1102,7 @@ next_arg:
 // #endif // TODO: check if we are in a jre under a jdk. In that case the tools jar can be found by taking away the lib before appending lib/tools.jar
   if ( jst_fileExists( toolsJarFile ) ) {
     // add as java env property if requested
-    if ( ( options->toolsJarHandling ) & JST_TOOLS_JAR_TO_SYSPROP ) {
+    if ( ( launchOptions->toolsJarHandling ) & JST_TOOLS_JAR_TO_SYSPROP ) {
       len       = strlen(toolsJarFile) + 12 + 1 ; // "-Dtools.jar=" == 12 chars + null char
       toolsJarD = jst_append( NULL, &len, "-Dtools.jar=", toolsJarFile, NULL ) ;
       if ( !toolsJarD ) goto end ;
@@ -1115,7 +1115,7 @@ next_arg:
     }
     
     // add tools.jar to startup classpath if requested
-    if ( ( (options->toolsJarHandling ) & JST_TOOLS_JAR_TO_CLASSPATH ) 
+    if ( ( (launchOptions->toolsJarHandling ) & JST_TOOLS_JAR_TO_CLASSPATH ) 
      && !( classpath = appendCPEntry(classpath, &cpsize, toolsJarFile) ) ) goto end;
   }
   
@@ -1139,18 +1139,18 @@ next_arg:
   // autoset by the caller of this func -> ones from env var (e.g. JAVA_OPTS) -> ones from command line 
   
   // jvm options given as parameters to this func  
-  for ( i = 0 ; i < options->numJvmOptions ; i++ ) {
+  for ( i = 0 ; i < launchOptions->numJvmOptions ; i++ ) {
     if ( !( jvmOptions = appendJvmOption( jvmOptions, 
                                           jvmOptionsCount++, 
                                           &jvmOptionsSize, 
-                                          options->jvmOptions[ i ].optionString, 
-                                          options->jvmOptions[ i ].extraInfo ) ) ) goto end ; 
+                                          launchOptions->jvmOptions[ i ].optionString, 
+                                          launchOptions->jvmOptions[ i ].extraInfo ) ) ) goto end ; 
   }
 
   // handle jvm options in env var JAVA_OPTS or similar  
-  if ( options->javaOptsEnvVar ) {
+  if ( launchOptions->javaOptsEnvVar ) {
     int userJvmOptCount = 0 ;
-    char* userOpts = getenv( options->javaOptsEnvVar ), *s ;
+    char* userOpts = getenv( launchOptions->javaOptsEnvVar ), *s ;
     jboolean firstTime = JNI_TRUE ;
     
     if ( userOpts && userOpts[ 0 ] ) {
@@ -1247,9 +1247,9 @@ next_arg:
   // find the groovy main class
   // find the startup method and call it
 
-  if(options->extraProgramOptions) {
+  if(launchOptions->extraProgramOptions) {
     i = 0;
-    while(options->extraProgramOptions[i]) i++;
+    while(launchOptions->extraProgramOptions[i]) i++;
     launcheeParamCount += i;
   }
    
@@ -1275,10 +1275,10 @@ next_arg:
   }
 
   j = 0; // index in java String[] (args to main)
-  if(options->extraProgramOptions) {
+  if(launchOptions->extraProgramOptions) {
     char *carg;
     i = 0;
-    while( (carg = options->extraProgramOptions[i++]) ) {
+    while( (carg = launchOptions->extraProgramOptions[i++]) ) {
       if(addStringToJStringArray(env, carg, launcheeJOptions, j++)
          ) {
         goto end; // error msg already printed
@@ -1286,9 +1286,9 @@ next_arg:
     }
   }
 
-  for(i = 0; i < options->numArguments; i++) {
+  for(i = 0; i < launchOptions->numArguments; i++) {
     if(isLauncheeOption[i]
-    && addStringToJStringArray(env, options->arguments[i], launcheeJOptions, j++)
+    && addStringToJStringArray(env, launchOptions->arguments[i], launcheeJOptions, j++)
        ) {
         goto end; // error msg already printed
     }
@@ -1299,17 +1299,17 @@ next_arg:
 
 
 
-  launcheeMainClassHandle = (*env)->FindClass(env, options->mainClassName);
+  launcheeMainClassHandle = (*env)->FindClass(env, launchOptions->mainClassName);
   if(!launcheeMainClassHandle) {
     clearException(env);
-    fprintf( stderr, "error: could not find startup class %s\n", options->mainClassName ) ;
+    fprintf( stderr, "error: could not find startup class %s\n", launchOptions->mainClassName ) ;
     goto end ;
   }
-  launcheeMainMethodID = (*env)->GetStaticMethodID(env, launcheeMainClassHandle, options->mainMethodName, "([Ljava/lang/String;)V");
+  launcheeMainMethodID = (*env)->GetStaticMethodID(env, launcheeMainClassHandle, launchOptions->mainMethodName, "([Ljava/lang/String;)V");
   if(!launcheeMainMethodID) {
     clearException(env);
     fprintf(stderr, "error: could not find startup method \"%s\" in class %s\n", 
-                    options->mainMethodName, options->mainClassName);
+                    launchOptions->mainMethodName, launchOptions->mainClassName);
     goto end ;
   }
 
