@@ -553,37 +553,6 @@ static void clearException(JNIEnv* env) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-#define INCREMENT 50
-
-extern char* jst_append( char* target, size_t* bufsize, ... ) {
-  va_list args ;
-  size_t targetlen = ( target ? strlen( target ) : 0 ) ;
-  char *s ;
-  
-  if ( !target && !( target = jst_calloc( *bufsize, sizeof( char ) ) ) ) return NULL ;
-  
-  va_start( args, bufsize ) ;
-  
-  while ( ( s = va_arg( args, char* ) ) ) {
-    size_t sSize = strlen( s ) ;
-    size_t newSize = ( targetlen += sSize ) + 1 ; 
-    if ( sSize == 0 ) continue ;
-    if ( newSize > *bufsize ) {
-      *bufsize = newSize + INCREMENT ; 
-      if ( ! ( target = jst_realloc( target, *bufsize ) ) ) goto end ;
-    }
-    // this is not optimal, it would be better to keep track of the current position to add to, 
-    // add there w/ memcpy and then add nul char after the loop in the end of str
-    strcat( target, s ) ;
-  }
-  
-  end:
-
-  va_end( args ) ;
-  return target ;
-  
-}
-
 extern void* appendArrayItem( void* array, int indx, size_t* arlen, void* item, int item_size_in_bytes ) {
   // we really need here just any data type whose storage size is one byte. 
   // Since "byte" is not ansi-c, we use char ( sizeof( char ) == 1 ).
@@ -602,6 +571,65 @@ extern void* appendArrayItem( void* array, int indx, size_t* arlen, void* item, 
   memcpy( temp, item, item_size_in_bytes ) ;
   return array ;
 }
+
+extern char* jst_append( char* target, size_t* bufsize, ... ) {
+  va_list args ;
+  size_t targetlen = ( target ? strlen( target ) : 0 ),
+         numArgs   = 10 ; // the size of the buffer we are storing the param strings into. Enlarged as necessary.
+  size_t totalSize = targetlen + 1 ; // 1 for the terminating nul char
+  char *s, *t ;
+  char** stringsToAppend = NULL ;
+  int i = 0 ;
+  
+  errno = 0 ;
+  stringsToAppend = jst_malloc( numArgs * sizeof( char* ) ) ;  
+  if ( !stringsToAppend ) goto end ;
+
+  va_start( args, bufsize ) ;
+  while ( ( s = va_arg( args, char* ) ) ) {
+    if ( s[ 0 ] ) { // skip empty strings
+      if ( !( stringsToAppend = appendArrayItem( stringsToAppend, i++, &numArgs, &s, sizeof( char* ) ) ) ) goto end ;
+      totalSize += strlen( s ) ;
+    }
+  }
+  // s = NULL ; // s is now NULL, no need to assign
+  if ( !( stringsToAppend = appendArrayItem( stringsToAppend, i, &numArgs, &s, sizeof( char* ) ) ) ) goto end ;
+  
+  if ( !target || *bufsize < totalSize ) {
+    target = target ? jst_realloc( target, totalSize * sizeof( char ) ) : 
+                      jst_malloc( totalSize * sizeof( char ) ) ;
+    if ( !target ) goto end ;
+    if ( bufsize ) *bufsize = totalSize ; // in case target == NULL, bufsize may also be NULL
+  }
+
+  s = target + targetlen ;
+  for ( i = 0 ; ( t = stringsToAppend[ i ] ) ; i++ ) {
+    //size_t len = strlen( t ) ;
+    //memcpy( s, t, len ) ;
+    //s += len ;
+    // or
+    //while ( *s++ = *t++ ) ; s-- ;
+    // or
+    char c ;
+    while ( ( c = *t++ ) ) *s++ = c ;
+  }
+  
+  *s = '\0' ;
+  // could also have said: 
+  // target[ totalSize - 1 ] = '\0' ;
+
+  assert( s == ( target + totalSize - 1 ) ) ; 
+  
+  end:
+  
+  va_end( args ) ;
+
+  if ( errno ) target = NULL ;
+  if ( stringsToAppend ) free( stringsToAppend ) ;
+  return target ;
+  
+}
+
 
 extern JavaVMOption* appendJvmOption( JavaVMOption* opts, int indx, size_t* optsSize, char* optStr, void* extraInfo ) {
   JavaVMOption tmp ;

@@ -52,10 +52,6 @@
   static cygwin_conversionfunc_type cygwin_posix2win_path      = NULL ;
   static cygwin_conversionfunc_type cygwin_posix2win_path_list = NULL ;
 
-#  if !defined( MAX_PATH )
-#    define MAX_PATH 512
-#  endif
-
   /** Path conversion from cygwin format to win format. This func contains the general logic, and thus
    * requires a pointer to a cygwin conversion func. */
   static char* convertPath( cygwin_conversionfunc_type conversionFunc, char* path ) {
@@ -117,9 +113,9 @@ static char* createCPEntry( const char* groovyHome, const char* jarName ) {
 }
 
 
-/** If groovy-starter.jar exists, returns path to that. If not, the first jar whose name starts w/ "groovy-" is returned.
+/** If groovy-starter.jar exists, returns path to that. If not, the first jar whose name starts w/ "groovy-x" (where x is a digit) is returned.
  * The previous is appropriate for groovy <= 1.0, the latter for groovy >= 1.1
- * Be sure startupJar_output is malloc:ed, it will be realloc:d if not big enough.
+ * Be sure param startupJar_output is malloc:ed, it will be realloc:d if not big enough.
  * Returns JNI_FALSE on error. */
 static jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_output, size_t* bufsize ) {
   char* firstGroovyJarFound = NULL ;
@@ -285,6 +281,7 @@ static jboolean findGroovyStartupJar( const char* groovyHome, char** startupJar_
  * Do NOT modify the returned string, make a copy. */
 char* getGroovyHome() {
   static char *_ghome = NULL ;
+  
   char *appHome, 
        *gconfFile = NULL ;
   size_t len, curSize ;
@@ -302,7 +299,7 @@ char* getGroovyHome() {
     _ghome = jst_malloc( ( len + 1 ) * sizeof( char ) ) ;
     if ( !_ghome ) return NULL ;
     
-    strcpy( _ghome, appHome ) ;
+    strcpy( _ghome, appHome ) ; // FIXME check if the last 3 letters actually are "bin"
     _ghome[ len - 2 * strlen( JST_FILE_SEPARATOR ) - 3 ] = '\0' ; // cut of the "bin" (where the executable lives) from the given path
     // check that conf/groovy-starter.conf ( == 24 chars) exists ( + nul char )
     curSize = ( len + 25 ) * sizeof( char ) ;

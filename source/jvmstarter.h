@@ -190,7 +190,8 @@ int jst_indexOfParam( char** args, int numargs, char* paramToSearch) ;
 /** Appends the given strings to target. size param tells the current size of target (target must have been
  * dynamically allocated, i.e. not from stack). If necessary, target is reallocated into a bigger space. 
  * Returns the possibly new location of target, and modifies the size inout parameter accordingly. 
- * If target is NULL, it is allocated w/ the given size (or bigger if given size does not fit all the given strings). */
+ * If target is NULL, it is allocated w/ the given size (or bigger if given size does not fit all the given strings). 
+ * In case target is NULL and you are not interested how big the buffer became, you can give NULL as size. */
 char* jst_append( char* target, size_t* size, ... ) ; 
 
 /** If array is NULL, a new one will be created, size arlen. */
