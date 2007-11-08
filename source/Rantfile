@@ -52,8 +52,8 @@ $cppFlags = "-I'#{javaHome}/include/#{Environment[ 'Architecture' ]}' -I'#{javaH
 $cFlags = '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls'
 $libs = '-ldl'
 
-def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-def linkCommand( target , sources ) ; "#{$gcc} #{$cFlags} -o #{target} #{sources} #{$libs}" end
+def compileCommand( target , sources ) ; "#{$gcc} #{$debug ? '-g' : ''} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
+def linkCommand( target , sources ) ; "#{$gcc} #{$debug ? '-g' : ''} #{$cFlags} -o #{target} #{sources} #{$libs}" end
 
 case Environment[ 'Architecture' ]
 when MAC_OS_X
@@ -67,8 +67,8 @@ when CYGWIN
   $libs = ''
   $cFlags += ' -s -mno-cygwin' # + ' -D_cwcompat'
   $cppFlags = "-I\"#{javaHome}/include/win32\" -I\"#{javaHome}/include\""
-  def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-  def linkCommand( target , sources ) ; "#{$gcc} #{if target =~ /w\.exe$/ then '-mwindows' end} #{$cFlags} -o #{target} #{sources} #{$libs}" end
+  def compileCommand( target , sources ) ; "#{$gcc} #{$debug ? '-g' : ''} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
+  def linkCommand( target , sources ) ; "#{$gcc} #{$debug ? '-g' : ''} #{if target =~ /w\.exe$/ then '-mwindows' end} #{$cFlags} -o #{target} #{sources} #{$libs}" end
 when MSYS
   $libs = ''
   $cppFlags = "-I\"#{javaHome}\\include\\win32\" -I\"#{javaHome}\\include\""
