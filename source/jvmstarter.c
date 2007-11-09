@@ -606,8 +606,7 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
     // or
     //while ( *s++ = *t++ ) ; s-- ;
     // or
-    char c ;
-    while ( ( c = *t++ ) ) *s++ = c ;
+    while ( *t ) *s++ = *t++ ;
   }
   
   *s = '\0' ;
