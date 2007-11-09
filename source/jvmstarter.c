@@ -253,45 +253,40 @@ extern char* jst_getExecutableHome() {
 /** Tries to find Java home by looking where java command is located on PATH. */
 extern char* jst_findJavaHomeFromPath() {
   static char* _javaHome = NULL ;
-  char *path = NULL, *p, *javahome = NULL, *p2 ;
-  size_t jhlen = 0 ;
+  char *path = NULL, *p, *javahome = NULL ;
+  size_t jhlen = 100 ;
+  jboolean firstTime = JNI_TRUE ;
   
   p = getenv( "PATH" ) ;
   if ( !p ) goto end ;
   
-  if ( !( path = jst_malloc( strlen( p ) + 1 ) ) ) goto end ;
-  strcpy( path, p ) ;
+  if ( !( path = jst_append( NULL, NULL, p, NULL ) ) ) goto end ;
   
-  for ( p2 = path ; ( p = strtok( p2, JST_PATH_SEPARATOR ) ) ; p2 = NULL ) {
+  for ( ; ( p = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
     size_t len = strlen( p ) ;
     if ( len == 0 ) continue ;
-    if ( ( len + 100 + 1 ) > jhlen ) {
-      jhlen = len + 100 + 1 ; // 100 is arbitrary, big enough
-      javahome = javahome ? jst_realloc( javahome, jhlen ) : jst_malloc( jhlen ) ;
-      if ( !javahome ) goto end ;  // TODO: maybe signal error to caller in some way?
-    }
-    strcpy( javahome, p ) ;
-    if ( javahome[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) {
-      javahome[ len ] = JST_FILE_SEPARATOR[ 0 ] ;
-      javahome[ len  + 1 ] = '\0' ;
-    }
-    strcat( javahome, "java" 
+    
+    if ( javahome ) javahome[ 0 ] = '\0' ;
+    
+    if ( !( javahome = jst_append( javahome, &jhlen, p, NULL ) ) ) goto end ;
+    
+    javahome = jst_append( javahome, &jhlen, ( javahome[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) ? JST_FILE_SEPARATOR : "", "java" 
 #if defined( _WIN32 )
                       ".exe"
 #endif
-    ) ;
+    , NULL ) ;
+    if ( !javahome ) goto end ;
+    
     if ( jst_fileExists( javahome ) ) {
 #if !defined( _WIN32 )
-      char realPath[ PATH_MAX + 1 ] ;
-      if ( !realpath( javahome, realPath ) ) {
+      char realFile[ PATH_MAX + 1 ] ;
+      if ( !realpath( javahome, realFile ) ) {
         fprintf( stderr, strerror( errno ) ) ;
         goto end ;
       }
-      if ( jhlen < ( len = strlen( realPath ) + 1 ) ) {
-        javahome = jst_realloc( javahome, jhlen = len ) ;
-        if ( !javahome ) goto end ;
-      }
-      strcpy( javahome, realPath ) ;
+      javahome[ 0 ] = '\0' ;
+      javahome = jst_append( javahome, &jhlen, realFile, NULL ) ;
+      if ( !javahome ) goto end ;
 #endif
       *( strrchr( javahome, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;
       len = strlen( javahome ) ;
@@ -300,9 +295,8 @@ extern char* jst_findJavaHomeFromPath() {
       if ( memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
         javahome[ len -= 4 ] = '\0' ;
         assert( len == strlen( javahome ) ) ;
-        _javaHome = jst_malloc( len + 1 ) ;
+        _javaHome = jst_append( NULL, NULL, javahome, NULL ) ;
         if ( !_javaHome ) goto end ; 
-        strcpy( _javaHome, javahome ) ;
       }
       break ;
     }
@@ -596,6 +590,8 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
   if ( !( stringsToAppend = appendArrayItem( stringsToAppend, i, &numArgs, &s, sizeof( char* ) ) ) ) goto end ;
   
   if ( !target || *bufsize < totalSize ) {
+    // if taget == NULL and bufsize is given, it means we should reserve the given amount of space
+    if ( !target && bufsize && ( *bufsize > totalSize ) ) totalSize = *bufsize ;
     target = target ? jst_realloc( target, totalSize * sizeof( char ) ) : 
                       jst_malloc( totalSize * sizeof( char ) ) ;
     if ( !target ) goto end ;
@@ -615,11 +611,6 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
   }
   
   *s = '\0' ;
-  // could also have said: 
-  // target[ totalSize - 1 ] = '\0' ;
-
-  assert( s == ( target + totalSize - 1 ) ) ; 
-  assert( ( strlen( target ) + 1 ) == totalSize ) ;
   
   end:
   
@@ -671,21 +662,17 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
   DWORD           lastError;
   jboolean        dirNameEndsWithSeparator, rval = JNI_TRUE ;
   
-  dirNameEndsWithSeparator = ( strcmp(dirName + strlen(dirName) - strlen(JST_FILE_SEPARATOR), JST_FILE_SEPARATOR) == 0 ) ? JNI_TRUE : JNI_FALSE;
-  
-  jarEntrySpecifier = jst_malloc( ( strlen(dirName) + 15 ) * sizeof( char ) ) ;
-  if ( !jarEntrySpecifier ) return JNI_TRUE ;
-  
+  dirNameEndsWithSeparator = ( strcmp( dirName + strlen( dirName ) - strlen( JST_FILE_SEPARATOR ), JST_FILE_SEPARATOR ) == 0 ) ? JNI_TRUE : JNI_FALSE ;
+    
   // this only works w/ FindFirstFileW. If need be, use that.
 //  strcpy(jarEntrySpecifier, "\\\\?\\"); // to allow long paths, see documentation of FindFirstFile
-  strcat(jarEntrySpecifier, dirName);
-  if( !dirNameEndsWithSeparator ) strcat(jarEntrySpecifier, JST_FILE_SEPARATOR);
-  strcat(jarEntrySpecifier, "*.jar");
+  jarEntrySpecifier = jst_append( NULL, NULL, dirName, dirNameEndsWithSeparator ? "" : JST_FILE_SEPARATOR, "*.jar", NULL ) ;
+  if ( !jarEntrySpecifier ) return JNI_TRUE ;
   
   SetLastError( 0 ) ;
-  fileHandle = FindFirstFile(jarEntrySpecifier, &fdata);
+  fileHandle = FindFirstFile( jarEntrySpecifier, &fdata ) ;
   
-  if(fileHandle == INVALID_HANDLE_VALUE) {
+  if ( fileHandle == INVALID_HANDLE_VALUE ) {
     fprintf( stderr, "error: opening directory %s failed w/ error code %u\n", dirName, (unsigned int)GetLastError() ) ;
     goto end ;
   }
@@ -696,11 +683,11 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
     do {
       // this if and the contained ||s are used so that if any of the
       // calls fail, we jump to the end
-      if(    !( *target = appendCPEntry(*target, targetSize, dirName) )         
+      if(    !( *target = appendCPEntry( *target, targetSize, dirName ) )         
           ||  ( dirNameEndsWithSeparator ?  JNI_FALSE : !( *target = jst_append( *target, targetSize, JST_FILE_SEPARATOR, NULL ) ) ) 
-          || !( *target = jst_append(*target, targetSize, fdata.cFileName, NULL ) )
-        ) goto end;
-    } while( FindNextFile(fileHandle, &fdata) );
+          || !( *target = jst_append( *target, targetSize, fdata.cFileName, NULL ) )
+        ) goto end ;
+    } while( FindNextFile( fileHandle, &fdata ) );
     
   }
     
@@ -725,18 +712,18 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
   jboolean      dirNameEndsWithSeparator, 
                 rval = JNI_TRUE ;
 
-  len = strlen(dirName);
-  dirNameEndsWithSeparator = ( strcmp(dirName + len - strlen(JST_FILE_SEPARATOR), JST_FILE_SEPARATOR) == 0 );
+  len = strlen( dirName ) ;
+  dirNameEndsWithSeparator = ( strcmp( dirName + len - strlen(JST_FILE_SEPARATOR ), JST_FILE_SEPARATOR) == 0 ) ;
 
-  dir = opendir(dirName);
-  if(!dir) {
+  dir = opendir( dirName ) ;
+  if ( !dir ) {
     fprintf( stderr, "error: could not read directory %s to append jar files from\n%s", dirName, strerror( errno ) ) ;
     return JNI_TRUE ;
   }
 
-  while( (entry = readdir(dir)) ) {
-    len = strlen(entry->d_name);
-    if(len >= 5 && (strcmp(".jar", (entry->d_name) + len - 4) == 0)) {
+  while( (entry = readdir( dir ) ) ) {
+    len = strlen( entry->d_name ) ;
+    if(len >= 5 && ( strcmp( ".jar", (entry->d_name) + len - 4 ) == 0 ) ) {
       // this if and the contained ||s are used so that if any of the
       // calls fail, we jump to the end
       if ( !( *target = appendCPEntry( *target, targetSize, dirName ) )         
@@ -744,10 +731,11 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
        ||  !( *target = jst_append( *target, targetSize, entry->d_name, NULL ) ) ) goto end ;
     }
   }
+  
   rval = JNI_FALSE ;
 
   end:
-  if ( !rval ) {
+  if ( rval ) {
     fprintf( stderr, strerror( errno ) ) ;
   }
   closedir( dir ) ;
@@ -764,42 +752,42 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
 typedef enum { PREFIX_SEARCH, SUFFIX_SEARCH, EXACT_SEARCH } SearchMode;
 
 /** The first param may be NULL, it is considered an empty array. */
-static jboolean arrayContainsString(char** nullTerminatedArray, const char* searchString, SearchMode mode) {
-  int    i = 0;
-  size_t sslen, len;
-  const char   *str;
+static jboolean arrayContainsString( char** nullTerminatedArray, const char* searchString, SearchMode mode ) {
+  int    i = 0 ;
+  size_t sslen, len ;
+  char   *str ;
 
-  if(nullTerminatedArray) {
-    switch(mode) {
+  if ( nullTerminatedArray ) {
+    switch ( mode ) {
       case PREFIX_SEARCH : 
-        while( (str = nullTerminatedArray[i++]) ) {
-          len = strlen(str);
-          if(memcmp(str, searchString, len) == 0) return JNI_TRUE;
+        while ( ( str = nullTerminatedArray[ i++ ] ) ) {
+          len = strlen( str ) ;
+          if ( memcmp( str, searchString, len ) == 0 ) return JNI_TRUE ;
         }
-        break;
+        break ;
       case SUFFIX_SEARCH : 
-        sslen = strlen(searchString);        
-        while( (str = nullTerminatedArray[i++]) ) {
-          len = strlen(str);
-          if(len <= sslen && memcmp(searchString + sslen - len, str, len) == 0) return JNI_TRUE;
+        sslen = strlen( searchString ) ;        
+        while( ( str = nullTerminatedArray[ i++ ] ) ) {
+          len = strlen( str ) ;
+          if ( len <= sslen && memcmp( searchString + sslen - len, str, len ) == 0 ) return JNI_TRUE ;
         }
-        break;
+        break ;
       case EXACT_SEARCH : 
-        while( (str = nullTerminatedArray[i++]) ) {
-          if(strcmp(str, searchString) == 0) return JNI_TRUE;
+        while ( ( str = nullTerminatedArray[ i++ ] ) ) {
+          if ( strcmp( str, searchString ) == 0 ) return JNI_TRUE ;
         }
-        break;
+        break ;
     }
   }
-  return JNI_FALSE;
+  return JNI_FALSE ;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 /** Returns true on error. */
-static jboolean addStringToJStringArray(JNIEnv* env, char *strToAdd, jobjectArray jstrArr, jint ind) {
-  jboolean rval = JNI_FALSE;
-  jstring  arg  = (*env)->NewStringUTF(env, strToAdd);
+static jboolean addStringToJStringArray( JNIEnv* env, char *strToAdd, jobjectArray jstrArr, jint ind ) {
+  jboolean rval = JNI_FALSE ;
+  jstring  arg  = (*env)->NewStringUTF( env, strToAdd ) ;
 
   if(!arg) {
     fprintf(stderr, "error: could not convert %s to java string\n", strToAdd);
@@ -897,7 +885,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
             *classpath     = NULL,
             *userJvmOptsS  = NULL ; 
 
-  size_t    cpsize         = 1000; // just the initial size, expanded if necessary
+  size_t    cpsize = 255 ; // just an initial guess for classpath length, will be expanded as necessary 
   jboolean  *isLauncheeOption  = NULL;
   jint      launcheeParamCount = 0;
   char      *javaHome     = NULL, 
@@ -1055,10 +1043,8 @@ next_arg:
     }
   } 
     
-  if( !( classpath = jst_malloc(cpsize) ) ) goto end ;
+  if ( !( classpath = jst_append( NULL, &cpsize, "-Djava.class.path=", NULL ) ) ) goto end ;
 
-  strcpy(classpath, "-Djava.class.path=");
-  
   // add the jars from the given dirs
   if(launchOptions->jarDirs) {
 
@@ -1157,9 +1143,8 @@ next_arg:
     if ( userOpts && userOpts[ 0 ] ) {
       userJvmOptCount = 1 ;
       for ( i = 0 ; userOpts[ i ] ; i++ ) if ( userOpts[ i ] == ' ' ) userJvmOptCount++ ;
-      if ( !( userJvmOptsS = jst_malloc( ( strlen( userOpts ) + 1 ) * sizeof( char ) ) ) ) goto end ;        
 
-      strcpy( userJvmOptsS, userOpts ) ;
+      if ( !( userJvmOptsS = jst_append( NULL, NULL, userOpts, NULL ) ) ) goto end ;        
 
       while ( ( s = strtok( firstTime ? userJvmOptsS : NULL, " " ) ) ) {
         firstTime = JNI_FALSE ;
