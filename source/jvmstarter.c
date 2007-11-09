@@ -603,13 +603,12 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
     //size_t len = strlen( t ) ;
     //memcpy( s, t, len ) ;
     //s += len ;
-    // or
-    //while ( *s++ = *t++ ) ; s-- ;
-    // or
+    // or shorter:
     while ( *t ) *s++ = *t++ ;
   }
   
   *s = '\0' ;
+
   
   end:
   
@@ -655,10 +654,10 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
 # if defined( _WIN32 )
 // windows does not have dirent.h, it does things different from other os'es
 
-  HANDLE          fileHandle = INVALID_HANDLE_VALUE;
-  WIN32_FIND_DATA fdata;
-  char            *jarEntrySpecifier = NULL;
-  DWORD           lastError;
+  HANDLE          fileHandle = INVALID_HANDLE_VALUE ;
+  WIN32_FIND_DATA fdata ;
+  char            *jarEntrySpecifier = NULL ;
+  DWORD           lastError ;
   jboolean        dirNameEndsWithSeparator, rval = JNI_TRUE ;
   
   dirNameEndsWithSeparator = ( strcmp( dirName + strlen( dirName ) - strlen( JST_FILE_SEPARATOR ), JST_FILE_SEPARATOR ) == 0 ) ? JNI_TRUE : JNI_FALSE ;
@@ -705,9 +704,9 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
       
 # else      
 
-  DIR           *dir;
-  struct dirent *entry;
-  size_t        len;
+  DIR           *dir ;
+  struct dirent *entry ;
+  size_t        len ;
   jboolean      dirNameEndsWithSeparator, 
                 rval = JNI_TRUE ;
 
