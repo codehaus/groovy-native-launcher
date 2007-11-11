@@ -458,7 +458,6 @@ int rest_of_main( int argc, char** argv ) {
            // this flag is used to tell us whether we reserved the memory for the conf file location string
            // or whether it was obtained from cmdline or environment var. That way we don't try to free memory
            // we did not allocate.
-           groovyConfOverridden = JNI_FALSE,
            displayHelp          = ( ( numArgs == 0 )                    || 
                                     ( strcmp( argv[ 1 ], "-h"     ) == 0 ) || 
                                     ( strcmp( argv[ 1 ], "--help" ) == 0 )
@@ -588,7 +587,8 @@ int rest_of_main( int argc, char** argv ) {
   if ( error ) goto end ;
   
   if ( groovyConfFile || ( groovyConfFile = getenv( "GROOVY_CONF" ) ) ) { 
-    groovyConfOverridden = JNI_TRUE ;
+    // copy the string so we don't have to wonder whether it's dynamically allocated
+    groovyConfFile = jst_append( NULL, NULL, groovyConfFile, NULL ) ;
   }
   
   groovyHome = getGroovyHome() ;
@@ -601,7 +601,7 @@ int rest_of_main( int argc, char** argv ) {
 
   // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
 
-  if ( !groovyConfOverridden && // set the default groovy conf file if it was not given as a parameter
+  if ( !groovyConfFile && // set the default groovy conf file if it was not given as a parameter
        !( groovyConfFile = jst_append( NULL, NULL, groovyHome,JST_FILE_SEPARATOR "conf" JST_FILE_SEPARATOR GROOVY_CONF, NULL ) ) ) goto end ;
 
   extraProgramOptions[ 3 ] = groovyConfFile ;
@@ -709,7 +709,7 @@ end:
   if ( extraJvmOptions )  free( extraJvmOptions ) ;
   if ( args            )  free( args ) ;
   if ( groovyLaunchJar )  free( groovyLaunchJar ) ;
-  if ( groovyConfFile && !groovyConfOverridden ) free( groovyConfFile ) ;
+  if ( groovyConfFile  )  free( groovyConfFile ) ;
   if ( groovyDConf )      free( groovyDConf ) ;
   if ( groovyDHome )      free( groovyDHome ) ;
   
