@@ -602,7 +602,7 @@ int rest_of_main( int argc, char** argv ) {
   // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
 
   if ( !groovyConfFile && // set the default groovy conf file if it was not given as a parameter
-       !( groovyConfFile = jst_append( NULL, NULL, groovyHome,JST_FILE_SEPARATOR "conf" JST_FILE_SEPARATOR GROOVY_CONF, NULL ) ) ) goto end ;
+       !( groovyConfFile = jst_append( NULL, NULL, groovyHome, JST_FILE_SEPARATOR "conf" JST_FILE_SEPARATOR GROOVY_CONF, NULL ) ) ) goto end ;
 
   extraProgramOptions[ 3 ] = groovyConfFile ;
   
