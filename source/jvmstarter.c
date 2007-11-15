@@ -55,7 +55,7 @@
 #  define dlerror() NULL
 
 #if !defined( PATH_MAX )
-#  define PATH_MAX 512
+#  define PATH_MAX MAX_PATH
 #endif
    
 #else
@@ -149,6 +149,34 @@ extern void* jst_realloc( void* ptr, size_t size ) {
   return rval ;
 }
 
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+#if defined( _WIN32 )
+
+// what we really want is DWORD, but unsigned long is what it really is and using it directly we avoid having to include "Windows.h" in jvmstarter.h 
+extern void printWinError( unsigned long errcode ) {
+  
+  LPVOID message ;
+     
+  FormatMessage(
+                 FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+                 NULL,
+                 errcode,
+                 MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                 (LPTSTR) &message,
+                 0, 
+                 NULL 
+                ) ;
+
+  fprintf( stderr, "error (win code %u): %s\n", (unsigned int) errcode, (char*)message ) ; 
+  LocalFree( message ) ;
+  
+}
+
+#endif
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 extern char* jst_getExecutableHome() {
   static char* _execHome = NULL;
   
@@ -186,10 +214,11 @@ extern char* jst_getExecutableHome() {
   // this works equally well but is a bit less readable
   // } while(len == currentBufSize);
 
-  if(len == 0) {
-    fprintf(stderr, "error: finding out executable location failed w/ error code %d\n", (int)GetLastError());
-    free(execHome);
-    return NULL; 
+  if ( len == 0 ) {
+    fprintf( stderr, "error: finding out executable location failed\n" ) ;
+    printWinError( GetLastError() ) ;
+    free( execHome ) ;
+    return NULL ; 
   }
   
 # elif defined( __linux__ ) || defined( __sun__ )
@@ -313,9 +342,17 @@ extern char* jst_findJavaHomeFromPath() {
 
 static char* findJavaHomeFromWinRegistry() {
   static char* _javaHome = NULL ;
-  LONG status ;
+    
   if ( _javaHome ) return _javaHome ;
+  
+  // find jre / jdk registry keys under
+  // HKEY_LOCAL_MACHINE\SOFTWARE\JavaSoft\Java Development Kit
+  //                                      Java Runtime Environment
+  //                                      Java Plug-in
+  //  1.5.0 1.5.0_13 etc. Just grab the last one. The name is JavaHome, type REG_SZ 
+ 
   // TODO
+
   return _javaHome ;
 }
 #endif
@@ -472,6 +509,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
   
   for ( i = 0 ; i < 2 ; i++ ) { // try both jdk and jre style paths
     for ( j = 0; ( dynLibFile = lookupDirs[ j ] ) ; j++ ) {
+      // TODO: change this to use dynamic string buffer (w/ jst_append), do not rely on PATH_MAX being big enough
       strcpy( path, java_home ) ;
       strcat( path, JST_FILE_SEPARATOR ) ;
       if ( i == 0 ) { // on a jdk, we need to add jre at this point of the path
@@ -484,7 +522,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
           fprintf( stderr, "error: dynamic library %s exists but could not be loaded!\n", path ) ;
           if ( errno ) fprintf( stderr, strerror( errno ) ) ;
 #         if defined( _WIN32 )
-          fprintf( stderr, "win error code: %u\n", (unsigned int)GetLastError() ) ;
+          printWinError( GetLastError() ) ;
 #         endif
         } 
         goto exitlookup ; // just break out of 2 nested loops
@@ -553,11 +591,24 @@ extern void* appendArrayItem( void* array, int indx, size_t* arlen, void* item, 
   // Signed / unsigned does not matter here, only the storage size.
   char *temp ;
 
-  if ( !array && ! ( array = jst_malloc( *arlen * item_size_in_bytes ) ) ) return NULL ;
+  // allocate array if requested
+  if ( !array && ! ( array = jst_calloc( *arlen, item_size_in_bytes ) ) ) return NULL ;
   
+  // ensure there is enough space  
   if ( ((size_t)indx) >= *arlen ) {
-    if ( !( array = jst_realloc( array, ( *arlen += 5 ) * item_size_in_bytes ) ) ) return NULL ;
+    void* temp2 = array ;
+    size_t previousSize = *arlen ;
+    array = jst_calloc( *arlen += 5, item_size_in_bytes ) ;
+    if ( !array ) {
+      free( temp2 ) ;
+      return NULL ;
+    }
+    memcpy( array, temp2, previousSize * item_size_in_bytes ) ; 
+    free( temp2 ) ;
+    //if ( !( array = jst_realloc( array, ( *arlen += 5 ) * item_size_in_bytes ) ) ) return NULL ;
   }
+  
+  // append the new item
   
   temp = (char*)array ;
   temp += ( indx * item_size_in_bytes ) ;
@@ -648,6 +699,9 @@ static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+// TODO: make a function that returns the names of files found in a dir in a dyn allocated buffer first containing char* to 
+//       all the names (w/ terminating null) and then all the strings.
+
 /** returns != 0 on failure. May change the target to point to a new location */
 static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetSize ) {
 
@@ -671,7 +725,8 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
   fileHandle = FindFirstFile( jarEntrySpecifier, &fdata ) ;
   
   if ( fileHandle == INVALID_HANDLE_VALUE ) {
-    fprintf( stderr, "error: opening directory %s failed w/ error code %u\n", dirName, (unsigned int)GetLastError() ) ;
+    fprintf( stderr, "error: opening directory %s failed\n", dirName ) ;
+    printWinError( GetLastError() ) ;
     goto end ;
   }
   
@@ -691,7 +746,8 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
     
   if ( !lastError ) lastError = GetLastError() ;
   if ( lastError != ERROR_NO_MORE_FILES ) {
-    fprintf( stderr, "error: error %u occurred when finding jars from %s\n", (unsigned int)lastError, dirName ) ;
+    fprintf( stderr, "error: error occurred when finding jars from %s\n", dirName ) ;
+    printWinError( lastError ) ;
     goto end ;
   }
   

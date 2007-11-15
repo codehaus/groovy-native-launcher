@@ -151,6 +151,13 @@ extern void* jst_malloc( size_t size ) ;
 extern void* jst_calloc( size_t nelem, size_t elsize ) ;
 extern void* jst_realloc( void* ptr, size_t size ) ;
 
+#if defined( _WIN32 )
+// to have type DWORD in the func signature below we need this header
+//#include "Windows.h"
+/** Prints an error message for the given windows error code. */
+extern void printWinError( unsigned long errcode ) ;
+
+#endif
 
 extern int jst_launchJavaApp(JavaLauncherOptions* options);
 
@@ -194,7 +201,8 @@ int jst_indexOfParam( char** args, int numargs, char* paramToSearch) ;
  * In case target is NULL and you are not interested how big the buffer became, you can give NULL as size. */
 char* jst_append( char* target, size_t* size, ... ) ; 
 
-/** If array is NULL, a new one will be created, size arlen. */
+/** If array is NULL, a new one will be created, size arlen. The given array will be reallocated if there is not enough space.
+ * The newly allocated memory (in both cases) contains all 0s. */
 void* appendArrayItem( void* array, int index, size_t* arlen, void* item, int item_size_in_bytes ) ;
 
 /** As the previous, but specifically for jvm options. 

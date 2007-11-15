@@ -32,7 +32,7 @@
 #if defined ( _WIN32 )
 #  include <Windows.h>
 #  if !defined( PATH_MAX )
-#    define PATH_MAX 512
+#    define PATH_MAX MAX_PATH
 #  endif
 #else
 #  include <dirent.h>
@@ -145,7 +145,8 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
   fileHandle = FindFirstFile( jarEntrySpecifier, &fdata ) ;
   
   if ( fileHandle == INVALID_HANDLE_VALUE ) {
-    fprintf( stderr, "error: opening directory %s%s failed w/ error code %u\n", groovyHome, JST_FILE_SEPARATOR "lib", (unsigned int)GetLastError() ) ;
+    fprintf( stderr, "error: opening directory %s%s failed\n", groovyHome, JST_FILE_SEPARATOR "lib" ) ; 
+    printWinError( GetLastError() ) ;
     goto end ;
   }
   
@@ -184,7 +185,7 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
     
   if( !lastError ) lastError = GetLastError() ;
   if( lastError && ( lastError != ERROR_NO_MORE_FILES ) ) {
-    fprintf( stderr, "error: error %u occurred when finding jars %s\n", (unsigned int)lastError, jarEntrySpecifier ) ;
+    printWinError( lastError ) ;
   }
   
   
@@ -481,7 +482,8 @@ int rest_of_main( int argc, char** argv ) {
     if ( cygwin_posix2win_path ) cygwin_posix2win_path_list = (cygwin_conversionfunc_type)GetProcAddress( cygwinDllHandle, "cygwin_posix_to_win32_path_list" ) ;
     
     if ( !cygwin_initfunc || !cygwin_posix2win_path || !cygwin_posix2win_path_list ) {
-      fprintf( stderr, "strange bug: could not find appropriate init and conversion functions inside cygwin1.dll, error %u\n", (unsigned int)GetLastError() ) ;
+      fprintf( stderr, "strange bug: could not find appropriate init and conversion functions inside cygwin1.dll\n" ) ;
+      printWinError( GetLastError() ) ;
       goto end ;
     }
     cygwin_initfunc() ;
