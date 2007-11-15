@@ -97,7 +97,7 @@ when WINDOWS
   end
   def linkCommand( target , sources )
     windowsApp = ( target =~ /w\.exe$/ )    
-    "link #{'-debug ' if $debug}-nologo #{windowsApp ? '-subsystem:windows -entry:mainCRTStartup' : '-subsystem:console'} -out:#{target} #{sources}"
+    "link #{'-debug ' if $debug}-nologo #{windowsApp ? '-subsystem:windows -entry:mainCRTStartup' : '-subsystem:console'} -out:#{target} advapi32.lib #{sources}"
   end
 end 
 

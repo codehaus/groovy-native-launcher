@@ -335,24 +335,127 @@ extern char* jst_findJavaHomeFromPath() {
   end:
   if ( path     ) free( path     ) ;
   if ( javahome ) free( javahome ) ;
+  if ( _jst_debug ) {
+    if ( _javaHome ) {
+      fprintf( stderr, "debug: java home found on PATH: %s\n", _javaHome ) ;      
+    } else {
+      fprintf( stderr, "debug: java home not found on PATH\n" ) ;
+    }
+  }
   return _javaHome ;
 }
 
 #if defined( _WIN32 )
+
+/** Opens reg key for read only access. */
+static DWORD openRegistryKey( HKEY parent, char* subkeyName, HKEY* key_out ) {
+  return RegOpenKeyEx( 
+                       parent, 
+                       subkeyName,
+                       0,  // reserved, must be zero
+                       KEY_READ,
+                       key_out
+                     ) ;  
+}
+
+static DWORD queryRegistryValue( HKEY key, char* valueName, char* valueBuffer, DWORD* valueBufferSize ) {
+  DWORD valueType, status ;
+  status = RegQueryValueEx( key, valueName, NULL, &valueType, (BYTE*)valueBuffer, valueBufferSize ) ;
+  return status ;
+}
+
+#define JAVA_VERSION_NAME_MAX_SIZE 30
 
 static char* findJavaHomeFromWinRegistry() {
   static char* _javaHome = NULL ;
     
   if ( _javaHome ) return _javaHome ;
   
-  // find jre / jdk registry keys under
-  // HKEY_LOCAL_MACHINE\SOFTWARE\JavaSoft\Java Development Kit
-  //                                      Java Runtime Environment
-  //                                      Java Plug-in
-  //  1.5.0 1.5.0_13 etc. Just grab the last one. The name is JavaHome, type REG_SZ 
- 
-  // TODO
+  {
+    LONG status = ERROR_SUCCESS ;
+    int javaType = 0 ;
+    char  javaHome[ MAX_PATH + 1 ] ;
+    DWORD javaHomeSize = MAX_PATH ; 
+    jboolean irrecoverableError = JNI_FALSE ;
+    
+    for ( ; javaType < 2 ; javaType++ ) {
+    
+      HKEY key    = 0, 
+           subkey = 0 ;
+      char* jdkOrJreKeyName = javaType ? "SOFTWARE\\JavaSoft\\Java Runtime Environment" : "SOFTWARE\\JavaSoft\\Java Development Kit",
+            currentJavaVersionName[ JAVA_VERSION_NAME_MAX_SIZE + 1 ] ;
+      
+      javaHome[ 0 ] = '\0' ;
+      SetLastError( ERROR_SUCCESS ) ;
 
+      status = openRegistryKey( HKEY_LOCAL_MACHINE, jdkOrJreKeyName, &key ) ;
+          
+      if ( status != ERROR_SUCCESS ) {
+        if ( status != ERROR_FILE_NOT_FOUND ) {
+          printWinError( GetLastError() ) ;
+        }
+        continue ;
+      }
+       
+      {
+        DWORD currentVersionNameSize = JAVA_VERSION_NAME_MAX_SIZE ;
+
+        status = queryRegistryValue( key, "CurrentVersion", currentJavaVersionName, &currentVersionNameSize ) ;
+        
+        // we COULD recover and just loop through the existing subkeys, but not having CurrentVersion should not happen 
+        // so it does not seem useful to prepare for it
+        if ( status != ERROR_SUCCESS ) {
+          if ( status != ERROR_FILE_NOT_FOUND ) {
+            printWinError( status ) ;
+          }
+          goto endofloop ;
+        }        
+
+        status = openRegistryKey( key, currentJavaVersionName, &subkey ) ;
+        if ( status != ERROR_SUCCESS ) goto endofloop ;
+  
+        status = queryRegistryValue( subkey, "JavaHome", javaHome, &javaHomeSize ) ;
+
+        if ( status != ERROR_SUCCESS ) {
+          if ( status != ERROR_FILE_NOT_FOUND ) {
+            printWinError( status ) ;
+          }
+          goto endofloop ;
+        }
+        
+        if ( *javaHome ) {
+          if ( !( _javaHome = jst_append( NULL, NULL, javaHome, NULL ) ) ) {
+            irrecoverableError = JNI_TRUE ;
+          } 
+          goto endofloop ;          
+        }
+        
+      }
+      
+      
+      endofloop:
+      if ( key ) {
+        status = RegCloseKey( key ) ;
+        if ( status != ERROR_SUCCESS ) printWinError( status ) ;
+      }
+      if ( subkey ) {
+        status = RegCloseKey( subkey ) ;
+        if ( status != ERROR_SUCCESS ) printWinError( status ) ;    
+      }
+      
+      if ( _javaHome || irrecoverableError ) break ;
+
+    }   
+  }
+
+  if ( _jst_debug ) {
+    if ( _javaHome ) {
+      fprintf( stderr, "debug: java home found from windows registry: %s\n", _javaHome ) ;
+    } else {
+      fprintf( stderr, "debug: java home not found from windows registry\n" ) ;      
+    }
+  }
+  
   return _javaHome ;
 }
 #endif
