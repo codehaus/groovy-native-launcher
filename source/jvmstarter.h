@@ -151,6 +151,8 @@ extern void* jst_malloc( size_t size ) ;
 extern void* jst_calloc( size_t nelem, size_t elsize ) ;
 extern void* jst_realloc( void* ptr, size_t size ) ;
 
+#define jst_free( x ) free( x ) ; x = NULL
+
 #if defined( _WIN32 )
 // to have type DWORD in the func signature below we need this header
 //#include "Windows.h"

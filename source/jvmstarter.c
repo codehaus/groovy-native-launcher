@@ -44,15 +44,12 @@
 #  define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll" 
 #  define PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
 
-#  define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM"
-
 #  include "Windows.h"
 
-   typedef HINSTANCE DLHandle;
+   typedef HINSTANCE DLHandle ;
 #  define dlopen(path, mode) LoadLibrary(path)
 #  define dlsym(libraryhandle, funcname) GetProcAddress(libraryhandle, funcname)
 #  define dlclose(handle) FreeLibrary(handle)
-#  define dlerror() NULL
 
 #if !defined( PATH_MAX )
 #  define PATH_MAX MAX_PATH
@@ -64,8 +61,6 @@
 
 #    define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #    define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
-
-#    define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM"
 
 #  elif defined( __sun__ ) 
 
@@ -79,9 +74,10 @@
 #      define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #      define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
 
+#    else
+       // should not happen, but this does not hurt either
+#      error "You are running solaris on an architecture that is currently not supported. Please contact the author for help in adding support."   
 #    endif
-
-#    define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM"
 
 #  elif defined ( __APPLE__ )
 
@@ -97,7 +93,7 @@
 #    define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM_Impl"
 
 #  else   
-#    error "Either your OS and/or architecture is not currently supported. Support should be easy to add - please see the source (look for #if defined stuff)."
+#    error "Either your OS and/or architecture is not currently supported. Support should be easy to add - please see the source (look for #if defined stuff) or contact the author."
 #  endif
 
    // for getpid()
@@ -107,14 +103,19 @@
 
 // stuff for loading a dynamic library
 #  include <dlfcn.h>
-#  if ! defined ( __APPLE__ )
+   
+#  if !defined ( __APPLE__ )
 #    include <link.h>
 #  endif
   
-   typedef void *DLHandle;
+   typedef void *DLHandle ;
 
 #endif
 
+#if !defined( CREATE_JVM_FUNCTION_NAME )
+// this is what it's called on most platforms. E.g. Apple is different.
+#  define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM"
+#endif
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 static jboolean _jst_debug = JNI_FALSE;
@@ -368,22 +369,29 @@ static DWORD queryRegistryValue( HKEY key, char* valueName, char* valueBuffer, D
 
 static char* findJavaHomeFromWinRegistry() {
   static char* _javaHome = NULL ;
-    
+  
+  static char* registryEntriesToCheck[] = { "SOFTWARE\\JavaSoft\\Java Development Kit", 
+                                            "SOFTWARE\\JavaSoft\\Java Runtime Environment", 
+                                            "SOFTWARE\\JRockit\\Java Development Kit",
+                                            "SOFTWARE\\JRockit\\Java Runtime Environment",
+                                            NULL } ;
+  
   if ( _javaHome ) return _javaHome ;
   
   {
-    LONG status = ERROR_SUCCESS ;
-    int javaType = 0 ;
-    char  javaHome[ MAX_PATH + 1 ] ;
-    DWORD javaHomeSize = MAX_PATH ; 
+    LONG     status             = ERROR_SUCCESS ;
+    int      javaTypeCounter    = 0 ;
     jboolean irrecoverableError = JNI_FALSE ;
+    DWORD    javaHomeSize       = MAX_PATH ; 
     
-    for ( ; javaType < 2 ; javaType++ ) {
+    char     javaHome[ MAX_PATH + 1 ] ;
+    char*    jdkOrJreKeyName ;
+    
+    while ( ( jdkOrJreKeyName = registryEntriesToCheck[ javaTypeCounter++ ] ) ) {
     
       HKEY key    = 0, 
            subkey = 0 ;
-      char* jdkOrJreKeyName = javaType ? "SOFTWARE\\JavaSoft\\Java Runtime Environment" : "SOFTWARE\\JavaSoft\\Java Development Kit",
-            currentJavaVersionName[ JAVA_VERSION_NAME_MAX_SIZE + 1 ] ;
+      char currentJavaVersionName[ JAVA_VERSION_NAME_MAX_SIZE + 1 ] ;
       
       javaHome[ 0 ] = '\0' ;
       SetLastError( ERROR_SUCCESS ) ;
@@ -626,6 +634,11 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
           if ( errno ) fprintf( stderr, strerror( errno ) ) ;
 #         if defined( _WIN32 )
           printWinError( GetLastError() ) ;
+#         else
+          {
+            char* errorMsg = dlerror() ;
+            if ( errorMsg ) fprintf( stderr, "%s\n", errorMsg ) ;
+          }
 #         endif
         } 
         goto exitlookup ; // just break out of 2 nested loops
@@ -643,14 +656,19 @@ exitlookup:
 
   rval.creatorFunc = (JVMCreatorFunc)dlsym( jvmLib, CREATE_JVM_FUNCTION_NAME ) ;
 
-  if(rval.creatorFunc) {
+  if ( rval.creatorFunc ) {
     rval.dynLibHandle = jvmLib ;
   } else {
+#   if defined( _WIN32 )
+    printWinError( GetLastError() ) ;
+#   else 
     char* errorMsg = dlerror() ;
+    if ( errorMsg ) fprintf( stderr, "%s\n", errorMsg ) ;
+#   endif
     fprintf( stderr, "strange bug: jvm creator function not found in jvm dynamic library %s\n", path ) ;
-    if ( errorMsg ) fprintf( stderr, "%s\n", errorMsg ) ; 
   }
-  return rval;
+  
+  return rval ;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1379,114 +1397,108 @@ next_arg:
     goto end;
   } 
 
-  free(toolsJarD);
-  free(jvmOptions);
-  free(classpath);
-  toolsJarD  = NULL;
-  jvmOptions = NULL;
-  classpath  = NULL;
+  free( toolsJarD  ) ;
+  free( jvmOptions ) ;
+  free( classpath  ) ;
+  toolsJarD  = NULL ;
+  jvmOptions = NULL ;
+  classpath  = NULL ;
 
   // construct a java.lang.String[] to give program args in
   // find the groovy main class
   // find the startup method and call it
 
   if(launchOptions->extraProgramOptions) {
-    i = 0;
-    while(launchOptions->extraProgramOptions[i]) i++;
-    launcheeParamCount += i;
+    i = 0 ;
+    while ( launchOptions->extraProgramOptions[ i ] ) i++ ;
+    launcheeParamCount += i ;
   }
    
-  if( (result = (*env)->EnsureLocalCapacity(env, launcheeParamCount + 1)) ) { // + 1 for the String[] to hold the params
+  if ( ( result = (*env)->EnsureLocalCapacity( env, launcheeParamCount + 1 ) ) ) { // + 1 for the String[] to hold the params
     clearException( env ) ;
     fprintf( stderr, "error: could not allocate memory to hold references for groovy parameters (how many params did you give, dude?)\n" ) ;
     rval = result ;
     goto end ;
   }
 
-  if(! ( strClass = (*env)->FindClass(env, "java/lang/String") ) ) {
-    clearException(env);
-    fprintf(stderr, "error: could not find java.lang.String class\n");
-    goto end;
+  if ( !( strClass = (*env)->FindClass(env, "java/lang/String") ) ) {
+    clearException( env ) ;
+    fprintf( stderr, "error: could not find java.lang.String class\n" ) ;
+    goto end ;
   }
 
 
-  launcheeJOptions = (*env)->NewObjectArray(env, launcheeParamCount, strClass, NULL);
-  if(!launcheeJOptions) {
-    clearException(env);
+  launcheeJOptions = (*env)->NewObjectArray( env, launcheeParamCount, strClass, NULL ) ;
+  if ( !launcheeJOptions ) {
+    clearException( env ) ;
     fprintf( stderr, "error: could not allocate memory for java String array to hold groovy parameters (how many params did you give, dude?)\n" ) ;
-    goto end;
+    goto end ;
   }
 
-  j = 0; // index in java String[] (args to main)
-  if(launchOptions->extraProgramOptions) {
-    char *carg;
-    i = 0;
-    while( (carg = launchOptions->extraProgramOptions[i++]) ) {
-      if(addStringToJStringArray(env, carg, launcheeJOptions, j++)
-         ) {
-        goto end; // error msg already printed
-      }
+  j = 0 ; // index in java String[] (args to main)
+  if ( launchOptions->extraProgramOptions ) {
+    char *carg ;
+    i = 0 ;
+    while ( ( carg = launchOptions->extraProgramOptions[ i++ ] ) ) {
+      if ( addStringToJStringArray( env, carg, launcheeJOptions, j++ ) ) goto end ; // error msg already printed
     }
   }
 
-  for(i = 0; i < launchOptions->numArguments; i++) {
-    if(isLauncheeOption[i]
-    && addStringToJStringArray(env, launchOptions->arguments[i], launcheeJOptions, j++)
-       ) {
-        goto end; // error msg already printed
-    }
+  for ( i = 0 ; i < launchOptions->numArguments ; i++ ) {
+    if ( isLauncheeOption[ i ]
+         && addStringToJStringArray( env, launchOptions->arguments[ i ], launcheeJOptions, j++ )
+       ) goto end; // error msg already printed
   }
 
-  free( isLauncheeOption ) ;
-  isLauncheeOption = NULL;
+  // TODO: use this all over the place, remove the explicit setting to NULL
+  jst_free( isLauncheeOption ) ;
+  isLauncheeOption = NULL ;
 
 
 
-  launcheeMainClassHandle = (*env)->FindClass(env, launchOptions->mainClassName);
-  if(!launcheeMainClassHandle) {
-    clearException(env);
+  launcheeMainClassHandle = (*env)->FindClass( env, launchOptions->mainClassName ) ;
+  if ( !launcheeMainClassHandle ) {
+    clearException( env ) ;
     fprintf( stderr, "error: could not find startup class %s\n", launchOptions->mainClassName ) ;
     goto end ;
   }
-  launcheeMainMethodID = (*env)->GetStaticMethodID(env, launcheeMainClassHandle, launchOptions->mainMethodName, "([Ljava/lang/String;)V");
-  if(!launcheeMainMethodID) {
-    clearException(env);
-    fprintf(stderr, "error: could not find startup method \"%s\" in class %s\n", 
-                    launchOptions->mainMethodName, launchOptions->mainClassName);
+  launcheeMainMethodID = (*env)->GetStaticMethodID( env, launcheeMainClassHandle, launchOptions->mainMethodName, "([Ljava/lang/String;)V" ) ;
+  if ( !launcheeMainMethodID ) {
+    clearException( env ) ;
+    fprintf( stderr, "error: could not find startup method \"%s\" in class %s\n", 
+                    launchOptions->mainMethodName, launchOptions->mainClassName ) ;
     goto end ;
   }
 
   // finally: launch the java application!
-  (*env)->CallStaticVoidMethod(env, launcheeMainClassHandle, launcheeMainMethodID, launcheeJOptions);
-  // TODO: what happens if the called code calls System.exit?
-  // I guess we just exit. It would be cleaner if we called a method returning an int and used that as exit status
-  // The jvm side of the program could ensure that System.exit() does not end the process 
-  // (by catching that throwable? there is some way)
-  if((*env)->ExceptionCheck(env)) {
+  (*env)->CallStaticVoidMethod( env, launcheeMainClassHandle, launcheeMainMethodID, launcheeJOptions ) ;
+
+  if ( (*env)->ExceptionCheck( env ) ) {
     // TODO: provide an option which allows the caller to indicate whether to print the stack trace
-    (*env)->ExceptionClear(env);
+    (*env)->ExceptionClear( env ) ;
   } else {
-    rval = 0;
+    rval = 0 ;
   }
   
 
 end:
   // cleanup
-  if(javavm) {
-    if( (*javavm)->DetachCurrentThread(javavm) ) {
-      fprintf(stderr, "Warning: could not detach main thread from the jvm at shutdown (please report this as a bug)\n");
+  if ( javavm ) {
+    if ( (*javavm)->DetachCurrentThread( javavm ) ) {
+      fprintf( stderr, "Warning: could not detach main thread from the jvm at shutdown (please report this as a bug)\n" ) ;
     }
-    (*javavm)->DestroyJavaVM(javavm);
+    (*javavm)->DestroyJavaVM( javavm ) ;
   }
-  if ( javaLib.dynLibHandle ) dlclose(javaLib.dynLibHandle);
-  if ( classpath )        free( classpath ) ;
+  
+  if ( javaLib.dynLibHandle ) dlclose( javaLib.dynLibHandle ) ;
+  if ( classpath        ) free( classpath ) ;
   if ( isLauncheeOption ) free( isLauncheeOption ) ;
-  if ( jvmOptions )       free( jvmOptions ) ;
-  if ( toolsJarFile )     free( toolsJarFile ) ;
-  if ( toolsJarD )        free( toolsJarD ) ;
-  if ( userJvmOptions )   free( userJvmOptions ) ;
+  if ( jvmOptions       ) free( jvmOptions ) ;
+  if ( toolsJarFile     ) free( toolsJarFile ) ;
+  if ( toolsJarD        ) free( toolsJarD ) ;
+  if ( userJvmOptions   ) free( userJvmOptions ) ;
   if ( userJvmOptsS     ) free( userJvmOptsS ) ;
   
-  return rval;
+  return rval ;
 
 }
