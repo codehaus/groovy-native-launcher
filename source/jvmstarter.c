@@ -862,11 +862,11 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
   }
 
   {
-    jboolean dirNameEndsWithSeparator = jst_dirNameEndsWithSeparator( dirName ) ;
 
 #  if defined( _WIN32 )
     // windows does not have dirent.h, it does things different from other os'es
     {
+      jboolean        dirNameEndsWithSeparator = jst_dirNameEndsWithSeparator( dirName ) ;
       HANDLE          fileHandle = INVALID_HANDLE_VALUE ;
       WIN32_FIND_DATA fdata ;
       DWORD           lastError ;
@@ -922,7 +922,7 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
     {
       DIR           *dir ;
       struct dirent *entry ;
-      size_t        prefixLen = fileNamePrefix ? strlen( fileNamePrefix ) : 0,
+      size_t        prefixlen = fileNamePrefix ? strlen( fileNamePrefix ) : 0,
                     suffixlen = fileNameSuffix ? strlen( fileNameSuffix ) : 0 ;
       
       dir = opendir( dirName ) ;
@@ -938,11 +938,11 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
 
         if ( len < prefixlen || len < suffixlen ) continue ;
         
-        if ( ( !fileNamePrefix || memcmp( fileNamePrefix, fileName, prefixLen ) == 0 ) &&
-             ( !fileNameSuffix || memcmp( fileNameSuffix, fileName + len - prefixlen, prefixlen ) == 0 ) ) {
+        if ( ( !fileNamePrefix || memcmp( fileNamePrefix, fileName, prefixlen ) == 0 ) &&
+             ( !fileNameSuffix || memcmp( fileNameSuffix, fileName + len - suffixlen, suffixlen ) == 0 ) ) {
           char* temp = jst_append( NULL, NULL, fileName, NULL ) ;
           if ( !temp || 
-               !( tempResult = appendArrayItem( tempResult, indx++, &resultSize, temp, sizeof( char* ) ) ) ) {
+               !( tempResult = appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
             errorOccurred = JNI_TRUE ;
             goto end ;
           }
