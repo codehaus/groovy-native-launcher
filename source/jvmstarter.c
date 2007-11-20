@@ -940,7 +940,7 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
         
         if ( ( !fileNamePrefix || memcmp( fileNamePrefix, fileName, prefixLen ) == 0 ) &&
              ( !fileNameSuffix || memcmp( fileNameSuffix, fileName + len - prefixlen, prefixlen ) == 0 ) ) {
-          char* temp = jst_append( NULL, NULL, fdata.cFileName, NULL ) ;
+          char* temp = jst_append( NULL, NULL, fileName, NULL ) ;
           if ( !temp || 
                !( tempResult = appendArrayItem( tempResult, indx++, &resultSize, temp, sizeof( char* ) ) ) ) {
             errorOccurred = JNI_TRUE ;
