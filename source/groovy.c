@@ -102,7 +102,7 @@ static jboolean _groovy_launcher_debug = JNI_FALSE ;
 static char* createCPEntry( const char* groovyHome, const char* jarName ) {
   char *firstGroovyJarFound = NULL ;
   size_t len = strlen( groovyHome ) + 1 + 3 + 1 + strlen( jarName ) + 1 ;
-  jboolean ghomeEndWithSeparator = ( groovyHome[ strlen( groovyHome ) ] == JST_FILE_SEPARATOR[ 0 ] ) ;
+  jboolean ghomeEndWithSeparator = jst_dirNameEndsWithSeparator( groovyHome ) ;
   
   if ( ! ( firstGroovyJarFound = jst_calloc( len, sizeof( char ) ) ) ) return NULL ;
   
@@ -118,149 +118,48 @@ static char* createCPEntry( const char* groovyHome, const char* jarName ) {
  * Returns NULL on error, otherwise dynallocated string (which caller must free). */
 static char* findGroovyStartupJar( const char* groovyHome ) {
   char *firstGroovyJarFound = NULL,
-        *startupJar          = NULL ;  
-# if defined( _WIN32 )
-// windows does not have dirent.h, it does things different from other os'es
+        *startupJar         = NULL,
+        *groovyLibDir       = NULL, 
+        **jarNames          = NULL, 
+        *jarName ;
+  int i = 0 ;
+  jboolean ghomeEndWithSeparator = jst_dirNameEndsWithSeparator( groovyHome ) ;
 
-  HANDLE          fileHandle = INVALID_HANDLE_VALUE ;
-  WIN32_FIND_DATA fdata ;
-  char*           jarEntrySpecifier ;
-  size_t          jarEntryLen ;
-  DWORD           lastError ;
-  jboolean        ghomeEndWithSeparator ; 
+  if (
+        !( groovyLibDir = jst_append( NULL, NULL, groovyHome, 
+                                                  ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
+                                                  "lib", NULL ) 
+         )
+       || 
+       !( jarNames = jst_getFileNames( groovyLibDir, "groovy-", ".jar" ) ) 
+     ) goto end ;
   
-  // groovy startup jar is called groovy-XXXXXXX.jar. 100 == big enough
-  jarEntryLen = strlen( groovyHome ) + 100 ;
-  jarEntrySpecifier = jst_calloc( jarEntryLen, sizeof( char ) ) ;
-  if ( !jarEntrySpecifier ) goto end ;
-  
-  ghomeEndWithSeparator = ( groovyHome[ strlen( groovyHome ) - 1 ] == JST_FILE_SEPARATOR[ 0 ] ) ; 
-  // this only works w/ FindFirstFileW. If need be, use that.
-//  strcpy(jarEntrySpecifier, "\\\\?\\"); // to allow long paths, see documentation of FindFirstFile
-  if ( !(jarEntrySpecifier = jst_append( jarEntrySpecifier, &jarEntryLen, groovyHome, 
-                                                                          ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
-                                                                          "lib" JST_FILE_SEPARATOR "*.jar", NULL ) ) ) goto end ;
-
-  SetLastError( 0 ) ;
-  fileHandle = FindFirstFile( jarEntrySpecifier, &fdata ) ;
-  
-  if ( fileHandle == INVALID_HANDLE_VALUE ) {
-    fprintf( stderr, "error: opening directory %s%s failed\n", groovyHome, JST_FILE_SEPARATOR "lib" ) ; 
-    printWinError( GetLastError() ) ;
-    goto end ;
-  }
-  
-  lastError = GetLastError() ;
-  if( !lastError ) {
-
-    do {
-      char* jarName = fdata.cFileName ;
-      
-      // groovy-x.jar == 12 chars 
-      if ( ( strlen( jarName ) >= 12 ) && ( memcmp( jarName, "groovy-", 7 ) == 0 ) && ( strcmp( ".jar", jarName + strlen( jarName ) - 4 ) == 0 ) ) {
-        // if it's groovy-starter.jar, we found what we're lookin for. If not, continue looking.
-        if ( strcmp( "groovy-starter.jar", jarName ) == 0 ) {
-          if ( !( startupJar = jst_append( NULL, NULL, groovyHome,
-                                                                  ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
-                                                                  "lib" JST_FILE_SEPARATOR, jarName, NULL ) ) ) goto end ;
-          break ;
-        }
-        
-        if ( !firstGroovyJarFound && 
-           // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
-           // aren't available, we'll just check that the char following 
-           // groovy- is a digit
-           isdigit( jarName[ 7 ] ) && 
-          !( firstGroovyJarFound = createCPEntry( groovyHome, jarName ) ) ) goto end ;
-        
-      }
-
-    } while ( FindNextFile( fileHandle, &fdata ) ) ;
-    
-    if ( !startupJar && firstGroovyJarFound ) {
-      if ( !( startupJar = jst_append( NULL, NULL, firstGroovyJarFound, NULL ) ) ) goto end ;
+  while ( ( jarName = jarNames[ i++ ] ) ) {
+    if ( strcmp( "groovy-starter.jar", jarName ) == 0 ) { // groovy < 1.1
+      if ( !( startupJar = jst_append( NULL, NULL, groovyHome,
+                                                   ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
+                                                   "lib" JST_FILE_SEPARATOR, jarName, NULL ) ) ) goto end ;
+      break ;
     }
-        
-  }
+    if ( !firstGroovyJarFound && 
+       // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
+       // aren't available, we'll just check that the char following 
+       // groovy- is a digit
+       isdigit( jarName[ 7 ] ) && 
+      !( firstGroovyJarFound = createCPEntry( groovyHome, jarName ) ) ) goto end ;
     
-  if( !lastError ) lastError = GetLastError() ;
-  if( lastError && ( lastError != ERROR_NO_MORE_FILES ) ) {
-    printWinError( lastError ) ;
   }
   
-  
-  end:
-  
-  if ( fileHandle != INVALID_HANDLE_VALUE ) FindClose( fileHandle     ) ;
-  if ( jarEntrySpecifier                  ) free( jarEntrySpecifier   ) ;
-  if ( firstGroovyJarFound                ) free( firstGroovyJarFound ) ;
-  return startupJar ;
-      
-# else      
-
-  // POSIX (with dirent.h existing, i.e. any other platform than windows)
-
-  DIR           *dir = NULL ;
-  struct dirent *entry ;
-  size_t        len ;
-  char          *groovyLibDir = NULL ;
-  jboolean      ghomeEndsWithSeparator ;
-
-  // groovy startup jar is called groovy-XXXXXXX.jar. 100 == big enough
-  len = strlen( groovyHome ) + 100  ;
-  
-  ghomeEndsWithSeparator = ( strcmp( groovyHome + len - strlen(JST_FILE_SEPARATOR), JST_FILE_SEPARATOR) == 0 ) ;
-
-  if ( !(groovyLibDir = jst_append( NULL, NULL, groovyHome, 
-                                                ghomeEndsWithSeparator ? "" : JST_FILE_SEPARATOR, 
-                                                "lib" JST_FILE_SEPARATOR, NULL ) ) ) goto end ;
-
-  dir = opendir( groovyLibDir ) ;
-  
-  if ( !dir ) {
-    fprintf( stderr, "error: could not read groovy lib directory %s\n%s", groovyLibDir, strerror( errno ) ) ;
-    goto end ;
-  }
-
-  while ( ( entry = readdir( dir ) ) ) {
-    char *jarName = entry->d_name ;
-    len = strlen( jarName ) ;
-    // groovy-x.jar == 12 chars 
-    if ( len >= 12 && ( memcmp( jarName, "groovy-", 7 ) == 0 ) && ( strcmp( ".jar", jarName + len - 4 ) == 0 ) ) { 
-
-      if ( strcmp( "groovy-starter.jar", jarName ) == 0 ) {
-
-        if ( !( startupJar = jst_append( NULL, NULL, groovyHome, 
-                                                                ghomeEndsWithSeparator ? "" : JST_FILE_SEPARATOR, 
-                                                                "lib" JST_FILE_SEPARATOR, jarName, NULL ) ) ) goto end ;
-        break ;
-      }
-
-      if ( !firstGroovyJarFound    && 
-           // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
-           // aren't available, we'll just check that the char following 
-           // groovy- is a digit
-           isdigit( jarName[ 7 ] ) && 
-           !( firstGroovyJarFound = createCPEntry( groovyHome, jarName ) ) ) goto end ;
-      
-    }
-  }
-
   if ( !startupJar && firstGroovyJarFound ) {
     if ( !( startupJar = jst_append( NULL, NULL, firstGroovyJarFound, NULL ) ) ) goto end ;
   }
 
   end:
-  
+  if ( jarNames            ) free( jarNames ) ;
+  if ( groovyLibDir        ) free( groovyLibDir ) ;
   if ( firstGroovyJarFound ) free( firstGroovyJarFound ) ;
-  if ( !startupJar ) {
-    fprintf( stderr, strerror( errno ) ) ;
-  }
-  closedir( dir ) ;
   return startupJar ;
-  
-#  endif
-  
+   
 }
 
 /** returns null on error, otherwise pointer to groovy home. 
@@ -698,22 +597,22 @@ end:
   // cygwin compatibility
   // - - - - - - - - - - - - -
   if ( cygwinDllHandle ) FreeLibrary( cygwinDllHandle ) ;
-  if ( classpath_dyn )  free( classpath_dyn ) ;
-  if ( scriptpath_dyn ) free( scriptpath_dyn ) ; 
+  if ( classpath_dyn   ) free( classpath_dyn ) ;
+  if ( scriptpath_dyn  ) free( scriptpath_dyn ) ; 
 #endif
 
 // cygwin compatibility end
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 
-  if ( paramInfos      )  free( paramInfos ) ;
-  if ( userJvmOpts     )  free( userJvmOpts ) ;
-  if ( extraJvmOptions )  free( extraJvmOptions ) ;
-  if ( args            )  free( args ) ;
-  if ( groovyLaunchJar )  free( groovyLaunchJar ) ;
-  if ( groovyConfFile  )  free( groovyConfFile ) ;
-  if ( groovyDConf )      free( groovyDConf ) ;
-  if ( groovyDHome )      free( groovyDHome ) ;
+  if ( paramInfos      ) free( paramInfos ) ;
+  if ( userJvmOpts     ) free( userJvmOpts ) ;
+  if ( extraJvmOptions ) free( extraJvmOptions ) ;
+  if ( args            ) free( args ) ;
+  if ( groovyLaunchJar ) free( groovyLaunchJar ) ;
+  if ( groovyConfFile  ) free( groovyConfFile ) ;
+  if ( groovyDConf     ) free( groovyDConf ) ;
+  if ( groovyDHome     ) free( groovyDHome ) ;
   
   return rval ;
   

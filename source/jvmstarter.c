@@ -183,15 +183,15 @@ extern char* jst_getExecutableHome() {
   
   char   *execHome = NULL;
 # if defined( __linux__ ) || defined( __sun__ )
-  char   *procSymlink;
+  char   *procSymlink ;
 # endif
 
 # if defined( _WIN32 )
-  size_t currentBufSize = 0;
+  size_t currentBufSize = 0 ;
 # endif
-  size_t len;
+  size_t len ;
   
-  if(_execHome) return _execHome;
+  if ( _execHome ) return _execHome ;
   
 # if defined( _WIN32 )
 
@@ -209,9 +209,9 @@ extern char* jst_getExecutableHome() {
     // reset the error state, just in case it has been left dangling somewhere and 
     // GetModuleFileNameA does not reset it (its docs don't tell). 
     // GetModuleFileName docs: http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dllproc/base/getmodulefilename.asp
-    SetLastError(0); 
-    len = GetModuleFileNameA(NULL, execHome, currentBufSize);
-  } while(GetLastError() == ERROR_INSUFFICIENT_BUFFER);
+    SetLastError( 0 ) ; 
+    len = GetModuleFileNameA( NULL, execHome, currentBufSize ) ;
+  } while ( GetLastError() == ERROR_INSUFFICIENT_BUFFER ) ;
   // this works equally well but is a bit less readable
   // } while(len == currentBufSize);
 
@@ -224,7 +224,7 @@ extern char* jst_getExecutableHome() {
   
 # elif defined( __linux__ ) || defined( __sun__ )
 
-  // TODO - remove space for this from the stack, not dynamically
+  // TODO - reserve space for this from the stack, not dynamically
   procSymlink = jst_malloc( 40 * sizeof( char ) ) ; // big enough
   execHome    = jst_malloc( ( PATH_MAX + 1 ) * sizeof( char ) ) ;
   if( !procSymlink || !execHome ) {
@@ -596,16 +596,16 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
   char* potentialPathsToClientJVM[] = { PATHS_TO_CLIENT_JVM, NULL } ;
   char* potentialPathsToAnyJVMPreferringServer[] = { PATHS_TO_SERVER_JVM, PATHS_TO_CLIENT_JVM, NULL } ;
   char* potentialPathsToAnyJVMPreferringClient[] = { PATHS_TO_CLIENT_JVM, PATHS_TO_SERVER_JVM, NULL } ;
-  char** lookupDirs = NULL;
-  char*  dynLibFile;
+  char** lookupDirs = NULL ;
+  char*  dynLibFile ;
   jboolean preferClient = ( jvmSelectStrategy & 4 ) ? JNI_TRUE : JNI_FALSE,  // third bit
            allowClient  = ( jvmSelectStrategy & 1 ) ? JNI_TRUE : JNI_FALSE,  // first bit
            allowServer  = ( jvmSelectStrategy & 2 ) ? JNI_TRUE : JNI_FALSE ; // secons bit
   
   assert( allowClient || allowServer ) ;
   
-  rval.creatorFunc  = NULL;
-  rval.dynLibHandle = NULL;
+  rval.creatorFunc  = NULL ;
+  rval.dynLibHandle = NULL ;
 
   if ( allowServer && !allowClient ) {
     mode = "server" ;
@@ -706,37 +706,55 @@ static void clearException(JNIEnv* env) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+#define DYNAMIC_ARRAY_LENGTH_INCREMENT 5
+
 extern void* appendArrayItem( void* array, int indx, size_t* arlen, void* item, int item_size_in_bytes ) {
-  // we really need here just any data type whose storage size is one byte. 
-  // Since "byte" is not ansi-c, we use char ( sizeof( char ) == 1 ).
-  // Signed / unsigned does not matter here, only the storage size.
-  char *temp ;
+  // Note that ansi-c has no data type byte. However, by definition sizeof( char ) == 1, i.e. it is one byte in size.  
 
   // allocate array if requested
-  if ( !array && ! ( array = jst_calloc( *arlen, item_size_in_bytes ) ) ) return NULL ;
-  
-  // ensure there is enough space  
-  if ( ((size_t)indx) >= *arlen ) {
-    void* temp2 = array ;
+  if ( !array ) {
+    if ( ! ( array = jst_calloc( *arlen, item_size_in_bytes ) ) ) return NULL ;
+  } else if ( ((size_t)indx) >= *arlen ) { // ensure there is enough space
     size_t previousSize = *arlen ;
-    array = jst_calloc( *arlen += 5, item_size_in_bytes ) ;
-    if ( !array ) {
-      free( temp2 ) ;
-      return NULL ;
-    }
-    memcpy( array, temp2, previousSize * item_size_in_bytes ) ; 
-    free( temp2 ) ;
-    //if ( !( array = jst_realloc( array, ( *arlen += 5 ) * item_size_in_bytes ) ) ) return NULL ;
+    
+    if ( !( array = jst_realloc( array, ( *arlen += DYNAMIC_ARRAY_LENGTH_INCREMENT ) * item_size_in_bytes ) ) ) return NULL ;
+    
+    memset( ((char*)array) + previousSize * item_size_in_bytes, 0, ( *arlen - previousSize ) * item_size_in_bytes ) ;
   }
   
-  // append the new item
+  // append the new item. If NULL was given, append all zeroes.
+  if ( item ) {
+    memcpy( ((char*)array) + indx * item_size_in_bytes, item, item_size_in_bytes ) ;
+  } else {
+    memset( ((char*)array) + indx * item_size_in_bytes, 0,    item_size_in_bytes ) ;
+  }
   
-  temp = (char*)array ;
-  temp += ( indx * item_size_in_bytes ) ;
-
-  memcpy( temp, item, item_size_in_bytes ) ;
   return array ;
 }
+
+extern char** jst_packStringArray( char** nullTerminatedStringArray ) {
+  size_t totalByteSize = sizeof( char* ) ; // space for the terminating NULL
+  char *s, **rval, *temp ;
+  int i ;
+  
+  for ( i = 0 ; ( s = nullTerminatedStringArray[ i ] ) ; i++ ) {
+    totalByteSize += sizeof( char* ) + strlen( s ) + 1 ;
+  }
+  
+  if ( !( rval = jst_malloc( totalByteSize ) ) ) return NULL ;
+
+  // make temp point to the position after the char*, i.e. where the contents of the strings starts
+  temp = (char*)( rval + i + 1 ) ;
+  
+  for ( i = 0 ; ( s = nullTerminatedStringArray[ i ] ) ; i++ ) {
+    rval[ i ] = temp ;
+    while( ( *temp++ = *s++ ) ) ;
+  }
+  rval[ i ] = NULL ;
+  
+  return rval ;
+}
+
 
 extern char* jst_append( char* target, size_t* bufsize, ... ) {
   va_list args ;
@@ -820,104 +838,172 @@ static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-// TODO: make a function that returns the names of files found in a dir in a dyn allocated buffer first containing char* to 
-//       all the names (w/ terminating null) and then all the strings.
+extern jboolean jst_dirNameEndsWithSeparator( const char* dirName ) {
+  return ( strcmp( dirName + strlen( dirName ) - strlen( JST_FILE_SEPARATOR ), JST_FILE_SEPARATOR ) == 0 ) ? JNI_TRUE : JNI_FALSE ;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix ) {
+  char     **tempResult ;
+  size_t   resultSize = 30 ;
+  jboolean errorOccurred = JNI_FALSE ;
+  int      indx = 0 ;
+  
+  if ( !( tempResult = jst_calloc( resultSize, sizeof( char* ) ) ) ) return NULL ;
+  
+  if ( fileNamePrefix && !*fileNamePrefix ) fileNamePrefix = NULL ; // replace empty str w/ NULL
+  if ( fileNameSuffix ) {
+    if ( !*fileNameSuffix ) {
+      fileNameSuffix = NULL ;
+    } else {
+      assert( fileNameSuffix[ 0 ] == '.' ) ; // file name suffix must begin with a .
+    }
+  }
+
+  {
+    jboolean dirNameEndsWithSeparator = jst_dirNameEndsWithSeparator( dirName ) ;
+
+#  if defined( _WIN32 )
+    // windows does not have dirent.h, it does things different from other os'es
+    {
+      HANDLE          fileHandle = INVALID_HANDLE_VALUE ;
+      WIN32_FIND_DATA fdata ;
+      DWORD           lastError ;
+      char*           fileSpecifier = jst_append( NULL, NULL, dirName, 
+                                                       dirNameEndsWithSeparator ? "" : JST_FILE_SEPARATOR, 
+                                                       fileNamePrefix ? fileNamePrefix : "", 
+                                                       "*",
+                                                       fileNameSuffix ? fileNameSuffix : ".*",
+                                                       NULL ) ;
+      if ( !fileSpecifier ) {
+        errorOccurred = JNI_TRUE ;
+        goto end ;
+      }
+      
+      SetLastError( 0 ) ;
+      fileHandle = FindFirstFile( fileSpecifier, &fdata ) ;
+  
+      if ( fileHandle == INVALID_HANDLE_VALUE ) {
+        lastError = GetLastError() ;
+        fprintf( stderr, "error: opening directory %s failed\n", dirName ) ;
+        printWinError( lastError ) ;
+        errorOccurred = JNI_TRUE ;
+        goto end ;
+      }
+  
+      if ( !( lastError = GetLastError() ) ) {
+      
+        do {
+          char* temp = jst_append( NULL, NULL, fdata.cFileName, NULL ) ;
+          if ( !temp || 
+               !( tempResult = appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
+            errorOccurred = JNI_TRUE ;
+            goto end ;
+          }
+        } while( FindNextFile( fileHandle, &fdata ) );
+        
+      }
+        
+      if ( !lastError ) lastError = GetLastError() ;
+      if ( lastError != ERROR_NO_MORE_FILES ) {
+        fprintf( stderr, "error: error occurred when finding jars from %s\n", dirName ) ;
+        printWinError( lastError ) ;
+        errorOccurred = JNI_TRUE ;
+      }
+  
+      end:
+      
+      if ( fileHandle != INVALID_HANDLE_VALUE ) FindClose( fileHandle ) ;
+      if ( fileSpecifier ) free( fileSpecifier ) ;
+      
+    }
+#  else
+    {
+      DIR           *dir ;
+      struct dirent *entry ;
+      size_t        prefixLen = fileNamePrefix ? strlen( fileNamePrefix ) : 0,
+                    suffixlen = fileNameSuffix ? strlen( fileNameSuffix ) : 0 ;
+      
+      dir = opendir( dirName ) ;
+      if ( !dir ) {
+        fprintf( stderr, "error: could not read directory %s to append jar files from\n%s", dirName, strerror( errno ) ) ;
+        errorOccurred = JNI_TRUE ;
+        goto end ;
+      }
+
+      while( ( entry = readdir( dir ) ) ) {
+        char   *fileName = entry->d_name ;
+        size_t len       = strlen( fileName ) ;
+
+        if ( len < prefixlen || len < suffixlen ) continue ;
+        
+        if ( ( !fileNamePrefix || memcmp( fileNamePrefix, fileName, prefixLen ) == 0 ) &&
+             ( !fileNameSuffix || memcmp( fileNameSuffix, fileName + len - prefixlen, prefixlen ) == 0 ) ) {
+          char* temp = jst_append( NULL, NULL, fdata.cFileName, NULL ) ;
+          if ( !temp || 
+               !( tempResult = appendArrayItem( tempResult, indx++, &resultSize, temp, sizeof( char* ) ) ) ) {
+            errorOccurred = JNI_TRUE ;
+            goto end ;
+          }
+        }
+      }
+      
+
+      end:
+
+      if ( dir ) closedir( dir ) ;
+      
+    }
+#  endif
+  }
+  
+  if ( tempResult ) {
+    tempResult = appendArrayItem( tempResult, indx, &resultSize, NULL, sizeof( char* ) ) ;
+    if ( !tempResult ) errorOccurred = JNI_TRUE ;
+  }
+  
+  {
+    char** rval = NULL ;
+    
+    if ( tempResult ) {
+      int i = 0 ;
+      char *s ;
+      
+      if ( !errorOccurred ) rval = jst_packStringArray( tempResult ) ;
+      while ( ( s = tempResult[ i++ ] ) ) free( s ) ;
+      free( tempResult ) ;
+    }
+    
+    return rval ;
+  }
+  
+}
 
 /** returns != 0 on failure. May change the target to point to a new location */
 static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetSize ) {
 
-# if defined( _WIN32 )
-// windows does not have dirent.h, it does things different from other os'es
-
-  HANDLE          fileHandle = INVALID_HANDLE_VALUE ;
-  WIN32_FIND_DATA fdata ;
-  char            *jarEntrySpecifier = NULL ;
-  DWORD           lastError ;
-  jboolean        dirNameEndsWithSeparator, rval = JNI_TRUE ;
+  char **jarNames = jst_getFileNames( dirName, NULL, ".jar" ),
+       *s ;
+  int i = 0 ;
+  jboolean dirNameEndsWithSeparator = ( strcmp( dirName + strlen( dirName ) - strlen( JST_FILE_SEPARATOR ), JST_FILE_SEPARATOR ) == 0 ) ? JNI_TRUE : JNI_FALSE,
+           errorOccurred = JNI_FALSE ;
   
-  dirNameEndsWithSeparator = ( strcmp( dirName + strlen( dirName ) - strlen( JST_FILE_SEPARATOR ), JST_FILE_SEPARATOR ) == 0 ) ? JNI_TRUE : JNI_FALSE ;
-    
-  // this only works w/ FindFirstFileW. If need be, use that.
-//  strcpy(jarEntrySpecifier, "\\\\?\\"); // to allow long paths, see documentation of FindFirstFile
-  jarEntrySpecifier = jst_append( NULL, NULL, dirName, dirNameEndsWithSeparator ? "" : JST_FILE_SEPARATOR, "*.jar", NULL ) ;
-  if ( !jarEntrySpecifier ) return JNI_TRUE ;
+  if ( !jarNames ) return JNI_TRUE ;
   
-  SetLastError( 0 ) ;
-  fileHandle = FindFirstFile( jarEntrySpecifier, &fdata ) ;
-  
-  if ( fileHandle == INVALID_HANDLE_VALUE ) {
-    fprintf( stderr, "error: opening directory %s failed\n", dirName ) ;
-    printWinError( GetLastError() ) ;
-    goto end ;
-  }
-  
-  lastError = GetLastError() ;
-  if ( !lastError ) {
-  
-    do {
-      // this if and the contained ||s are used so that if any of the
-      // calls fail, we jump to the end
-      if(    !( *target = appendCPEntry( *target, targetSize, dirName ) )         
-          ||  ( dirNameEndsWithSeparator ?  JNI_FALSE : !( *target = jst_append( *target, targetSize, JST_FILE_SEPARATOR, NULL ) ) ) 
-          || !( *target = jst_append( *target, targetSize, fdata.cFileName, NULL ) )
-        ) goto end ;
-    } while( FindNextFile( fileHandle, &fdata ) );
-    
-  }
-    
-  if ( !lastError ) lastError = GetLastError() ;
-  if ( lastError != ERROR_NO_MORE_FILES ) {
-    fprintf( stderr, "error: error occurred when finding jars from %s\n", dirName ) ;
-    printWinError( lastError ) ;
-    goto end ;
-  }
-  
-  rval = JNI_FALSE ;
-  
-  end:
-  if ( fileHandle != INVALID_HANDLE_VALUE ) FindClose( fileHandle ) ;
-  if ( jarEntrySpecifier ) free( jarEntrySpecifier ) ;
-  return rval ;
-      
-# else      
-
-  DIR           *dir ;
-  struct dirent *entry ;
-  size_t        len ;
-  jboolean      dirNameEndsWithSeparator, 
-                rval = JNI_TRUE ;
-
-  len = strlen( dirName ) ;
-  dirNameEndsWithSeparator = ( strcmp( dirName + len - strlen(JST_FILE_SEPARATOR ), JST_FILE_SEPARATOR) == 0 ) ;
-
-  dir = opendir( dirName ) ;
-  if ( !dir ) {
-    fprintf( stderr, "error: could not read directory %s to append jar files from\n%s", dirName, strerror( errno ) ) ;
-    return JNI_TRUE ;
-  }
-
-  while( (entry = readdir( dir ) ) ) {
-    len = strlen( entry->d_name ) ;
-    if(len >= 5 && ( strcmp( ".jar", (entry->d_name) + len - 4 ) == 0 ) ) {
-      // this if and the contained ||s are used so that if any of the
-      // calls fail, we jump to the end
-      if ( !( *target = appendCPEntry( *target, targetSize, dirName ) )         
-       ||   ( dirNameEndsWithSeparator ?  JNI_FALSE : !( *target = jst_append( *target, targetSize, JST_FILE_SEPARATOR, NULL ) ) ) 
-       ||  !( *target = jst_append( *target, targetSize, entry->d_name, NULL ) ) ) goto end ;
+  while ( ( s = jarNames[ i++ ] ) ) {
+    if(    !( *target = appendCPEntry( *target, targetSize, dirName ) )         
+        || !( *target = jst_append( *target, targetSize, dirNameEndsWithSeparator ? "" : JST_FILE_SEPARATOR, s, NULL ) )
+      ) {
+      errorOccurred = JNI_TRUE ;
+      goto end ;    
     }
   }
   
-  rval = JNI_FALSE ;
-
   end:
-  if ( rval ) {
-    fprintf( stderr, strerror( errno ) ) ;
-  }
-  closedir( dir ) ;
-  return rval ;
-
-#  endif
-
+  free( jarNames ) ;
+  return errorOccurred ;
+  
 }
 
 
@@ -1086,14 +1172,14 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
   // classify the arguments as jvm or launchee params. Some are passed to neither as they are handled in this func.
   // An example is the -client / -server option that selects the type of jvm
-  for(i = 0; i < launcheeParamBeginIndex; i++) {
-    char* argument = launchOptions->arguments[i];
-    len = strlen(argument);
+  for ( i = 0 ; i < launcheeParamBeginIndex ; i++ ) {
+    char* argument = launchOptions->arguments[ i ] ;
+    len = strlen( argument ) ;
 
-    if(strcmp("-cp", argument) == 0 
-    || strcmp("-classpath", argument) == 0
-    || strcmp("--classpath", argument) == 0
-    ) {
+    if ( strcmp("-cp",         argument ) == 0 
+      || strcmp("-classpath",  argument ) == 0
+      || strcmp("--classpath", argument ) == 0
+      ) {
       if(i == (launchOptions->numArguments - 1)) { // check that this is not the last param as it requires additional info
         fprintf(stderr, "erroneous use of %s\n", argument);
         goto end;
@@ -1153,8 +1239,8 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
         }
         javaHome = launchOptions->arguments[++i];
     } else { // jvm option
-      // add these to a separate array and add these last. This way the ones given by the user override
-      // the ones set automatically, so user can override e.g. -Dgroovy.home= and the options given in JAVA_OPTS
+      // add these to a separate array and add these last. This way the ones given by the user on command line override
+      // the ones set programmatically or from JAVA_OPTS
 
       if ( ! ( userJvmOptions = appendJvmOption( userJvmOptions, 
                                                  userJvmOptionsCount++, 
@@ -1170,12 +1256,12 @@ next_arg:
   // print debug if necessary
   if( _jst_debug ) { 
     if( launchOptions->numArguments != 0 ) {
-      fprintf(stderr, "DEBUG: param classication\n");
-      for(i = 0; i < launchOptions->numArguments; i++) {
-        fprintf(stderr, "  %s\t: %s\n", launchOptions->arguments[i], (isLauncheeOption[i] || i >= launcheeParamBeginIndex) ? "launcheeparam" : "non launchee param");  
+      fprintf( stderr, "DEBUG: param classication\n" ) ;
+      for ( i = 0 ; i < launchOptions->numArguments ; i++ ) {
+        fprintf( stderr, "  %s\t: %s\n", launchOptions->arguments[i], (isLauncheeOption[i] || i >= launcheeParamBeginIndex) ? "launcheeparam" : "non launchee param" ) ;  
       }
     } else {
-      fprintf(stderr, "DEBUG: no parameters\n");
+      fprintf( stderr, "DEBUG: no parameters\n" ) ;
     }
   }
   
@@ -1187,22 +1273,22 @@ next_arg:
   if ( !javaHome ) javaHome = launchOptions->java_home ;
   if ( !javaHome ) javaHome = findJavaHome( launchOptions->javahomeHandling ) ; 
 
-  if(!javaHome || !javaHome[0]) { // not found or an empty string
-    fprintf(stderr, ((launchOptions->javahomeHandling) & JST_ALLOW_JH_ENV_VAR_LOOKUP) ? "error: JAVA_HOME not set\n" : 
-                                                                                  "error: java home not provided\n");
-    goto end;
+  if ( !javaHome || !javaHome[ 0 ] ) { // not found or an empty string
+    fprintf( stderr, ( ( launchOptions->javahomeHandling ) & JST_ALLOW_JH_ENV_VAR_LOOKUP ) ? "error: JAVA_HOME not set\n" : 
+                                                                                             "error: java home not provided\n");
+    goto end ;
   } else if( _jst_debug ) {
-    fprintf(stderr, "DEBUG: using java home: %s\n", javaHome);
+    fprintf( stderr, "DEBUG: using java home: %s\n", javaHome ) ;
   }
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
   
 
   // count the params going to the launchee so we can construct the right size java String[] as param to the java main being invoked
-  for(i = 0; i < launchOptions->numArguments; i++) {
-    if(isLauncheeOption[i] || i >= launcheeParamBeginIndex) {
-      isLauncheeOption[i] = JNI_TRUE;
-      launcheeParamCount++;
+  for ( i = 0 ; i < launchOptions->numArguments ; i++ ) {
+    if ( isLauncheeOption[i] || i >= launcheeParamBeginIndex ) {
+      isLauncheeOption[ i ] = JNI_TRUE ;
+      launcheeParamCount++ ;
     }
   }
 
@@ -1210,39 +1296,39 @@ next_arg:
   // construct classpath for the jvm
 
   // look up CLASSPATH env var if necessary  
-  if( !( JST_IGNORE_GLOBAL_CP & (launchOptions->classpathHandling) ) ) { // first check if CLASSPATH is ignored altogether
-    if(JST_IGNORE_GLOBAL_CP_IF_PARAM_GIVEN & (launchOptions->classpathHandling)) { // use CLASSPATH only if -cp not provided
-      if(!userClasspath) envCLASSPATH = getenv("CLASSPATH");
+  if ( !( JST_IGNORE_GLOBAL_CP & (launchOptions->classpathHandling) ) ) { // first check if CLASSPATH is ignored altogether
+    if ( JST_IGNORE_GLOBAL_CP_IF_PARAM_GIVEN & (launchOptions->classpathHandling ) ) { // use CLASSPATH only if -cp not provided
+      if ( !userClasspath) envCLASSPATH = getenv( "CLASSPATH" ) ;
     } else {
-      envCLASSPATH = getenv("CLASSPATH");
+      envCLASSPATH = getenv( "CLASSPATH" ) ;
     }
   } 
     
   if ( !( classpath = jst_append( NULL, &cpsize, "-Djava.class.path=", NULL ) ) ) goto end ;
 
   // add the jars from the given dirs
-  if(launchOptions->jarDirs) {
+  if ( launchOptions->jarDirs ) {
 
-    char *dirName;
+    char *dirName ;
 
-    for( i = 0 ; (dirName = launchOptions->jarDirs[i++]) ; ) {
-      if( appendJarsFromDir( dirName, &classpath, &cpsize ) ) goto end ; // error msg already printed
+    for ( i = 0 ; ( dirName = launchOptions->jarDirs[ i++ ] ) ; ) {
+      if ( appendJarsFromDir( dirName, &classpath, &cpsize ) ) goto end ; // error msg already printed
     }
     
   }
 
-  if( userClasspath && ((launchOptions->classpathHandling) & JST_CP_PARAM_TO_JVM)) {
-    if( !( classpath = appendCPEntry(classpath, &cpsize, userClasspath) ) ) goto end;
+  if ( userClasspath && ((launchOptions->classpathHandling) & JST_CP_PARAM_TO_JVM)) {
+    if ( !( classpath = appendCPEntry(classpath, &cpsize, userClasspath) ) ) goto end ;
   }
 
-  if( envCLASSPATH && !( classpath = appendCPEntry(classpath, &cpsize, envCLASSPATH) ) ) goto end;
+  if ( envCLASSPATH && !( classpath = appendCPEntry(classpath, &cpsize, envCLASSPATH) ) ) goto end ;
 
   // add the provided single jars
   
-  if(launchOptions->jars) {
-    char* jarName;
+  if ( launchOptions->jars ) {
+    char* jarName ;
     
-    for( i = 0 ; (jarName = launchOptions->jars[i++]) ; ) {
+    for ( i = 0 ; ( jarName = launchOptions->jars[ i++ ] ) ; ) {
       if ( !( classpath = appendCPEntry( classpath, &cpsize, jarName ) ) ) goto end ;
     }
     
@@ -1250,8 +1336,7 @@ next_arg:
 
   // tools.jar handling
   // tools.jar is not present on a jre, so in that case we omit the -Dtools.jar= option
-  len = strlen( javaHome ) + 2 * strlen( JST_FILE_SEPARATOR ) + 12 + 1 ;
-  toolsJarFile = jst_append( NULL, &len, javaHome,  JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR "tools.jar", NULL ) ;  
+  toolsJarFile = jst_append( NULL, NULL, javaHome, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR "tools.jar", NULL ) ;  
   if ( !toolsJarFile ) goto end ;
 
 // #if defined ( __APPLE__ )
@@ -1265,8 +1350,7 @@ next_arg:
   if ( jst_fileExists( toolsJarFile ) ) {
     // add as java env property if requested
     if ( ( launchOptions->toolsJarHandling ) & JST_TOOLS_JAR_TO_SYSPROP ) {
-      len       = strlen(toolsJarFile) + 12 + 1 ; // "-Dtools.jar=" == 12 chars + null char
-      toolsJarD = jst_append( NULL, &len, "-Dtools.jar=", toolsJarFile, NULL ) ;
+      toolsJarD = jst_append( NULL, NULL, "-Dtools.jar=", toolsJarFile, NULL ) ;
       if ( !toolsJarD ) goto end ;
 
       if ( !( jvmOptions = appendJvmOption( jvmOptions, 
@@ -1281,8 +1365,7 @@ next_arg:
      && !( classpath = appendCPEntry(classpath, &cpsize, toolsJarFile) ) ) goto end;
   }
   
-  free( toolsJarFile ) ;
-  toolsJarFile = NULL ;
+  jst_free( toolsJarFile ) ;
   
   
   if ( !( jvmOptions = appendJvmOption( jvmOptions, 
@@ -1361,51 +1444,49 @@ next_arg:
   javaLib = findJVMDynamicLibrary( javaHome, jvmSelectStrategy ) ;
   if(!javaLib.creatorFunc) goto end; // error message already printed
   
+  // start the jvm.  
   // the cast to void* before void** serves to remove a gcc warning
   // "dereferencing type-punned pointer will break strict-aliasing rules"
   // Found the fix from
   // http://mail.opensolaris.org/pipermail/tools-gcc/2005-August/000048.html
-  result = (javaLib.creatorFunc)(&javavm, (void**)(void*)&env, &vm_args);
+  result = (javaLib.creatorFunc)( &javavm, (void**)(void*)&env, &vm_args ) ;
 
-  if(result) {
-    char* errMsg;
+  if ( result ) {
+    char* errMsg ;
     switch(result) {
       case JNI_ERR        : //  (-1)  unknown error 
-        errMsg = "unknown error";
-        break;
+        errMsg = "unknown error" ;
+        break ;
       case JNI_EDETACHED  : //  (-2)  thread detached from the VM 
-        errMsg = "thread detachment";
-        break;
+        errMsg = "thread detachment" ;
+        break ;
       case JNI_EVERSION   : //  (-3)  JNI version error 
-        errMsg = "JNI version problems";
-        break;
+        errMsg = "JNI version problems" ;
+        break ;
       case JNI_ENOMEM     : //  (-4)  not enough memory 
-        errMsg = "not enough memory";
-        break;
+        errMsg = "not enough memory" ;
+        break ;
       case JNI_EEXIST     : //  (-5)  VM already created 
-        errMsg = "jvm already created";
-        break;
+        errMsg = "jvm already created" ;
+        break ;
       case JNI_EINVAL     : //  (-6)  invalid arguments
-        errMsg = "invalid arguments to jvm creation";
-        break;
-      default: // should not happen
-        errMsg = "unknown exit code";
-        break;
+        errMsg = "invalid arguments to jvm creation" ;
+        break ;
+      default             : // should not happen
+        errMsg = "unknown exit code" ;
+        break ;
     }
-    fprintf(stderr, "error: jvm creation failed with code %d: %s\n", (int)result, errMsg);
-    rval = result;
-    goto end;
+    fprintf( stderr, "error: jvm creation failed with code %d: %s\n", (int)result, errMsg ) ;
+    rval = result ;
+    goto end ;
   } 
 
-  free( toolsJarD  ) ;
-  free( jvmOptions ) ;
-  free( classpath  ) ;
-  toolsJarD  = NULL ;
-  jvmOptions = NULL ;
-  classpath  = NULL ;
+  jst_free( toolsJarD  ) ;
+  jst_free( jvmOptions ) ;
+  jst_free( classpath  ) ;
 
   // construct a java.lang.String[] to give program args in
-  // find the groovy main class
+  // find the application main class
   // find the startup method and call it
 
   if(launchOptions->extraProgramOptions) {
@@ -1416,7 +1497,7 @@ next_arg:
    
   if ( ( result = (*env)->EnsureLocalCapacity( env, launcheeParamCount + 1 ) ) ) { // + 1 for the String[] to hold the params
     clearException( env ) ;
-    fprintf( stderr, "error: could not allocate memory to hold references for groovy parameters (how many params did you give, dude?)\n" ) ;
+    fprintf( stderr, "error: could not allocate memory to hold references for program parameters (how many params did you give, dude?)\n" ) ;
     rval = result ;
     goto end ;
   }
@@ -1431,7 +1512,7 @@ next_arg:
   launcheeJOptions = (*env)->NewObjectArray( env, launcheeParamCount, strClass, NULL ) ;
   if ( !launcheeJOptions ) {
     clearException( env ) ;
-    fprintf( stderr, "error: could not allocate memory for java String array to hold groovy parameters (how many params did you give, dude?)\n" ) ;
+    fprintf( stderr, "error: could not allocate memory for java String array to hold program parameters (how many params did you give, dude?)\n" ) ;
     goto end ;
   }
 
@@ -1452,8 +1533,6 @@ next_arg:
 
   // TODO: use this all over the place, remove the explicit setting to NULL
   jst_free( isLauncheeOption ) ;
-  isLauncheeOption = NULL ;
-
 
 
   launcheeMainClassHandle = (*env)->FindClass( env, launchOptions->mainClassName ) ;

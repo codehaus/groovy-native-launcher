@@ -165,6 +165,16 @@ extern int jst_launchJavaApp(JavaLauncherOptions* options);
 
 extern int jst_fileExists(const char* fileName);
 
+/** Returns a NULL terminated string array containing the names of files in the given dir. The returned string array is dyn 
+ * allocated. It and all the contained strings are freed by freeing the returned pointer.
+ * @param fileNamePrefix return only files whose name begins with this prefix. May be NULL or empty string.
+ * @param fileNameSuffix return only files whose name ends with this suffix.   May be NULL or empty string. 
+ *        Suffix here means the file type identifier part, e.g. in "foo.jar" -> ".jar" */
+extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix ) ;
+
+extern jboolean jst_dirNameEndsWithSeparator( const char* dirName ) ;
+
+
 /** Returns the path to the directory where the current executable lives, including the last path separator, e.g.
  * c:\programs\groovy\bin\ or /usr/loca/groovy/bin/ 
  * The trailing file separator is included, even though this is a little inconsistent w/ how e.g. dir names are usually stored
@@ -204,8 +214,14 @@ int jst_indexOfParam( char** args, int numargs, char* paramToSearch) ;
 char* jst_append( char* target, size_t* size, ... ) ; 
 
 /** If array is NULL, a new one will be created, size arlen. The given array will be reallocated if there is not enough space.
- * The newly allocated memory (in both cases) contains all 0s. */
+ * The newly allocated memory (in both cases) contains all 0s. If NULL is given as the item, zeroes are added at the given array position. */
 void* appendArrayItem( void* array, int index, size_t* arlen, void* item, int item_size_in_bytes ) ;
+
+/** Given a null terminated string array, makes a dynamically allocated copy of it that can be freed using a single call to free. Useful for constructing
+ * string arrays returned to caller who must free them. In technical detail, the returned mem block first contains all the char*, the termiting NULL and
+ * then all the strings one after another. Note that whoever uses the char** does not need to know this mem layout. */
+char** jst_packStringArray( char** nullTerminatedStringArray ) ;
+
 
 /** As the previous, but specifically for jvm options. 
  * @param extraInfo JavaVMOption.extraInfo. See jni.h or jni documentation (JavaVMOption is defined in jni.h). */
