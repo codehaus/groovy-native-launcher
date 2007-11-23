@@ -55,7 +55,7 @@ extern void* jst_appendArrayItem( void* array, int indx, size_t* arlen, void* it
 
   // allocate array if requested
   if ( !array ) {
-    size_t size = *arlen > (size_t)indx + 1 ? *arlen : indx + 1 ;
+    size_t size = ( *arlen > (size_t)( indx + 1 ) ) ? *arlen : (size_t)( indx + 1 ) ;
     if ( ! ( array = jst_calloc( size, item_size_in_bytes ) ) ) return NULL ;
   } else if ( ((size_t)indx) >= *arlen ) { // ensure there is enough space
     size_t previousSize = *arlen ;
