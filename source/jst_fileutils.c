@@ -13,6 +13,8 @@
 //  License.
 //
 //  Author:  Antti Karanta (Antti dot Karanta (at) iki dot fi) 
+//  $Revision$
+//  $Date$
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -20,7 +22,6 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
-#include <unistd.h>
 
 #if defined( _WIN32 )
 #  include <Windows.h>
@@ -28,8 +29,13 @@
 #    define PATH_MAX MAX_PATH
 #  endif
 #else
-# include <dirent.h> 
+#  include <dirent.h> 
+#  include <unistd.h>
+#  if defined( __APPLE__ )
+#    include <CoreFoundation/CFBundle.h>
+#  endif
 #endif
+
 
 #include "jvmstarter.h"
 
@@ -205,42 +211,39 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
 }
 
 extern char* jst_getExecutableHome() {
-  static char* _execHome = NULL;
+  static char* _execHome = NULL ;
   
-  char   *execHome = NULL;
-# if defined( __linux__ ) || defined( __sun__ )
-  char   *procSymlink ;
-# endif
+  char   *execHome = NULL ;
 
-# if defined( _WIN32 )
-  size_t currentBufSize = 0 ;
-# endif
   size_t len ;
   
   if ( _execHome ) return _execHome ;
   
 # if defined( _WIN32 )
-
-  do {
-    if(currentBufSize == 0) {
-      currentBufSize = PATH_MAX + 1;
-      execHome = jst_malloc( currentBufSize * sizeof( char ) ) ;
-    } else {
-      execHome = jst_realloc( execHome, (currentBufSize += 100) * sizeof( char ) ) ;
-    }
-    
-    if ( !execHome ) return NULL ; 
-    
-
-    // reset the error state, just in case it has been left dangling somewhere and 
-    // GetModuleFileNameA does not reset it (its docs don't tell). 
-    // GetModuleFileName docs: http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dllproc/base/getmodulefilename.asp
-    SetLastError( 0 ) ; 
-    len = GetModuleFileNameA( NULL, execHome, (DWORD)currentBufSize ) ;
-  } while ( GetLastError() == ERROR_INSUFFICIENT_BUFFER ) ;
-  // this works equally well but is a bit less readable
-  // } while(len == currentBufSize);
-
+  {
+    size_t currentBufSize = 0 ;
+  
+    do {
+      if(currentBufSize == 0) {
+        currentBufSize = PATH_MAX + 1;
+        execHome = jst_malloc( currentBufSize * sizeof( char ) ) ;
+      } else {
+        execHome = jst_realloc( execHome, (currentBufSize += 100) * sizeof( char ) ) ;
+      }
+      
+      if ( !execHome ) return NULL ; 
+      
+  
+      // reset the error state, just in case it has been left dangling somewhere and 
+      // GetModuleFileNameA does not reset it (its docs don't tell). 
+      // GetModuleFileName docs: http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dllproc/base/getmodulefilename.asp
+      SetLastError( 0 ) ; 
+      len = GetModuleFileNameA( NULL, execHome, (DWORD)currentBufSize ) ;
+    } while ( GetLastError() == ERROR_INSUFFICIENT_BUFFER ) ;
+    // this works equally well but is a bit less readable
+    // } while(len == currentBufSize);
+  }
+  
   if ( len == 0 ) {
     fprintf( stderr, "error: finding out executable location failed\n" ) ;
     printWinError( GetLastError() ) ;
@@ -248,59 +251,88 @@ extern char* jst_getExecutableHome() {
     return NULL ; 
   }
   
-# elif defined( __linux__ ) || defined( __sun__ )
+# elif defined( __linux__ ) || defined( __sun__ ) || defined( __APPLE__ )
+  {
+    char   *procSymlink ;
 
-  // TODO - reserve space for this from the stack, not dynamically
-  procSymlink = jst_malloc( 40 * sizeof( char ) ) ; // big enough
-  execHome    = jst_malloc( ( PATH_MAX + 1 ) * sizeof( char ) ) ;
-  if( !procSymlink || !execHome ) {
-    if ( procSymlink ) free( procSymlink ) ; 
-    if ( execHome    ) free( execHome    ) ;
-    return NULL ;
-  }
+    if ( !( execHome = jst_malloc( ( PATH_MAX + 1 ) * sizeof( char ) ) ) ) return NULL ;
 
-  sprintf(procSymlink,
-#   if defined( __linux__ )
-      // /proc/{pid}/exe is a symbolic link to the executable
-      "/proc/%d/exe" 
-#   elif defined( __sun__ )
-      // see above
-      "/proc/%d/path/a.out"
-#   endif
-      , (int)getpid()
-  );
-
-  if( !jst_fileExists( procSymlink ) ) {
-    free(procSymlink);
-    free(execHome);
-    return "";
-  }
-
-  if( !realpath( procSymlink, execHome ) ) {
-    fprintf( stderr, strerror( errno ) ) ;
+   // getting the symlink varies by platform
+#  if defined( __linux__ ) || defined( __sun__ )     
+    // TODO - reserve space for this from the stack, not dynamically
+    procSymlink = jst_malloc( 40 * sizeof( char ) ) ; // big enough
+    if ( !procSymlink ) {
+      jst_free( execHome ) ;
+      return NULL ;
+    }
+  
+    sprintf( procSymlink,
+#     if defined( __linux__ )
+        // /proc/{pid}/exe is a symbolic link to the executable
+        "/proc/%d/exe" 
+#     elif defined( __sun__ )
+        // see above
+        "/proc/%d/path/a.out"
+#     endif
+        , (int)getpid()
+    ) ;
+    
+#  elif defined( __APPLE__ )
+    {
+      jboolean appleError = JNI_FALSE ;
+      const CFBundleRef bundle = CFBundleGetMainBundle() ;
+      if ( !bundle ) {
+        fprintf( stderr, "error: failed to get main bundle\n" ) ;
+        jst_free( execHome ) ;
+        return NULL ;
+      } else {
+        const CFURLRef    executableURL  = CFBundleCopyExecutableURL( bundle ) ;
+        const CFStringRef executablePath = CFURLCopyFileSystemPath( executableURL , kCFURLPOSIXPathStyle ) ;
+        const CFIndex     maxLength      = CFStringGetMaximumSizeOfFileSystemRepresentation( executablePath ) ;
+        
+        if ( !( procSymlink = jst_malloc( maxLength * sizeof( char ) ) ) ||
+             !CFStringGetFileSystemRepresentation( executablePath, procSymlink , maxLength ) ) {
+          appleError = JNI_TRUE ;
+        }
+        
+        CFRelease ( executablePath ) ;
+        CFRelease ( executableURL  ) ; 
+        if ( appleError ) {
+          free( execHome ) ;
+          if ( procSymlink ) free( procSymlink ) ;
+          return NULL ;
+        }
+      }
+    }
+#  else
+#    error "looking up executable location has not been implemented on your platform"
+#  endif    
+    
+    if ( !jst_fileExists( procSymlink ) ) { // should never happen
+      fprintf( stderr, "warning: symlink or file %s does not exist\n", procSymlink ) ;
+      free( procSymlink ) ;
+      free( execHome ) ;
+      return "" ;
+    }
+  
+    if ( !realpath( procSymlink, execHome ) ) {
+      fprintf( stderr, strerror( errno ) ) ;
+      free( procSymlink ) ;
+      free( execHome    ) ;
+      return NULL ;
+    }
+    
     free( procSymlink ) ;
-    free( execHome    ) ;
-    return NULL ;
   }
-  free( procSymlink ) ;
-
-# elif defined ( __APPLE__ )
-
-// TODO
-
+  
 # endif
 
-# if defined( _WIN32 ) || defined ( __linux__ ) || defined( __sun__ )
   // cut off the executable name
-  *(strrchr( execHome, JST_FILE_SEPARATOR[ 0 ] ) + 1) = '\0' ;   
+  *(strrchr( execHome, JST_FILE_SEPARATOR[ 0 ] ) + 1 ) = '\0' ;   
   len = strlen( execHome ) ;
   execHome = jst_realloc( execHome, len + 1 ) ; // should not fail as we are shrinking the buffer
   assert( execHome ) ;
   return _execHome = execHome ;
   
-# else
-  // FIXME - remove this once this feature is supported for __APPLE__
-  return "";
-# endif
 
 }

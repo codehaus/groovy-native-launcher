@@ -14,6 +14,8 @@
 //  License.
 //
 //  Author:  Antti Karanta (Antti dot Karanta (at) iki dot fi) 
+//  $Revision$
+//  $Date$
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -75,7 +77,6 @@ extern void* jst_appendArrayItem( void* array, int indx, size_t* arlen, void* it
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-
 extern char** jst_packStringArray( char** nullTerminatedStringArray ) {
   size_t totalByteSize = sizeof( char* ) ; // space for the terminating NULL
   char   *s, 
@@ -108,9 +109,10 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
   size_t targetlen = ( target ? strlen( target ) : 0 ),
          numArgs   = 10 ; // the size of the buffer we are storing the param strings into. Enlarged as necessary.
   size_t totalSize = targetlen + 1 ; // 1 for the terminating nul char
-  char *s, *t ;
-  char** stringsToAppend = NULL ;
-  int i = 0 ;
+  char   *s, 
+         *t,
+         **stringsToAppend = NULL ;
+  int    i = 0 ;
   
   errno = 0 ;
   stringsToAppend = jst_malloc( numArgs * sizeof( char* ) ) ;  

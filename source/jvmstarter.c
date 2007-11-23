@@ -16,6 +16,12 @@
 //  $Revision$
 //  $Date$
 
+// TODO:
+// * os-x executable location detection
+// * cygwin support
+// * win exe versioning metadata
+// * clean up setting param infos in groovy.c -> initialize structs as {"-foo", JST_SINGLE_PARAM } etc. Mark the end of array w/ param info w/ NULL str for name
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -246,10 +252,10 @@ static char* findJavaHomeFromWinRegistry() {
   static char* _javaHome = NULL ;
   
   static char* registryEntriesToCheck[] = { "SOFTWARE\\JavaSoft\\Java Development Kit", 
-                                            "SOFTWARE\\JRockit\\Java Development Kit",
-                                            "SOFTWARE\\JavaSoft\\Java Runtime Environment", 
-                                            "SOFTWARE\\JRockit\\Java Runtime Environment",
-                                            NULL } ;
+                                                  "SOFTWARE\\JRockit\\Java Development Kit",
+                                                  "SOFTWARE\\JavaSoft\\Java Runtime Environment", 
+                                                  "SOFTWARE\\JRockit\\Java Runtime Environment",
+                                                  NULL } ;
   
   if ( _javaHome ) return _javaHome ;
   
@@ -462,15 +468,16 @@ extern char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const c
 
 /** In case there are errors, the returned struct contains only NULLs. */
 static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSelectStrategy ) {
+
+  static char* potentialPathsToServerJVM[]              = { PATHS_TO_SERVER_JVM, NULL } ;
+  static char* potentialPathsToClientJVM[]              = { PATHS_TO_CLIENT_JVM, NULL } ;
+  static char* potentialPathsToAnyJVMPreferringServer[] = { PATHS_TO_SERVER_JVM, PATHS_TO_CLIENT_JVM, NULL } ;
+  static char* potentialPathsToAnyJVMPreferringClient[] = { PATHS_TO_CLIENT_JVM, PATHS_TO_SERVER_JVM, NULL } ;
   
   char path[ PATH_MAX + 1 ], *mode ;
   JavaDynLib rval;
   int i = 0, j = 0;
   DLHandle jvmLib = (DLHandle)0 ;
-  char* potentialPathsToServerJVM[] = { PATHS_TO_SERVER_JVM, NULL } ;
-  char* potentialPathsToClientJVM[] = { PATHS_TO_CLIENT_JVM, NULL } ;
-  char* potentialPathsToAnyJVMPreferringServer[] = { PATHS_TO_SERVER_JVM, PATHS_TO_CLIENT_JVM, NULL } ;
-  char* potentialPathsToAnyJVMPreferringClient[] = { PATHS_TO_CLIENT_JVM, PATHS_TO_SERVER_JVM, NULL } ;
   char** lookupDirs = NULL ;
   char*  dynLibFile ;
   jboolean preferClient = ( jvmSelectStrategy & 4 ) ? JNI_TRUE : JNI_FALSE,  // third bit
