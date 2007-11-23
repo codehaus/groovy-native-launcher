@@ -27,15 +27,8 @@
 
 #if defined ( __APPLE__ )
 #  include <TargetConditionals.h>
-#endif
-
-#if defined ( _WIN32 )
+#elif defined ( _WIN32 )
 #  include <Windows.h>
-#  if !defined( PATH_MAX )
-#    define PATH_MAX MAX_PATH
-#  endif
-#else
-#  include <dirent.h>
 #endif
 
 
@@ -447,10 +440,7 @@ int rest_of_main( int argc, char** argv ) {
       // cygwin compatibility: path conversion from cygwin to win format
       // - - - - - - - - - - - - -
       int cpind = jst_indexOfParam( args, numParamsToCheck, cpaliases[ i ] ) ;
-      
-      classpath_dyn = jst_malloc( PATH_MAX + 1 ) ;
-      if ( !classpath_dyn ) goto end ;
-      
+            
       classpath_dyn = jst_convertCygwin2winPathList( classpath ) ; 
       if ( !classpath_dyn ) goto end ;
       

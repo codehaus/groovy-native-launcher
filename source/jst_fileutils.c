@@ -19,14 +19,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-
-#include <jni.h>
+#include <errno.h>
+#include <unistd.h>
 
 #if defined( _WIN32 )
 #  include <Windows.h>
 #  if !defined( PATH_MAX )
 #    define PATH_MAX MAX_PATH
 #  endif
+#else
+# include <dirent.h> 
 #endif
 
 #include "jvmstarter.h"

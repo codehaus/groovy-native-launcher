@@ -19,6 +19,8 @@
 
 #if !defined( _JVMSTARTER_H_ )
 
+#include <jni.h>
+
 #if defined( __cplusplus )
   extern "C" {
 #endif

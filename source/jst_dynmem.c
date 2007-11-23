@@ -1,3 +1,4 @@
+
 //  A library for easy creation of a native launcher for Java applications.
 //
 //  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) iki dot fi) 
@@ -18,8 +19,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <errno.h>
 
-#include <jni.h>
 #include "jvmstarter.h"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
