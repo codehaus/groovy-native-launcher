@@ -16,16 +16,15 @@
 //  $Revision$
 //  $Date$
 
-#include <stdlib.h>
-#include <string.h>
+//#include <stdlib.h>
+//#include <string.h>
 #include <stdio.h>
-#include <stdarg.h>
 
 #include <assert.h>
 #include <errno.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
+//#include <sys/types.h>
+//#include <sys/stat.h>
 
 #include <limits.h>
 
@@ -131,27 +130,6 @@ typedef struct {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-// the only difference to originals is that these print an error msg if they fail
-extern void* jst_malloc( size_t size ) {
-  void* rval = malloc( size ) ;
-  if ( !rval ) fprintf( stderr, "error %d in malloc: %s", errno, strerror( errno ) ) ;
-  return rval ;
-}
-
-extern void* jst_calloc( size_t nelem, size_t elsize ) {
-  void* rval = calloc( nelem, elsize ) ;
-  if ( !rval ) fprintf( stderr, "error %d in calloc: %s", errno, strerror( errno ) ) ;
-  return rval ;  
-}
-
-extern void* jst_realloc( void* ptr, size_t size ) {
-  void* rval = realloc( ptr, size ) ;
-  if ( !rval ) fprintf( stderr, "error %d in realloc: %s", errno, strerror( errno ) ) ;
-  return rval ;
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 #if defined( _WIN32 )
 
 // what we really want is DWORD, but unsigned long is what it really is and using it directly we avoid having to include "Windows.h" in jvmstarter.h 
@@ -178,106 +156,6 @@ extern void printWinError( unsigned long errcode ) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-extern char* jst_getExecutableHome() {
-  static char* _execHome = NULL;
-  
-  char   *execHome = NULL;
-# if defined( __linux__ ) || defined( __sun__ )
-  char   *procSymlink ;
-# endif
-
-# if defined( _WIN32 )
-  size_t currentBufSize = 0 ;
-# endif
-  size_t len ;
-  
-  if ( _execHome ) return _execHome ;
-  
-# if defined( _WIN32 )
-
-  do {
-    if(currentBufSize == 0) {
-      currentBufSize = PATH_MAX + 1;
-      execHome = jst_malloc( currentBufSize * sizeof( char ) ) ;
-    } else {
-      execHome = jst_realloc( execHome, (currentBufSize += 100) * sizeof( char ) ) ;
-    }
-    
-    if ( !execHome ) return NULL ; 
-    
-
-    // reset the error state, just in case it has been left dangling somewhere and 
-    // GetModuleFileNameA does not reset it (its docs don't tell). 
-    // GetModuleFileName docs: http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dllproc/base/getmodulefilename.asp
-    SetLastError( 0 ) ; 
-    len = GetModuleFileNameA( NULL, execHome, currentBufSize ) ;
-  } while ( GetLastError() == ERROR_INSUFFICIENT_BUFFER ) ;
-  // this works equally well but is a bit less readable
-  // } while(len == currentBufSize);
-
-  if ( len == 0 ) {
-    fprintf( stderr, "error: finding out executable location failed\n" ) ;
-    printWinError( GetLastError() ) ;
-    free( execHome ) ;
-    return NULL ; 
-  }
-  
-# elif defined( __linux__ ) || defined( __sun__ )
-
-  // TODO - reserve space for this from the stack, not dynamically
-  procSymlink = jst_malloc( 40 * sizeof( char ) ) ; // big enough
-  execHome    = jst_malloc( ( PATH_MAX + 1 ) * sizeof( char ) ) ;
-  if( !procSymlink || !execHome ) {
-    if ( procSymlink ) free( procSymlink ) ; 
-    if ( execHome    ) free( execHome    ) ;
-    return NULL ;
-  }
-
-  sprintf(procSymlink,
-#   if defined( __linux__ )
-      // /proc/{pid}/exe is a symbolic link to the executable
-      "/proc/%d/exe" 
-#   elif defined( __sun__ )
-      // see above
-      "/proc/%d/path/a.out"
-#   endif
-      , (int)getpid()
-  );
-
-  if( !jst_fileExists( procSymlink ) ) {
-    free(procSymlink);
-    free(execHome);
-    return "";
-  }
-
-  if( !realpath( procSymlink, execHome ) ) {
-    fprintf( stderr, strerror( errno ) ) ;
-    free( procSymlink ) ;
-    free( execHome    ) ;
-    return NULL ;
-  }
-  free( procSymlink ) ;
-
-# elif defined ( __APPLE__ )
-
-// TODO
-
-# endif
-
-# if defined( _WIN32 ) || defined ( __linux__ ) || defined( __sun__ )
-  // cut off the executable name
-  *(strrchr(execHome, JST_FILE_SEPARATOR[0]) + 1) = '\0';   
-  len = strlen(execHome);
-  execHome = jst_realloc( execHome, len + 1 ) ; // should not fail as we are shrinking the buffer
-  assert( execHome ) ;
-  return _execHome = execHome ;
-  
-# else
-  // FIXME - remove this once this feature is supported for __APPLE__
-  return "";
-# endif
-
-}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 /** Tries to find Java home by looking where java command is located on PATH. */
@@ -371,8 +249,8 @@ static char* findJavaHomeFromWinRegistry() {
   static char* _javaHome = NULL ;
   
   static char* registryEntriesToCheck[] = { "SOFTWARE\\JavaSoft\\Java Development Kit", 
-                                            "SOFTWARE\\JavaSoft\\Java Runtime Environment", 
                                             "SOFTWARE\\JRockit\\Java Development Kit",
+                                            "SOFTWARE\\JavaSoft\\Java Runtime Environment", 
                                             "SOFTWARE\\JRockit\\Java Runtime Environment",
                                             NULL } ;
   
@@ -504,31 +382,31 @@ static char* findJavaHome( JavaHomeHandling javaHomeHandling ) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-extern int jst_contains(char** args, int* numargs, const char* option, const jboolean removeIfFound) {
+extern int jst_contains( char** args, int* numargs, const char* option, const jboolean removeIfFound ) {
   int i       = 0, 
-      foundAt = -1;
-  for(; i < *numargs; i++) {
-    if(strcmp(option, args[i]) == 0) {
-      foundAt = i;
-      break;
+      foundAt = -1 ;
+  for ( ; i < *numargs ; i++ ) {
+    if ( strcmp( option, args[ i ] ) == 0 ) {
+      foundAt = i ;
+      break ;
     }
   }
-  if(foundAt != -1) return -1;
-  if(removeIfFound) {
-    (*numargs)--;
-    for(; i < *numargs; i++) {
-      args[i] = args[i + i];
+  if ( foundAt != -1 ) return -1 ;
+  if ( removeIfFound ) {
+    (*numargs)-- ;
+    for ( ; i < *numargs ; i++ ) {
+      args[ i ] = args[ i + i ] ;
     }
   }
-  return foundAt;
+  return foundAt ;
 }
 
-extern int jst_indexOfParam( char** args, int numargs, char* paramToSearch) {
-  int i = 0;
-  for( ; i < numargs; i++) {
-    if( strcmp( paramToSearch, args[i] ) == 0 ) return i ;
+extern int jst_indexOfParam( char** args, int numargs, char* paramToSearch ) {
+  int i = 0 ;
+  for ( ; i < numargs; i++ ) {
+    if ( strcmp( paramToSearch, args[i] ) == 0 ) return i ;
   }
-  return -1;  
+  return -1 ;  
 }
 
 extern char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const char* option, const JstParamClass paramType, const jboolean removeIfFound, jboolean* error) {
@@ -539,47 +417,47 @@ extern char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const c
 
   switch(paramType) {
     case JST_SINGLE_PARAM :
-      for(;i < *checkUpto; i++) {
-        if(strcmp(option, args[i]) == 0) {
-          retVal = args[i];
-          break;
+      for ( ; i < *checkUpto ; i++ ) {
+        if ( strcmp( option, args[ i ] ) == 0 ) {
+          retVal = args[ i ] ;
+          break ;
         }
       }
-      break;
+      break ;
     case JST_DOUBLE_PARAM :
-      step = 2;
-      for(; i < *checkUpto; i++) {
-        if(strcmp(option, args[i]) == 0) {
-          if(i == (*numargs - 1)) {
-            *error = JNI_TRUE;
-            fprintf(stderr, "error: %s must have a value\n", option);
-            return NULL;
+      step = 2 ;
+      for ( ; i < *checkUpto ; i++ ) {
+        if ( strcmp( option, args[ i ] ) == 0 ) {
+          if ( i == ( *numargs - 1 ) ) {
+            *error = JNI_TRUE ;
+            fprintf( stderr, "error: %s must have a value\n", option ) ;
+            return NULL ;
           }
-          retVal = args[i + 1];
-          break;
+          retVal = args[ i + 1 ] ;
+          break ;
         }
       }
-      break;
+      break ;
     case JST_PREFIX_PARAM :
-      len = strlen(option);
-      for(; i < *checkUpto; i++) {
-        if(memcmp(option, args[i], len) == 0) {
-          retVal = args[i] + len;
-          break;
+      len = strlen( option ) ;
+      for ( ; i < *checkUpto; i++ ) {
+        if ( memcmp( option, args[ i ], len ) == 0 ) {
+          retVal = args[ i ] + len ;
+          break ;
         }
       }
-      break;
+      break ;
   }
   
   if(retVal && removeIfFound) {
-    for(;i < (*numargs - step); i++) {
-      args[i] = args[i + step];
+    for ( ; i < ( *numargs - step ) ; i++ ) {
+      args[ i ] = args[ i + step ] ;
     }
-    *numargs   -= step;
-    *checkUpto -= step;
+    *numargs   -= step ;
+    *checkUpto -= step ;
   }
   
-  return retVal;  
+  return retVal ;  
   
 }
 
@@ -591,7 +469,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
   char path[ PATH_MAX + 1 ], *mode ;
   JavaDynLib rval;
   int i = 0, j = 0;
-  DLHandle jvmLib = (DLHandle)0;
+  DLHandle jvmLib = (DLHandle)0 ;
   char* potentialPathsToServerJVM[] = { PATHS_TO_SERVER_JVM, NULL } ;
   char* potentialPathsToClientJVM[] = { PATHS_TO_CLIENT_JVM, NULL } ;
   char* potentialPathsToAnyJVMPreferringServer[] = { PATHS_TO_SERVER_JVM, PATHS_TO_CLIENT_JVM, NULL } ;
@@ -672,16 +550,6 @@ exitlookup:
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-/** Returns != 0 if the given file exists. */
-extern int jst_fileExists(const char* fileName) {
-  struct stat buf;
-  int i = stat(fileName, &buf);
-
-  return (i == 0);
-
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 extern JstParamInfo* jst_setParameterDescription(JstParamInfo** paramInfo, int ind, size_t* size, char* name, JstParamClass type, short terminating) {
   JstParamInfo pinfo ;
@@ -690,7 +558,7 @@ extern JstParamInfo* jst_setParameterDescription(JstParamInfo** paramInfo, int i
   pinfo.type = type ;
   pinfo.terminating = terminating ;
 
-  return *paramInfo = (JstParamInfo*)appendArrayItem( *paramInfo, ind, size, &pinfo, sizeof( JstParamInfo ) ) ; 
+  return *paramInfo = (JstParamInfo*)jst_appendArrayItem( *paramInfo, ind, size, &pinfo, sizeof( JstParamInfo ) ) ; 
   
 }
 
@@ -706,110 +574,6 @@ static void clearException(JNIEnv* env) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-#define DYNAMIC_ARRAY_LENGTH_INCREMENT 5
-
-extern void* appendArrayItem( void* array, int indx, size_t* arlen, void* item, int item_size_in_bytes ) {
-  // Note that ansi-c has no data type byte. However, by definition sizeof( char ) == 1, i.e. it is one byte in size.  
-
-  // allocate array if requested
-  if ( !array ) {
-    if ( ! ( array = jst_calloc( *arlen, item_size_in_bytes ) ) ) return NULL ;
-  } else if ( ((size_t)indx) >= *arlen ) { // ensure there is enough space
-    size_t previousSize = *arlen ;
-    
-    if ( !( array = jst_realloc( array, ( *arlen += DYNAMIC_ARRAY_LENGTH_INCREMENT ) * item_size_in_bytes ) ) ) return NULL ;
-    
-    memset( ((char*)array) + previousSize * item_size_in_bytes, 0, ( *arlen - previousSize ) * item_size_in_bytes ) ;
-  }
-  
-  // append the new item. If NULL was given, append all zeroes.
-  if ( item ) {
-    memcpy( ((char*)array) + indx * item_size_in_bytes, item, item_size_in_bytes ) ;
-  } else {
-    memset( ((char*)array) + indx * item_size_in_bytes, 0,    item_size_in_bytes ) ;
-  }
-  
-  return array ;
-}
-
-extern char** jst_packStringArray( char** nullTerminatedStringArray ) {
-  size_t totalByteSize = sizeof( char* ) ; // space for the terminating NULL
-  char *s, **rval, *temp ;
-  int i ;
-  
-  for ( i = 0 ; ( s = nullTerminatedStringArray[ i ] ) ; i++ ) {
-    totalByteSize += sizeof( char* ) + strlen( s ) + 1 ;
-  }
-  
-  if ( !( rval = jst_malloc( totalByteSize ) ) ) return NULL ;
-
-  // make temp point to the position after the char*, i.e. where the contents of the strings starts
-  temp = (char*)( rval + i + 1 ) ;
-  
-  for ( i = 0 ; ( s = nullTerminatedStringArray[ i ] ) ; i++ ) {
-    rval[ i ] = temp ;
-    while( ( *temp++ = *s++ ) ) ;
-  }
-  rval[ i ] = NULL ;
-  
-  return rval ;
-}
-
-
-extern char* jst_append( char* target, size_t* bufsize, ... ) {
-  va_list args ;
-  size_t targetlen = ( target ? strlen( target ) : 0 ),
-         numArgs   = 10 ; // the size of the buffer we are storing the param strings into. Enlarged as necessary.
-  size_t totalSize = targetlen + 1 ; // 1 for the terminating nul char
-  char *s, *t ;
-  char** stringsToAppend = NULL ;
-  int i = 0 ;
-  
-  errno = 0 ;
-  stringsToAppend = jst_malloc( numArgs * sizeof( char* ) ) ;  
-  if ( !stringsToAppend ) goto end ;
-
-  va_start( args, bufsize ) ;
-  while ( ( s = va_arg( args, char* ) ) ) {
-    if ( s[ 0 ] ) { // skip empty strings
-      if ( !( stringsToAppend = appendArrayItem( stringsToAppend, i++, &numArgs, &s, sizeof( char* ) ) ) ) goto end ;
-      totalSize += strlen( s ) ;
-    }
-  }
-  // s = NULL ; // s is now NULL, no need to assign
-  if ( !( stringsToAppend = appendArrayItem( stringsToAppend, i, &numArgs, &s, sizeof( char* ) ) ) ) goto end ;
-  
-  if ( !target || *bufsize < totalSize ) {
-    // if taget == NULL and bufsize is given, it means we should reserve the given amount of space
-    if ( !target && bufsize && ( *bufsize > totalSize ) ) totalSize = *bufsize ;
-    target = target ? jst_realloc( target, totalSize * sizeof( char ) ) : 
-                      jst_malloc( totalSize * sizeof( char ) ) ;
-    if ( !target ) goto end ;
-    if ( bufsize ) *bufsize = totalSize ; // in case target == NULL, bufsize may also be NULL
-  }
-
-  s = target + targetlen ;
-  for ( i = 0 ; ( t = stringsToAppend[ i ] ) ; i++ ) {
-    //size_t len = strlen( t ) ;
-    //memcpy( s, t, len ) ;
-    //s += len ;
-    // or shorter:
-    while ( *t ) *s++ = *t++ ;
-  }
-  
-  *s = '\0' ;
-
-  
-  end:
-  
-  va_end( args ) ;
-
-  if ( errno ) target = NULL ;
-  if ( stringsToAppend ) free( stringsToAppend ) ;
-  return target ;
-  
-}
-
 
 extern JavaVMOption* appendJvmOption( JavaVMOption* opts, int indx, size_t* optsSize, char* optStr, void* extraInfo ) {
   JavaVMOption tmp ;
@@ -817,10 +581,9 @@ extern JavaVMOption* appendJvmOption( JavaVMOption* opts, int indx, size_t* opts
   tmp.optionString = optStr    ;
   tmp.extraInfo    = extraInfo ;
   
-  return appendArrayItem( opts, indx, optsSize, &tmp, sizeof( JavaVMOption ) ) ;
+  return jst_appendArrayItem( opts, indx, optsSize, &tmp, sizeof( JavaVMOption ) ) ;
   
 }
-
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -838,147 +601,6 @@ static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-extern jboolean jst_dirNameEndsWithSeparator( const char* dirName ) {
-  return ( strcmp( dirName + strlen( dirName ) - strlen( JST_FILE_SEPARATOR ), JST_FILE_SEPARATOR ) == 0 ) ? JNI_TRUE : JNI_FALSE ;
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix ) {
-  char     **tempResult ;
-  size_t   resultSize = 30 ;
-  jboolean errorOccurred = JNI_FALSE ;
-  int      indx = 0 ;
-  
-  if ( !( tempResult = jst_calloc( resultSize, sizeof( char* ) ) ) ) return NULL ;
-  
-  if ( fileNamePrefix && !*fileNamePrefix ) fileNamePrefix = NULL ; // replace empty str w/ NULL
-  if ( fileNameSuffix ) {
-    if ( !*fileNameSuffix ) {
-      fileNameSuffix = NULL ;
-    } else {
-      assert( fileNameSuffix[ 0 ] == '.' ) ; // file name suffix must begin with a .
-    }
-  }
-
-  {
-
-#  if defined( _WIN32 )
-    // windows does not have dirent.h, it does things different from other os'es
-    {
-      jboolean        dirNameEndsWithSeparator = jst_dirNameEndsWithSeparator( dirName ) ;
-      HANDLE          fileHandle = INVALID_HANDLE_VALUE ;
-      WIN32_FIND_DATA fdata ;
-      DWORD           lastError ;
-      char*           fileSpecifier = jst_append( NULL, NULL, dirName, 
-                                                       dirNameEndsWithSeparator ? "" : JST_FILE_SEPARATOR, 
-                                                       fileNamePrefix ? fileNamePrefix : "", 
-                                                       "*",
-                                                       fileNameSuffix ? fileNameSuffix : ".*",
-                                                       NULL ) ;
-      if ( !fileSpecifier ) {
-        errorOccurred = JNI_TRUE ;
-        goto end ;
-      }
-      
-      SetLastError( 0 ) ;
-      fileHandle = FindFirstFile( fileSpecifier, &fdata ) ;
-  
-      if ( fileHandle == INVALID_HANDLE_VALUE ) {
-        lastError = GetLastError() ;
-        fprintf( stderr, "error: opening directory %s failed\n", dirName ) ;
-        printWinError( lastError ) ;
-        errorOccurred = JNI_TRUE ;
-        goto end ;
-      }
-  
-      if ( !( lastError = GetLastError() ) ) {
-      
-        do {
-          char* temp = jst_append( NULL, NULL, fdata.cFileName, NULL ) ;
-          if ( !temp || 
-               !( tempResult = appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
-            errorOccurred = JNI_TRUE ;
-            goto end ;
-          }
-        } while( FindNextFile( fileHandle, &fdata ) );
-        
-      }
-        
-      if ( !lastError ) lastError = GetLastError() ;
-      if ( lastError != ERROR_NO_MORE_FILES ) {
-        fprintf( stderr, "error: error occurred when finding jars from %s\n", dirName ) ;
-        printWinError( lastError ) ;
-        errorOccurred = JNI_TRUE ;
-      }
-  
-      end:
-      
-      if ( fileHandle != INVALID_HANDLE_VALUE ) FindClose( fileHandle ) ;
-      if ( fileSpecifier ) free( fileSpecifier ) ;
-      
-    }
-#  else
-    {
-      DIR           *dir ;
-      struct dirent *entry ;
-      size_t        prefixlen = fileNamePrefix ? strlen( fileNamePrefix ) : 0,
-                    suffixlen = fileNameSuffix ? strlen( fileNameSuffix ) : 0 ;
-      
-      dir = opendir( dirName ) ;
-      if ( !dir ) {
-        fprintf( stderr, "error: could not read directory %s to append jar files from\n%s", dirName, strerror( errno ) ) ;
-        errorOccurred = JNI_TRUE ;
-        goto end ;
-      }
-
-      while( ( entry = readdir( dir ) ) ) {
-        char   *fileName = entry->d_name ;
-        size_t len       = strlen( fileName ) ;
-
-        if ( len < prefixlen || len < suffixlen ) continue ;
-        
-        if ( ( !fileNamePrefix || memcmp( fileNamePrefix, fileName, prefixlen ) == 0 ) &&
-             ( !fileNameSuffix || memcmp( fileNameSuffix, fileName + len - suffixlen, suffixlen ) == 0 ) ) {
-          char* temp = jst_append( NULL, NULL, fileName, NULL ) ;
-          if ( !temp || 
-               !( tempResult = appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
-            errorOccurred = JNI_TRUE ;
-            goto end ;
-          }
-        }
-      }
-      
-
-      end:
-
-      if ( dir ) closedir( dir ) ;
-      
-    }
-#  endif
-  }
-  
-  if ( tempResult ) {
-    tempResult = appendArrayItem( tempResult, indx, &resultSize, NULL, sizeof( char* ) ) ;
-    if ( !tempResult ) errorOccurred = JNI_TRUE ;
-  }
-  
-  {
-    char** rval = NULL ;
-    
-    if ( tempResult ) {
-      int i = 0 ;
-      char *s ;
-      
-      if ( !errorOccurred ) rval = jst_packStringArray( tempResult ) ;
-      while ( ( s = tempResult[ i++ ] ) ) free( s ) ;
-      free( tempResult ) ;
-    }
-    
-    return rval ;
-  }
-  
-}
 
 /** returns != 0 on failure. May change the target to point to a new location */
 static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetSize ) {

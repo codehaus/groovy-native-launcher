@@ -98,21 +98,6 @@
 
 static jboolean _groovy_launcher_debug = JNI_FALSE ;
 
-
-static char* createCPEntry( const char* groovyHome, const char* jarName ) {
-  char *firstGroovyJarFound = NULL ;
-  size_t len = strlen( groovyHome ) + 1 + 3 + 1 + strlen( jarName ) + 1 ;
-  jboolean ghomeEndWithSeparator = jst_dirNameEndsWithSeparator( groovyHome ) ;
-  
-  if ( ! ( firstGroovyJarFound = jst_calloc( len, sizeof( char ) ) ) ) return NULL ;
-  
-  return jst_append( firstGroovyJarFound, &len, groovyHome,
-                                                 ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
-                                                 "lib" JST_FILE_SEPARATOR, 
-                                                 jarName, NULL ) ;  
-}
-
-
 /** If groovy-starter.jar exists, returns path to that. If not, the first jar whose name starts w/ "groovy-x" (where x is a digit) is returned.
  * The previous is appropriate for groovy <= 1.0, the latter for groovy >= 1.1
  * Returns NULL on error, otherwise dynallocated string (which caller must free). */
@@ -128,17 +113,24 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
   if (
         !( groovyLibDir = jst_append( NULL, NULL, groovyHome, 
                                                   ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
-                                                  "lib", NULL ) 
+                                                  "lib", 
+                                                  NULL ) 
          )
-       || 
-       !( jarNames = jst_getFileNames( groovyLibDir, "groovy-", ".jar" ) ) 
      ) goto end ;
+
+  if ( !jst_fileExists( groovyLibDir ) ) {
+    fprintf( stderr, "Lib dir %s does not exist\n", groovyLibDir ) ; 
+    goto end ;
+  }
+  
+  if ( !( jarNames = jst_getFileNames( groovyLibDir, "groovy-", ".jar" ) ) ) goto end ;
   
   while ( ( jarName = jarNames[ i++ ] ) ) {
     if ( strcmp( "groovy-starter.jar", jarName ) == 0 ) { // groovy < 1.1
-      if ( !( startupJar = jst_append( NULL, NULL, groovyHome,
-                                                   ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
-                                                   "lib" JST_FILE_SEPARATOR, jarName, NULL ) ) ) goto end ;
+      if ( !( startupJar = jst_append( NULL, NULL, groovyLibDir,
+                                                   JST_FILE_SEPARATOR, 
+                                                   jarName, 
+                                                   NULL ) ) ) goto end ;
       break ;
     }
     if ( !firstGroovyJarFound && 
@@ -146,9 +138,12 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
        // aren't available, we'll just check that the char following 
        // groovy- is a digit
        isdigit( jarName[ 7 ] ) && 
-      !( firstGroovyJarFound = createCPEntry( groovyHome, jarName ) ) ) goto end ;
-    
-  }
+      !( firstGroovyJarFound = jst_append( NULL, NULL, groovyLibDir,
+                                                       JST_FILE_SEPARATOR, 
+                                                       jarName, 
+                                                       NULL ) ) ) goto end ;  
+     
+  } // while
   
   if ( !startupJar && firstGroovyJarFound ) {
     if ( !( startupJar = jst_append( NULL, NULL, firstGroovyJarFound, NULL ) ) ) goto end ;
@@ -169,39 +164,22 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
 char* getGroovyHome() {
   static char *_ghome = NULL ;
   
-  char *appHome, 
+  char *appHome   = NULL, 
        *gconfFile = NULL ;
-  size_t len ;
   
   if ( _ghome ) return _ghome ;
   
   if ( !( appHome = jst_getExecutableHome() ) ) return NULL ;
+  // make a copy of exec home str
+  if ( !( appHome = jst_append( NULL, NULL, appHome, NULL ) ) ) return NULL ;
   
-  len = strlen( appHome ) ;
-  // "bin" == 3 chars
-  if ( len > ( 3 + 2 * strlen( JST_FILE_SEPARATOR ) ) ) {
-    int gconfExists ; 
+  if ( jst_pathToParentDir( appHome ) ) {
     
-    if ( memcmp( appHome + len - 4, "bin", 3 ) ) {
+    gconfFile = jst_append( NULL, NULL, appHome, JST_FILE_SEPARATOR "conf" JST_FILE_SEPARATOR "groovy-starter.conf", NULL ) ; 
+    if ( !gconfFile ) goto end ;
+   
+    if ( jst_fileExists( gconfFile ) ) {
       _ghome = jst_append( NULL, NULL, appHome, NULL ) ;
-      _ghome[ len - 2 * strlen( JST_FILE_SEPARATOR ) - 3 ] = '\0' ; // cut of the "bin" (where the executable lives) from the given path
-
-      gconfFile = jst_append( NULL, NULL, _ghome, JST_FILE_SEPARATOR "conf" JST_FILE_SEPARATOR "groovy-starter.conf", NULL ) ; 
-      if ( !gconfFile ) {
-        free( _ghome ) ;
-        _ghome = NULL ;
-        goto end ;
-      }
-    
-      gconfExists = jst_fileExists( gconfFile ) ;
-  
-      if ( gconfExists ) {
-        _ghome = jst_realloc( _ghome, len + 1 ) ; // shrink the buffer as there is extra space
-        assert( _ghome ) ;
-      } else {
-        free( _ghome ) ;
-        _ghome = NULL ;
-      }
     }
   }
   
@@ -209,18 +187,29 @@ char* getGroovyHome() {
   if ( !_ghome ) {
     _ghome = getenv( "GROOVY_HOME" ) ;
     if ( !_ghome ) {
-      fprintf( stderr, ( len == 0 ) ? "error: could not find groovy installation - please set GROOVY_HOME environment variable to point to it\n" :
-                                   "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n" ) ;
+      fprintf( stderr, 
+#if defined( __APPLE__ )          
+              "error: could not find groovy installation - please set GROOVY_HOME environment variable to point to it\n" 
+#else           
+              "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n" 
+#endif          
+              ) ;
     } else if ( _groovy_launcher_debug ) {
-      fprintf( stderr, ( len == 0 ) ? "warning: figuring out groovy installation directory based on the executable location is not supported on your platform, "
-                                   "using GROOVY_HOME environment variable\n"
-                                 : "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME\n" ) ;
+      fprintf( stderr, 
+#if defined( __APPLE__ )                    
+                "warning: figuring out groovy installation directory based on the executable location is not supported on your platform, "
+                "using GROOVY_HOME environment variable\n"
+#else          
+                "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME\n" 
+#endif          
+              ) ;
     }
   }
 
   end : 
-  if ( gconfFile ) free( gconfFile ) ;
   
+  if ( appHome   ) free( appHome   ) ;
+  if ( gconfFile ) free( gconfFile ) ;
   return _ghome ;
 }
 
@@ -510,7 +499,7 @@ int rest_of_main( int argc, char** argv ) {
   if ( !( groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", groovyConfFile, NULL ) ) ) goto end ;
   
   if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
-                                              extraJvmOptionsCount++, 
+                                              (int)extraJvmOptionsCount++, 
                                               &extraJvmOptionsSize, 
                                               groovyDConf, 
                                               NULL ) ) ) goto end ;
@@ -518,7 +507,7 @@ int rest_of_main( int argc, char** argv ) {
   if ( !( groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ) ) goto end ;
 
   if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
-                                              extraJvmOptionsCount++, 
+                                              (int)extraJvmOptionsCount++, 
                                               &extraJvmOptionsSize, 
                                               groovyDHome, 
                                               NULL ) ) ) goto end ;
@@ -537,7 +526,7 @@ int rest_of_main( int argc, char** argv ) {
   options.arguments           = args ;
   options.numArguments        = numArgs ;
   options.jvmOptions          = extraJvmOptions ;
-  options.numJvmOptions       = extraJvmOptionsCount ;
+  options.numJvmOptions       = (int)extraJvmOptionsCount ;
   options.extraProgramOptions = extraProgramOptions ;
   options.mainClassName       = "org/codehaus/groovy/tools/GroovyStarter" ;
   options.mainMethodName      = "main" ;

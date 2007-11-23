@@ -36,7 +36,7 @@
 #  define JST_PATH_SEPARATOR ":"
 
 #endif
-
+        
 typedef enum { 
   /** a standalone parameter, such as -v */
   JST_SINGLE_PARAM,
@@ -165,6 +165,11 @@ extern int jst_launchJavaApp(JavaLauncherOptions* options);
 
 extern int jst_fileExists(const char* fileName);
 
+/** Figures out the path to the parent dir of the given path (which may be a file or a dir). Modifies the argument so
+ * that it points to the parent dir. Returns null if the given dir is the root dir.
+ * For files, the dir containing the file is the parent dir. */
+extern char* jst_pathToParentDir( char* path ) ;
+
 /** Returns a NULL terminated string array containing the names of files in the given dir. The returned string array is dyn 
  * allocated. It and all the contained strings are freed by freeing the returned pointer.
  * @param fileNamePrefix return only files whose name begins with this prefix. May be NULL or empty string.
@@ -215,7 +220,7 @@ char* jst_append( char* target, size_t* size, ... ) ;
 
 /** If array is NULL, a new one will be created, size arlen. The given array will be reallocated if there is not enough space.
  * The newly allocated memory (in both cases) contains all 0s. If NULL is given as the item, zeroes are added at the given array position. */
-void* appendArrayItem( void* array, int index, size_t* arlen, void* item, int item_size_in_bytes ) ;
+void* jst_appendArrayItem( void* array, int index, size_t* arlen, void* item, int item_size_in_bytes ) ;
 
 /** Given a null terminated string array, makes a dynamically allocated copy of it that can be freed using a single call to free. Useful for constructing
  * string arrays returned to caller who must free them. In technical detail, the returned mem block first contains all the char*, the termiting NULL and
