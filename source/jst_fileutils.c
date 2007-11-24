@@ -306,8 +306,7 @@ extern char* jst_getExecutableHome() {
         }
       }
     }
-#  else
-#    error "looking up executable location has not been implemented on your platform"
+
 #  endif    
     
     if ( !jst_fileExists( procSymlink ) ) { // should never happen
@@ -327,14 +326,15 @@ extern char* jst_getExecutableHome() {
     free( procSymlink ) ;
   }
   
+# else
+#  error "looking up executable location has not been implemented on your platform"
 # endif
-
+ 
   // cut off the executable name
   *(strrchr( execHome, JST_FILE_SEPARATOR[ 0 ] ) + 1 ) = '\0' ;   
   len = strlen( execHome ) ;
   execHome = jst_realloc( execHome, len + 1 ) ; // should not fail as we are shrinking the buffer
   assert( execHome ) ;
   return _execHome = execHome ;
-  
 
 }
