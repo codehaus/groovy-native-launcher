@@ -52,7 +52,7 @@ if javaHome == '' :
 if environment['PLATFORM'] == 'cygwin' :
     javaHome = javaHome.replace ( '\\' , '/' )
     if javaHome.startswith ( 'C:' ) : javaHome = javaHome.replace ( 'C:' , '/cygdrive/c' )
-    environment.Append ( CCFLAGS = ' -s -mno-cygwin' , LINKFLAGS = ' -s -mno-cygwin -mwindows' )
+    environment.Append ( CCFLAGS = ' -mno-cygwin' , LINKFLAGS = ' -s -mno-cygwin -mwindows' )
 
 if environment['PLATFORM'] == 'darwin' :
     environment.Append ( LINKFLAGS = '-framework CoreFoundation' )
