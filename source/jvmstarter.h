@@ -239,4 +239,3 @@ JavaVMOption* appendJvmOption( JavaVMOption* opts, int index, size_t* optsSize, 
 #endif
 
 #endif // ifndef _JVMSTARTER_H_
-

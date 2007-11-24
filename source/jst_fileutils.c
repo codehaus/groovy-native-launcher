@@ -23,6 +23,8 @@
 #include <assert.h>
 #include <errno.h>
 
+#include <limits.h>
+
 #if defined( _WIN32 )
 #  include <Windows.h>
 #  if !defined( PATH_MAX )

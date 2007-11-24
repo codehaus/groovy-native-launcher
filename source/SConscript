@@ -20,6 +20,7 @@
 #  $Date$
 
 import os
+import glob
 
 Import ( 'environment' )
 
@@ -31,7 +32,9 @@ if debug :
     else :
         environment.Append ( CCFLAGS = '-g' )
 
-sources = [ 'groovy.c' , 'jvmstarter.c' ]
+#  The sooner the Glob functions makes it into the SCons distribution, the better :-)
+sourceDirectory = Dir ( '.' ).srcnode ( ).abspath
+sources = [ file.replace ( sourceDirectory + '/' , '' ) for file in glob.glob ( sourceDirectory + '/*.c' ) ]
 
 try :
     javaHome = os.environ['JAVA_HOME']
@@ -50,6 +53,9 @@ if environment['PLATFORM'] == 'cygwin' :
     javaHome = javaHome.replace ( '\\' , '/' )
     if javaHome.startswith ( 'C:' ) : javaHome = javaHome.replace ( 'C:' , '/cygdrive/c' )
     environment.Append ( CCFLAGS = ' -s -mno-cygwin' , LINKFLAGS = ' -s -mno-cygwin -mwindows' )
+
+if environment['PLATFORM'] == 'darwin' :
+    environment.Append ( LINKFLAGS = '-framework CoreFoundation' )
 
 #  Map from uname operating system names to include directory names.
 includeDirectoryName = {
