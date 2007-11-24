@@ -1,4 +1,3 @@
-
 //  A library for easy creation of a native launcher for Java applications.
 //
 //  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) iki dot fi) 

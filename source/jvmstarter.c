@@ -17,9 +17,7 @@
 //  $Date$
 
 // TODO:
-// * os-x executable location detection
 // * cygwin support
-// * win exe versioning metadata
 // * clean up setting param infos in groovy.c -> initialize structs as {"-foo", JST_SINGLE_PARAM } etc. Mark the end of array w/ param info w/ NULL str for name
 
 #include <stdlib.h>

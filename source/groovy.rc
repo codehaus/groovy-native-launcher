@@ -13,10 +13,47 @@
 //  License.
 //
 
+#include <Windows.h>
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+
 #include <afxres.h>
+
+#undef APSTUDIO_READONLY_SYMBOLS
 
 
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+#pragma code_page(1252)
 
 groovyicon  ICON  DISCARDABLE "icons/groovy.ico"
 
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,1,0,0
+ PRODUCTVERSION 1,1,0,0
+ FILEFLAGSMASK 0
+ FILEFLAGS 0
+ FILEOS VOS__WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE 0
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904e4"
+        BEGIN
+            VALUE "CompanyName", "Codehaus"
+            VALUE "FileDescription", "groovy binary"
+            VALUE "FileVersion", "1.1"
+            VALUE "InternalName", "groovy"
+            VALUE "LegalCopyright", "Copyright (C) 2007"
+            VALUE "OriginalFilename", "groovy.rc"
+            VALUE "ProductName", " groovy"
+            VALUE "ProductVersion", "1.1"
+            VALUE "Comments", "See http://groovy.codehaus.org"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1252
+    END
+END
