@@ -462,19 +462,19 @@ int rest_of_main( int argc, char** argv ) {
   groovyHome = getGroovyHome() ;
   if ( !groovyHome ) goto end ;
   
-  if ( !( jars[ 0 ] = findGroovyStartupJar( groovyHome ) ) || 
-       !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, jars[ 0 ] ) ) ) goto end ;
+  if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
+		  					 jars[ 0 ] = findGroovyStartupJar( groovyHome ) ) ) ) goto end ;
       
   // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
 
   if ( !groovyConfFile && // set the default groovy conf file if it was not given as a parameter
-       ( !( groovyConfFile = jst_append( NULL, NULL, groovyHome, JST_FILE_SEPARATOR "conf" JST_FILE_SEPARATOR GROOVY_CONF, NULL ) ) ||
-         !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, groovyConfFile ) ) ) ) goto end ;
+       !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
+    		   				 groovyConfFile = jst_append( NULL, NULL, groovyHome, JST_FILE_SEPARATOR "conf" JST_FILE_SEPARATOR GROOVY_CONF, NULL ) ) ) ) goto end ;
 
   extraProgramOptions[ 3 ] = groovyConfFile ;
   
-  if ( !( groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", groovyConfFile, NULL ) ) || 
-       !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, groovyDConf ) ) ) goto end ;
+  if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
+		  					 groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", groovyConfFile, NULL ) ) ) ) goto end ;
   
   if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
                                               (int)extraJvmOptionsCount++, 
@@ -482,8 +482,8 @@ int rest_of_main( int argc, char** argv ) {
                                               groovyDConf, 
                                               NULL ) ) ) goto end ;
 
-  if ( !( groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ) ||
-       !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, groovyDHome ) ) ) goto end ;
+  if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
+		  					 groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ) ) ) goto end ;
 
 
   if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
@@ -491,6 +491,7 @@ int rest_of_main( int argc, char** argv ) {
                                               &extraJvmOptionsSize, 
                                               groovyDHome, 
                                               NULL ) ) ) goto end ;
+
   if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, extraJvmOptions ) ) ) goto end ;
 
   // populate the startup parameters
