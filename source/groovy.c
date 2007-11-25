@@ -458,7 +458,7 @@ int rest_of_main( int argc, char** argv ) {
   
   if ( !groovyConfFile  ) groovyConfFile = getenv( "GROOVY_CONF" ) ; 
   
-  if ( !( groovyHome = getGroovyHome() ) goto end ;
+  if ( !( groovyHome = getGroovyHome() ) ) goto end ;
   
   if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
                              jars[ 0 ] = findGroovyStartupJar( groovyHome ) ) ) ) goto end ;
