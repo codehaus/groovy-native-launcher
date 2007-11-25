@@ -147,13 +147,6 @@ typedef struct {
   char** terminatingSuffixes;
 } JavaLauncherOptions;
 
-/** These wrap the corresponding memory allocation routines. The only difference is that these print an error message if
- * the call fails. */
-extern void* jst_malloc( size_t size ) ;
-extern void* jst_calloc( size_t nelem, size_t elsize ) ;
-extern void* jst_realloc( void* ptr, size_t size ) ;
-
-#define jst_free( x ) free( x ) ; x = NULL
 
 #if defined( _WIN32 )
 // to have type DWORD in the func signature below we need this header
@@ -213,6 +206,10 @@ char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const char* op
 /** returns -1 if not found */
 int jst_indexOfParam( char** args, int numargs, char* paramToSearch) ;
 
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// dynamic memory handling
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 /** Appends the given strings to target. size param tells the current size of target (target must have been
  * dynamically allocated, i.e. not from stack). If necessary, target is reallocated into a bigger space. 
  * Returns the possibly new location of target, and modifies the size inout parameter accordingly. 
@@ -224,13 +221,36 @@ char* jst_append( char* target, size_t* size, ... ) ;
  * The newly allocated memory (in both cases) contains all 0s. If NULL is given as the item, zeroes are added at the given array position. */
 void* jst_appendArrayItem( void* array, int index, size_t* arlen, void* item, int item_size_in_bytes ) ;
 
+/** Appends the given pointer to the given null terminated pointer array.
+ * given pointer to array may point to NULL, in which case a new array is created. 
+ * Returns NULL on error. */
+extern void** jst_appendPointer( void*** pointerToNullTerminatedPointerArray, size_t* arrSize, void* item ) ;
+
+/** Returns the given item, NULL if the item was not in the array. */
+extern void* jst_RemovePointer( void** nullTerminatedPointerArray, void* itemToBeRemoved ) ;
+
+/** returns JNI_FALSE if the given item was not in the given array. pointer pointed to is set to NULL. */
+extern jboolean jst_RemoveAndFreePointer( void** nullTerminatedPointerArray, void** pointerToItemToBeRemoved ) ;
+
+
 /** Given a null terminated string array, makes a dynamically allocated copy of it that can be freed using a single call to free. Useful for constructing
  * string arrays returned to caller who must free them. In technical detail, the returned mem block first contains all the char*, the termiting NULL and
  * then all the strings one after another. Note that whoever uses the char** does not need to know this mem layout. */
 char** jst_packStringArray( char** nullTerminatedStringArray ) ;
 
+/** These wrap the corresponding memory allocation routines. The only difference is that these print an error message if
+ * the call fails. */
+extern void* jst_malloc( size_t size ) ;
+extern void* jst_calloc( size_t nelem, size_t elsize ) ;
+extern void* jst_realloc( void* ptr, size_t size ) ;
 
-/** As the previous, but specifically for jvm options. 
+#define jst_free( x ) free( x ) ; x = NULL
+
+/** Frees all the pointers in the given array, the array itself and sets the reference to NULL */
+extern void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) ;
+
+
+/** As appendArrayItem, but specifically for jvm options. 
  * @param extraInfo JavaVMOption.extraInfo. See jni.h or jni documentation (JavaVMOption is defined in jni.h). */
 JavaVMOption* appendJvmOption( JavaVMOption* opts, int index, size_t* optsSize, char* optStr, void* extraInfo ) ;
 

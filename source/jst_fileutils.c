@@ -198,13 +198,9 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
   {
     char** rval = NULL ;
     
-    if ( tempResult ) {
-      int i = 0 ;
-      char *s ;
-      
+    if ( tempResult ) {      
       if ( !errorOccurred ) rval = jst_packStringArray( tempResult ) ;
-      while ( ( s = tempResult[ i++ ] ) ) free( s ) ;
-      free( tempResult ) ;
+      jst_freeAll( (void***)(void*)&tempResult ) ;
     }
     
     return rval ;

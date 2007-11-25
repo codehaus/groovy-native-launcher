@@ -158,3 +158,55 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
   
 }
 
+/** Appends the given pointer to the given null terminated pointer array.
+ * given pointer to array may point to NULL, in which case a new array is created. 
+ * Returns NULL on error. */
+extern void** jst_appendPointer( void*** pointerToNullTerminatedPointerArray, size_t* arrSize, void* item ) {
+  
+  if ( !*pointerToNullTerminatedPointerArray ) {
+	if ( !*arrSize ) {
+      *arrSize = DYNAMIC_ARRAY_LENGTH_INCREMENT ;
+	}
+    if ( !( *pointerToNullTerminatedPointerArray = jst_calloc( *arrSize, sizeof( void* ) ) ) ) return NULL ;
+    **pointerToNullTerminatedPointerArray = item ;
+    return *pointerToNullTerminatedPointerArray ;
+  } else {
+    size_t count = 0 ; 
+    
+    while ( (*pointerToNullTerminatedPointerArray)[ count ] ) count++ ;
+    if ( *arrSize <= count + 1 ) { // 1 for terminating null
+      *arrSize = count + DYNAMIC_ARRAY_LENGTH_INCREMENT ;
+      if ( !( *pointerToNullTerminatedPointerArray = jst_realloc( *pointerToNullTerminatedPointerArray, *arrSize * sizeof( void* ) ) ) ) return NULL ;      
+    }
+    (*pointerToNullTerminatedPointerArray)[ count ]    = item ;
+    (*pointerToNullTerminatedPointerArray)[ count + 1] = NULL ;
+    return *pointerToNullTerminatedPointerArray ;
+  }
+  
+}
+
+extern void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) {
+  void* item ;
+  int   indx = 0 ;
+  if ( !*pointerToNullTerminatedPointerArray ) return ;
+  while ( ( item = (*pointerToNullTerminatedPointerArray)[ indx++ ] ) ) {
+    free( item ) ;
+  }
+  free( *pointerToNullTerminatedPointerArray ) ;
+  *pointerToNullTerminatedPointerArray = NULL ;
+}
+
+extern void* jst_RemovePointer( void** nullTerminatedPointerArray, void* itemToBeRemoved ) {
+  while ( *nullTerminatedPointerArray && *nullTerminatedPointerArray != itemToBeRemoved ) nullTerminatedPointerArray++ ;
+  if ( !* nullTerminatedPointerArray ) return NULL ;
+  while ( * nullTerminatedPointerArray ) {
+    *nullTerminatedPointerArray = *( nullTerminatedPointerArray + 1 ) ; 
+  }
+  return itemToBeRemoved ;
+}
+
+extern jboolean jst_RemoveAndFreePointer( void** nullTerminatedPointerArray, void** pointerToItemToBeRemoved ) {
+  jboolean rval = jst_RemovePointer( nullTerminatedPointerArray, *pointerToItemToBeRemoved ) ? JNI_TRUE : JNI_FALSE ;
+  free( *pointerToItemToBeRemoved ) ;
+  return rval ;
+}

@@ -18,6 +18,8 @@
 
 // TODO:
 // * cygwin support
+//   * after the basics are working, make this generic (so that a param can be designated to have a value that must be cygwinized)
+// * simplify memory handling in main and launchJavaApp
 // * clean up setting param infos in groovy.c -> initialize structs as {"-foo", JST_SINGLE_PARAM } etc. Mark the end of array w/ param info w/ NULL str for name
 
 #include <stdlib.h>
