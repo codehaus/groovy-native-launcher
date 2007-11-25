@@ -210,3 +210,10 @@ extern jboolean jst_RemoveAndFreePointer( void** nullTerminatedPointerArray, voi
   free( *pointerToItemToBeRemoved ) ;
   return rval ;
 }
+
+extern int jst_pointerArrayLen( void** nullTerminatedPointerArray ) {
+  int count = 0 ;
+  if ( !nullTerminatedPointerArray ) return 0 ;
+  while ( nullTerminatedPointerArray[ count ] ) count++ ;
+  return count ;
+}

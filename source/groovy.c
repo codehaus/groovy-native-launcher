@@ -380,12 +380,11 @@ int rest_of_main( int argc, char** argv ) {
        !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-v",          JST_SINGLE_PARAM, 0 ) ) ||
        !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "--version",   JST_SINGLE_PARAM, 0 ) ) ) goto end ;
   
-  if ( !( args = jst_malloc( numArgs * sizeof( char* ) ) ) ||
-       !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, args ) ) ) goto end ;
-  
-  // TODO collect all the dyn allocated pointers into dynReservedPointers and free them in the end 
-  
+  if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
+                             args = jst_malloc( argc * sizeof( char* ) ) ) ) ) goto end ;
+    
   for ( i = 0 ; i < numArgs ; i++ ) args[ i ] = argv[ i + 1 ] ; // skip the program name
+  args[ i ] = NULL ;
   
   // look up the first terminating launchee param and only search for --classpath and --conf up to that   
   numParamsToCheck = jst_findFirstLauncheeParamIndex( args, numArgs, (char**)terminatingSuffixes, paramInfos, paramInfoCount ) ;
@@ -459,22 +458,21 @@ int rest_of_main( int argc, char** argv ) {
   
   if ( !groovyConfFile  ) groovyConfFile = getenv( "GROOVY_CONF" ) ; 
   
-  groovyHome = getGroovyHome() ;
-  if ( !groovyHome ) goto end ;
+  if ( !( groovyHome = getGroovyHome() ) goto end ;
   
   if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-		  					 jars[ 0 ] = findGroovyStartupJar( groovyHome ) ) ) ) goto end ;
+                             jars[ 0 ] = findGroovyStartupJar( groovyHome ) ) ) ) goto end ;
       
   // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
 
   if ( !groovyConfFile && // set the default groovy conf file if it was not given as a parameter
        !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-    		   				 groovyConfFile = jst_append( NULL, NULL, groovyHome, JST_FILE_SEPARATOR "conf" JST_FILE_SEPARATOR GROOVY_CONF, NULL ) ) ) ) goto end ;
+                             groovyConfFile = jst_append( NULL, NULL, groovyHome, JST_FILE_SEPARATOR "conf" JST_FILE_SEPARATOR GROOVY_CONF, NULL ) ) ) ) goto end ;
 
   extraProgramOptions[ 3 ] = groovyConfFile ;
   
   if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-		  					 groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", groovyConfFile, NULL ) ) ) ) goto end ;
+                             groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", groovyConfFile, NULL ) ) ) ) goto end ;
   
   if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
                                               (int)extraJvmOptionsCount++, 
@@ -483,7 +481,7 @@ int rest_of_main( int argc, char** argv ) {
                                               NULL ) ) ) goto end ;
 
   if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-		  					 groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ) ) ) goto end ;
+                             groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ) ) ) goto end ;
 
 
   if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 

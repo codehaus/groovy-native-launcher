@@ -226,6 +226,8 @@ void* jst_appendArrayItem( void* array, int index, size_t* arlen, void* item, in
  * Returns NULL on error. */
 extern void** jst_appendPointer( void*** pointerToNullTerminatedPointerArray, size_t* arrSize, void* item ) ;
 
+extern int jst_pointerArrayLen( void** nullTerminatedPointerArray ) ;
+
 /** Returns the given item, NULL if the item was not in the array. */
 extern void* jst_RemovePointer( void** nullTerminatedPointerArray, void* itemToBeRemoved ) ;
 
