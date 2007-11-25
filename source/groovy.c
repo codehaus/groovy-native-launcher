@@ -168,7 +168,7 @@ char* getGroovyHome() {
   
   if ( jst_pathToParentDir( appHome ) ) {
     
-    gconfFile = jst_append( NULL, NULL, appHome, JST_FILE_SEPARATOR "conf" JST_FILE_SEPARATOR "groovy-starter.conf", NULL ) ; 
+    gconfFile = jst_append( NULL, NULL, appHome, "conf" JST_FILE_SEPARATOR "groovy-starter.conf", NULL ) ; 
     if ( !gconfFile ) goto end ;
    
     if ( jst_fileExists( gconfFile ) ) {
@@ -180,23 +180,12 @@ char* getGroovyHome() {
   if ( !_ghome ) {
     _ghome = getenv( "GROOVY_HOME" ) ;
     if ( !_ghome ) {
-      fprintf( stderr, 
-#if defined( __APPLE__ )          
-              "error: could not find groovy installation - please set GROOVY_HOME environment variable to point to it\n" 
-#else           
-              "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n" 
-#endif          
-              ) ;
+      fprintf( stderr, "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n" ) ;
     } else if ( _groovy_launcher_debug ) {
-      fprintf( stderr, 
-#if defined( __APPLE__ )                    
-                "warning: figuring out groovy installation directory based on the executable location is not supported on your platform, "
-                "using GROOVY_HOME environment variable\n"
-#else          
-                "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME\n" 
-#endif          
-              ) ;
+      fprintf( stderr, "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME\n" ) ;
     }
+  } else if ( _groovy_launcher_debug ) {
+    fprintf( stderr, "debug: groovy home located based on executable location: %s\n", _ghome ) ;
   }
 
   end : 
