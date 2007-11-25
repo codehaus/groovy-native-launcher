@@ -200,7 +200,8 @@ extern void* jst_RemovePointer( void** nullTerminatedPointerArray, void* itemToB
   while ( *nullTerminatedPointerArray && *nullTerminatedPointerArray != itemToBeRemoved ) nullTerminatedPointerArray++ ;
   if ( !* nullTerminatedPointerArray ) return NULL ;
   while ( * nullTerminatedPointerArray ) {
-    *nullTerminatedPointerArray = *( nullTerminatedPointerArray + 1 ) ; 
+    *nullTerminatedPointerArray = *( nullTerminatedPointerArray + 1 ) ;
+    nullTerminatedPointerArray++ ;
   }
   return itemToBeRemoved ;
 }
