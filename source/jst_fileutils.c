@@ -230,8 +230,8 @@ extern char* jst_getExecutableHome() {
     size_t currentBufSize = 0 ;
   
     do {
-      if(currentBufSize == 0) {
-        currentBufSize = PATH_MAX + 1;
+      if ( currentBufSize == 0 ) {
+        currentBufSize = PATH_MAX + 1 ;
         execHome = jst_malloc( currentBufSize * sizeof( char ) ) ;
       } else {
         execHome = jst_realloc( execHome, (currentBufSize += 100) * sizeof( char ) ) ;
@@ -306,6 +306,7 @@ extern char* jst_getExecutableHome() {
         if ( appleError ) {
           free( execHome ) ;
           if ( procSymlink ) free( procSymlink ) ;
+          fprintf( stderr, "error: error occurred when using bundle api to find executable home directory\n" ) ;
           return NULL ;
         }
       }
@@ -314,10 +315,10 @@ extern char* jst_getExecutableHome() {
 #  endif    
     
     if ( !jst_fileExists( procSymlink ) ) { // should never happen
-      fprintf( stderr, "warning: symlink or file %s does not exist\n", procSymlink ) ;
+      fprintf( stderr, "error: symlink or file %s does not exist\n", procSymlink ) ;
       free( procSymlink ) ;
       free( execHome ) ;
-      return "" ;
+      return NULL ;
     }
   
     if ( !realpath( procSymlink, execHome ) ) {
