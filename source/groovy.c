@@ -101,15 +101,8 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
         **jarNames          = NULL, 
         *jarName ;
   int i = 0 ;
-  jboolean ghomeEndWithSeparator = jst_dirNameEndsWithSeparator( groovyHome ) ;
 
-  if (
-        !( groovyLibDir = jst_append( NULL, NULL, groovyHome, 
-                                                  ghomeEndWithSeparator ? "" : JST_FILE_SEPARATOR, 
-                                                  "lib", 
-                                                  NULL ) 
-         )
-     ) goto end ;
+  if ( !( groovyLibDir = jst_createFileName( groovyHome, "lib", NULL ) ) ) goto end ;
 
   if ( !jst_fileExists( groovyLibDir ) ) {
     fprintf( stderr, "Lib dir %s does not exist\n", groovyLibDir ) ; 
@@ -120,10 +113,7 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
   
   while ( ( jarName = jarNames[ i++ ] ) ) {
     if ( strcmp( "groovy-starter.jar", jarName ) == 0 ) { // groovy < 1.1
-      if ( !( startupJar = jst_append( NULL, NULL, groovyLibDir,
-                                                   JST_FILE_SEPARATOR, 
-                                                   jarName, 
-                                                   NULL ) ) ) goto end ;
+      if ( !( startupJar = jst_createFileName( groovyLibDir, jarName, NULL ) ) ) goto end ;
       break ;
     }
     if ( !firstGroovyJarFound && 
@@ -131,10 +121,7 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
        // aren't available, we'll just check that the char following 
        // groovy- is a digit
        isdigit( jarName[ 7 ] ) && 
-      !( firstGroovyJarFound = jst_append( NULL, NULL, groovyLibDir,
-                                                       JST_FILE_SEPARATOR, 
-                                                       jarName, 
-                                                       NULL ) ) ) goto end ;  
+      !( firstGroovyJarFound = jst_createFileName( groovyLibDir, jarName, NULL ) ) ) goto end ;  
      
   } // while
   
@@ -168,7 +155,7 @@ char* getGroovyHome() {
   
   if ( jst_pathToParentDir( appHome ) ) {
     
-    gconfFile = jst_append( NULL, NULL, appHome, "conf" JST_FILE_SEPARATOR "groovy-starter.conf", NULL ) ; 
+    gconfFile = jst_createFileName( appHome, "conf", GROOVY_CONF, NULL ) ; 
     if ( !gconfFile ) goto end ;
    
     if ( jst_fileExists( gconfFile ) ) {
@@ -380,8 +367,8 @@ int rest_of_main( int argc, char** argv ) {
        !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-v",          JST_SINGLE_PARAM, 0 ) ) ||
        !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "--version",   JST_SINGLE_PARAM, 0 ) ) ) goto end ;
   
-  if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                             args = jst_malloc( argc * sizeof( char* ) ) ) ) ) goto end ;
+  if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
+                           args = jst_malloc( argc * sizeof( char* ) ) ) ) goto end ;
     
   for ( i = 0 ; i < numArgs ; i++ ) args[ i ] = argv[ i + 1 ] ; // skip the program name
   args[ i ] = NULL ;
@@ -460,19 +447,19 @@ int rest_of_main( int argc, char** argv ) {
   
   if ( !( groovyHome = getGroovyHome() ) ) goto end ;
   
-  if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                             jars[ 0 ] = findGroovyStartupJar( groovyHome ) ) ) ) goto end ;
+  if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
+                           jars[ 0 ] = findGroovyStartupJar( groovyHome ) ) ) goto end ;
       
   // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
 
   if ( !groovyConfFile && // set the default groovy conf file if it was not given as a parameter
-       !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                             groovyConfFile = jst_append( NULL, NULL, groovyHome, JST_FILE_SEPARATOR "conf" JST_FILE_SEPARATOR GROOVY_CONF, NULL ) ) ) ) goto end ;
+       !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
+                           groovyConfFile = jst_createFileName( groovyHome, "conf", GROOVY_CONF, NULL ) ) ) goto end ;
 
   extraProgramOptions[ 3 ] = groovyConfFile ;
   
-  if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                             groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", groovyConfFile, NULL ) ) ) ) goto end ;
+  if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
+                           groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", groovyConfFile, NULL ) ) ) goto end ;
   
   if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
                                               (int)extraJvmOptionsCount++, 
@@ -480,8 +467,8 @@ int rest_of_main( int argc, char** argv ) {
                                               groovyDConf, 
                                               NULL ) ) ) goto end ;
 
-  if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                             groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ) ) ) goto end ;
+  if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
+                           groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ) ) goto end ;
 
 
   if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
@@ -490,7 +477,7 @@ int rest_of_main( int argc, char** argv ) {
                                               groovyDHome, 
                                               NULL ) ) ) goto end ;
 
-  if ( !( jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, extraJvmOptions ) ) ) goto end ;
+  if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, extraJvmOptions ) ) goto end ;
 
   // populate the startup parameters
   // first, set the memory to 0. This is just a precaution, as NULL (0) is a sensible default value for many options.

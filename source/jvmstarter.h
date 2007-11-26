@@ -152,39 +152,39 @@ typedef struct {
 // to have type DWORD in the func signature below we need this header
 //#include "Windows.h"
 /** Prints an error message for the given windows error code. */
-extern void printWinError( unsigned long errcode ) ;
+void printWinError( unsigned long errcode ) ;
 
 #endif
 
-extern int jst_launchJavaApp(JavaLauncherOptions* options);
+int jst_launchJavaApp(JavaLauncherOptions* options);
 
-extern int jst_fileExists(const char* fileName);
+int jst_fileExists(const char* fileName);
 
 /** Figures out the path to the parent dir of the given path (which may be a file or a dir). Modifies the argument so
- * that it points to the parent dir. Returns null if the given dir is the root dir.
- * For files, the dir containing the file is the parent dir. */
-extern char* jst_pathToParentDir( char* path ) ;
+ * that it points to the parent dir. Returns null (but does not modify the given string) if the given dir is the root dir.
+ * For files, the dir containing the file is the parent dir. 
+ * Note that the given path must be absolute and canonical for this function to work ( no e.g. ..'s ) */
+char* jst_pathToParentDir( char* path ) ;
 
 /** Returns a NULL terminated string array containing the names of files in the given dir. The returned string array is dyn 
  * allocated. It and all the contained strings are freed by freeing the returned pointer.
  * @param fileNamePrefix return only files whose name begins with this prefix. May be NULL or empty string.
  * @param fileNameSuffix return only files whose name ends with this suffix.   May be NULL or empty string. 
  *        Suffix here means the file type identifier part, e.g. in "foo.jar" -> ".jar" */
-extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix ) ;
+char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix ) ;
 
-extern jboolean jst_dirNameEndsWithSeparator( const char* dirName ) ;
+/** Creates a string that represents a file (or dir) name, i.e. all the elements are
+ * ensured to contain a file separator between them. 
+ * Usage: give as many strings as you like and a NULL as the last param to terminate. */
+char* jst_createFileName( const char* root, ... ) ;
 
 
-/** Returns the path to the directory where the current executable lives, including the last path separator, e.g.
- * c:\programs\groovy\bin\ or /usr/loca/groovy/bin/ 
- * The trailing file separator is included, even though this is a little inconsistent w/ how e.g. dir names are usually stored
- * in environment variables (w/out the trailing file separator). This is because in the worst case the directory the executable
- * resides in may be the root dir, and in that case stripping the trailing file separator would be confusing. 
+/** Returns the path to the directory where the current executable lives, excluding the last path separator, e.g.
+ * c:\programs\groovy\bin or /usr/loca/groovy/bin 
+ * Note that this means that if the program lives in the root dir in *nix, "" is returned.
  * Do NOT modify the returned string, make a copy. 
- * Note: there seems to be no standard way to implement this, so it needs to be figured out for each os supported. We have not yet been
- * able to support all target oses, so do not make code that relies on this func. In case there is no support, the func 
- * returns an empty string (""). Returns NULL on error. */
-extern char* jst_getExecutableHome();
+ * Returns NULL on error. */
+char* jst_getExecutableHome() ;
 
 /** Returns pointer to the param info array that may be relocated. NULL if error occurs. */
 JstParamInfo* jst_setParameterDescription( JstParamInfo** paramInfo, int indx, size_t* size, char* name, JstParamClass type, short terminating ) ;
@@ -217,22 +217,26 @@ int jst_indexOfParam( char** args, int numargs, char* paramToSearch) ;
  * In case target is NULL and you are not interested how big the buffer became, you can give NULL as size. */
 char* jst_append( char* target, size_t* size, ... ) ; 
 
+/** Concatenates the strings in the given null terminated str array to a single string, which must be freed by the caller. Returns null on error. */
+char* jst_concatenateStrArray( char** nullTerminatedStringArray ) ;
+
 /** If array is NULL, a new one will be created, size arlen. The given array will be reallocated if there is not enough space.
  * The newly allocated memory (in both cases) contains all 0s. If NULL is given as the item, zeroes are added at the given array position. */
 void* jst_appendArrayItem( void* array, int index, size_t* arlen, void* item, int item_size_in_bytes ) ;
 
 /** Appends the given pointer to the given null terminated pointer array.
  * given pointer to array may point to NULL, in which case a new array is created. 
- * Returns NULL on error. */
-extern void** jst_appendPointer( void*** pointerToNullTerminatedPointerArray, size_t* arrSize, void* item ) ;
+ * Returns NULL on error. 
+ * @param item if NULL, the given array is not modified. */
+void** jst_appendPointer( void*** pointerToNullTerminatedPointerArray, size_t* arrSize, void* item ) ;
 
-extern int jst_pointerArrayLen( void** nullTerminatedPointerArray ) ;
+int jst_pointerArrayLen( void** nullTerminatedPointerArray ) ;
 
 /** Returns the given item, NULL if the item was not in the array. */
-extern void* jst_RemovePointer( void** nullTerminatedPointerArray, void* itemToBeRemoved ) ;
+void* jst_RemovePointer( void** nullTerminatedPointerArray, void* itemToBeRemoved ) ;
 
-/** returns JNI_FALSE if the given item was not in the given array. pointer pointed to is set to NULL. */
-extern jboolean jst_RemoveAndFreePointer( void** nullTerminatedPointerArray, void** pointerToItemToBeRemoved ) ;
+/** returns 0 if the given item was not in the given array. pointer pointed to is set to NULL. */
+int jst_RemoveAndFreePointer( void** nullTerminatedPointerArray, void** pointerToItemToBeRemoved ) ;
 
 
 /** Given a null terminated string array, makes a dynamically allocated copy of it that can be freed using a single call to free. Useful for constructing
@@ -242,14 +246,14 @@ char** jst_packStringArray( char** nullTerminatedStringArray ) ;
 
 /** These wrap the corresponding memory allocation routines. The only difference is that these print an error message if
  * the call fails. */
-extern void* jst_malloc( size_t size ) ;
-extern void* jst_calloc( size_t nelem, size_t elsize ) ;
-extern void* jst_realloc( void* ptr, size_t size ) ;
+void* jst_malloc( size_t size ) ;
+void* jst_calloc( size_t nelem, size_t elsize ) ;
+void* jst_realloc( void* ptr, size_t size ) ;
 
 #define jst_free( x ) free( x ) ; x = NULL
 
 /** Frees all the pointers in the given array, the array itself and sets the reference to NULL */
-extern void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) ;
+void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) ;
 
 
 /** As appendArrayItem, but specifically for jvm options. 

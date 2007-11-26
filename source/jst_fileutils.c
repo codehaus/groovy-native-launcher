@@ -24,6 +24,7 @@
 #include <errno.h>
 
 #include <limits.h>
+#include <ctype.h>
 
 #if defined( _WIN32 )
 #  include <Windows.h>
@@ -52,11 +53,22 @@ extern int jst_fileExists( const char* fileName ) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+static jboolean jst_dirNameEndsWithSeparator( const char* dirName ) {
+  return ( strcmp( dirName + strlen( dirName ) - ( sizeof( JST_FILE_SEPARATOR ) - 1 ), JST_FILE_SEPARATOR ) == 0 ) ? JNI_TRUE : JNI_FALSE ;
+}
+
 extern char* jst_pathToParentDir( char* path ) {
   size_t   len                   = strlen( path ) ;
   jboolean pathEndsWithSeparator = jst_dirNameEndsWithSeparator( path ) ;
+  size_t   lenWithoutTrailingSep = pathEndsWithSeparator ? len - 1 : len ;
+      
+  // this implementation is not perfect, but works ok in this program's context
+  
 #if defined( _WIN32 )
-  if ( len <= 3 ) return NULL ;
+  if ( ( lenWithoutTrailingSep == 0 ) || 
+       ( lenWithoutTrailingSep == 1 && path[ 0 ] == JST_FILE_SEPARATOR[ 0 ] ) ||
+       ( lenWithoutTrailingSep == 3 && isalpha( path[ 0 ] ) && path[ 1 ] == ':' && path[ 2 ] == JST_FILE_SEPARATOR[ 0 ] )
+     ) return NULL ;
 #else
   if ( len <= 1 ) return NULL ;  
 #endif
@@ -64,13 +76,9 @@ extern char* jst_pathToParentDir( char* path ) {
   if ( pathEndsWithSeparator ) {
     path[ len - 1 ] = '\0' ;
   }
-  *(strrchr( path, JST_FILE_SEPARATOR[ 0 ] ) + 1 ) = '\0' ;
+  *(strrchr( path, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;
   return path ;
   
-}
-
-extern jboolean jst_dirNameEndsWithSeparator( const char* dirName ) {
-  return ( strcmp( dirName + strlen( dirName ) - strlen( JST_FILE_SEPARATOR ), JST_FILE_SEPARATOR ) == 0 ) ? JNI_TRUE : JNI_FALSE ;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -326,11 +334,47 @@ extern char* jst_getExecutableHome() {
 #  error "looking up executable location has not been implemented on your platform"
 # endif
  
-  // cut off the executable name
-  *(strrchr( execHome, JST_FILE_SEPARATOR[ 0 ] ) + 1 ) = '\0' ;   
+  // cut off the executable name and the trailing file separator
+  *(strrchr( execHome, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;   
   len = strlen( execHome ) ;
   execHome = jst_realloc( execHome, len + 1 ) ; // should not fail as we are shrinking the buffer
   assert( execHome ) ;
   return _execHome = execHome ;
 
+}
+
+extern char* jst_createFileName( const char* root, ... ) {
+  
+  static char* filesep = JST_FILE_SEPARATOR ; // we can not pass a reference to a define, so this is read into a var
+  
+  va_list args ;
+  char    **strings = NULL, 
+          *s,
+          *previous,
+          *rval = NULL ;
+  size_t  stringsSize = 0 ;
+
+  if ( !jst_appendPointer( (void***)(void*)&strings, &stringsSize, (void*)root ) ) return NULL ;
+  
+  previous = (char*)root ;
+  va_start( args, root ) ;
+  while ( ( s = va_arg( args, char* ) ) ) {
+    if ( s[ 0 ] ) { // skip empty strings
+      if ( ( previous[ strlen( previous ) - 1 ] != filesep[ 0 ] ) && 
+          !jst_appendPointer( (void***)(void*)&strings, &stringsSize, filesep ) ) goto end ;      
+      if ( !jst_appendPointer( (void***)(void*)&strings, &stringsSize, s ) ) goto end ;
+      previous = s ;
+    }
+  }
+
+
+  rval = jst_concatenateStrArray( strings ) ;
+  
+  end: 
+
+  va_end( args ) ;
+  
+  if ( strings ) free( strings ) ;
+  return rval ;
+  
 }

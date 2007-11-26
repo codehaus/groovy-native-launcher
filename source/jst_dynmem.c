@@ -162,6 +162,8 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
  * given pointer to array may point to NULL, in which case a new array is created. 
  * Returns NULL on error. */
 extern void** jst_appendPointer( void*** pointerToNullTerminatedPointerArray, size_t* arrSize, void* item ) {
+
+  if ( !item ) return NULL ;
   
   if ( !*pointerToNullTerminatedPointerArray ) {
 	if ( !*arrSize ) {
@@ -178,8 +180,8 @@ extern void** jst_appendPointer( void*** pointerToNullTerminatedPointerArray, si
       *arrSize = count + DYNAMIC_ARRAY_LENGTH_INCREMENT ;
       if ( !( *pointerToNullTerminatedPointerArray = jst_realloc( *pointerToNullTerminatedPointerArray, *arrSize * sizeof( void* ) ) ) ) return NULL ;      
     }
-    (*pointerToNullTerminatedPointerArray)[ count ]    = item ;
-    (*pointerToNullTerminatedPointerArray)[ count + 1] = NULL ;
+    (*pointerToNullTerminatedPointerArray)[ count ]     = item ;
+    (*pointerToNullTerminatedPointerArray)[ count + 1 ] = NULL ;
     return *pointerToNullTerminatedPointerArray ;
   }
   
@@ -198,17 +200,39 @@ extern void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) {
 
 extern void* jst_RemovePointer( void** nullTerminatedPointerArray, void* itemToBeRemoved ) {
   while ( *nullTerminatedPointerArray && *nullTerminatedPointerArray != itemToBeRemoved ) nullTerminatedPointerArray++ ;
-  if ( !* nullTerminatedPointerArray ) return NULL ;
-  while ( * nullTerminatedPointerArray ) {
+  if ( !*nullTerminatedPointerArray ) return NULL ;
+  while ( *nullTerminatedPointerArray ) {
     *nullTerminatedPointerArray = *( nullTerminatedPointerArray + 1 ) ;
     nullTerminatedPointerArray++ ;
   }
   return itemToBeRemoved ;
 }
 
-extern jboolean jst_RemoveAndFreePointer( void** nullTerminatedPointerArray, void** pointerToItemToBeRemoved ) {
-  jboolean rval = jst_RemovePointer( nullTerminatedPointerArray, *pointerToItemToBeRemoved ) ? JNI_TRUE : JNI_FALSE ;
+extern int jst_RemoveAndFreePointer( void** nullTerminatedPointerArray, void** pointerToItemToBeRemoved ) {
+  int rval = jst_RemovePointer( nullTerminatedPointerArray, *pointerToItemToBeRemoved ) ? JNI_TRUE : JNI_FALSE ;
   free( *pointerToItemToBeRemoved ) ;
+  *pointerToItemToBeRemoved = NULL ;
+  return rval ;
+}
+
+/** Concatenates the strings in the given null terminated str array to a single string, which must be freed by the caller. Returns null on error. */
+extern char* jst_concatenateStrArray( char** nullTerminatedStringArray ) {
+  size_t totalSize = 1 ; // 1 for the terminating nul char
+  char   *s,
+         *t,
+         *rval ;
+  int i = 0 ;
+  
+  while ( ( s = nullTerminatedStringArray[ i++ ] ) ) totalSize += strlen( s ) ;
+  
+  if ( !( rval = jst_malloc( totalSize ) ) ) return NULL ;
+  
+  t = rval ;
+  for ( i = 0 ; ( s = nullTerminatedStringArray[ i++ ] ) ; ) {
+    while ( *s ) *t++ = *s++ ;
+  }
+  *t = '\0' ;
+  
   return rval ;
 }
 
