@@ -19,8 +19,6 @@
 // TODO:
 // * cygwin support
 //   * after the basics are working, make this generic (so that a param can be designated to have a value that must be cygwinized)
-// * simplify memory handling in main and launchJavaApp
-// * clean up setting param infos in groovy.c -> initialize structs as {"-foo", JST_SINGLE_PARAM } etc. Mark the end of array w/ param info w/ NULL str for name
 
 #include <stdlib.h>
 #include <string.h>
@@ -49,9 +47,9 @@
 #  include "Windows.h"
 
    typedef HINSTANCE DLHandle ;
-#  define dlopen(path, mode) LoadLibrary(path)
-#  define dlsym(libraryhandle, funcname) GetProcAddress(libraryhandle, funcname)
-#  define dlclose(handle) FreeLibrary(handle)
+#  define dlopen( path, mode ) LoadLibrary( path )
+#  define dlsym( libraryhandle, funcname ) GetProcAddress( libraryhandle, funcname )
+#  define dlclose( handle ) FreeLibrary( handle )
 
 #if !defined( PATH_MAX )
 #  define PATH_MAX MAX_PATH
@@ -78,7 +76,7 @@
 
 #    else
        // should not happen, but this does not hurt either
-#      error "You are running solaris on an architecture that is currently not supported. Please contact the author for help in adding support."   
+#      error "You are running solaris on an architecture that is currently not supported. Please contact the author for help with adding support."   
 #    endif
 
 #  elif defined ( __APPLE__ )

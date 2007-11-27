@@ -137,6 +137,22 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
    
 }
 
+/** Checks that the given dir is a valid groovy dir.
+ * 0 => false, 1 => true, -1 => error */
+static int isValidGroovyHome( const char* dir ) {
+  char     *gconfFile = NULL ;
+  jboolean rval = -1 ;
+
+  gconfFile = jst_createFileName( dir, "conf", GROOVY_CONF, NULL ) ; 
+  if ( !gconfFile ) goto end ;
+ 
+  rval = jst_fileExists( gconfFile ) ? 1 : 0 ;
+
+  end :
+  if ( gconfFile ) free( gconfFile ) ;
+  return rval ;
+}
+
 /** returns null on error, otherwise pointer to groovy home. 
  * First tries to see if the current executable is located in a groovy installation's bin directory. If not, groovy
  * home env var is looked up. If neither succeed, an error msg is printed.
@@ -144,8 +160,8 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
 char* getGroovyHome() {
   static char *_ghome = NULL ;
   
-  char *appHome   = NULL, 
-       *gconfFile = NULL ;
+  char *appHome = NULL ;
+  int  validGroovyHome ;
   
   if ( _ghome ) return _ghome ;
   
@@ -154,22 +170,29 @@ char* getGroovyHome() {
   if ( !( appHome = jst_append( NULL, NULL, appHome, NULL ) ) ) return NULL ;
   
   if ( jst_pathToParentDir( appHome ) ) {
-    
-    gconfFile = jst_createFileName( appHome, "conf", GROOVY_CONF, NULL ) ; 
-    if ( !gconfFile ) goto end ;
-   
-    if ( jst_fileExists( gconfFile ) ) {
-      _ghome = jst_append( NULL, NULL, appHome, NULL ) ;
+    validGroovyHome = isValidGroovyHome( appHome ) ;
+    if ( validGroovyHome == -1 ) goto end ;
+    if ( validGroovyHome ) {
+      if ( !( _ghome = jst_append( NULL, NULL, appHome, NULL ) ) ) goto end ;
     }
   }
   
   
   if ( !_ghome ) {
-    _ghome = getenv( "GROOVY_HOME" ) ;
-    if ( !_ghome ) {
+    char *ghome = getenv( "GROOVY_HOME" ) ;
+    if ( ghome ) {
+      if ( _groovy_launcher_debug ) {
+        fprintf( stderr, "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME=%s\n", ghome ) ;
+      }
+      validGroovyHome = isValidGroovyHome( ghome ) ;
+      if ( validGroovyHome == -1 ) goto end ;
+      if ( validGroovyHome ) {
+        _ghome = ghome ;
+      } else {
+        fprintf( stderr, "error: binary is not in groovy installation's bin dir and GROOVY_HOME=%s does not point to a groovy installation\n", ghome ) ;
+      }
+    } else {
       fprintf( stderr, "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n" ) ;
-    } else if ( _groovy_launcher_debug ) {
-      fprintf( stderr, "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME\n" ) ;
     }
   } else if ( _groovy_launcher_debug ) {
     fprintf( stderr, "debug: groovy home located based on executable location: %s\n", _ghome ) ;
@@ -177,8 +200,7 @@ char* getGroovyHome() {
 
   end : 
   
-  if ( appHome   ) free( appHome   ) ;
-  if ( gconfFile ) free( gconfFile ) ;
+  if ( appHome ) free( appHome   ) ;
   return _ghome ;
 }
 
@@ -317,6 +339,7 @@ int rest_of_main( int argc, char** argv ) {
   char *terminatingSuffixes[] = { ".groovy", ".gvy", ".gy", ".gsh", NULL },
        *extraProgramOptions[] = { "--main", "groovy.ui.GroovyMain", "--conf", NULL, "--classpath", NULL, NULL }, 
        *jars[]                = { NULL, NULL }, 
+       // TODO: push handling these to launchJavaApp func
        *cpaliases[]           = { "-cp", "-classpath", "--classpath", NULL } ;
 
   // the argv will be copied into this - we don't modify the param, we modify a local copy
@@ -335,6 +358,8 @@ int rest_of_main( int argc, char** argv ) {
                                     ( strcmp( argv[ 1 ], "-h"     ) == 0 ) || 
                                     ( strcmp( argv[ 1 ], "--help" ) == 0 )
                                   ) ? JNI_TRUE : JNI_FALSE ; 
+
+  _groovy_launcher_debug = ( getenv( "__JLAUNCHER_DEBUG" ) ? JNI_TRUE : JNI_FALSE ) ;
 
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
@@ -368,10 +393,10 @@ int rest_of_main( int argc, char** argv ) {
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
   
   if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                           args = jst_malloc( argc * sizeof( char* ) ) ) ) goto end ;
+                           args = jst_calloc( argc, sizeof( char* ) ) ) ) goto end ;
     
   for ( i = 0 ; i < numArgs ; i++ ) args[ i ] = argv[ i + 1 ] ; // skip the program name
-  args[ i ] = NULL ;
+  // args is now a NULL terminated string array. We get the NULL termination as the memory is calloced
   
   // look up the first terminating launchee param and only search for --classpath and --conf up to that   
   numParamsToCheck = jst_findFirstLauncheeParamIndex( args, numArgs, (char**)terminatingSuffixes, (JstParamInfo*)groovyParameters ) ;
@@ -395,15 +420,11 @@ int rest_of_main( int argc, char** argv ) {
 // cygwin compatibility end
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
-
-
-//  _groovy_launcher_debug = (jst_valueOfParam( args, &numArgs, &numParamsToCheck, "-d", JST_SINGLE_PARAM, JNI_FALSE, &error ) ? JNI_TRUE : JNI_FALSE ) ;
-  _groovy_launcher_debug = ( getenv( "__JLAUNCHER_DEBUG" ) ? JNI_TRUE : JNI_FALSE ) ;
   
   // look for classpath param
   // - If -cp is not given, then the value of CLASSPATH is given in groovy starter param --classpath. 
   // And if not even that is given, then groovy starter param --classpath is omitted.
-  for ( i = 0 ; ( temp = cpaliases[i] ) ; i++ ) {
+  for ( i = 0 ; ( temp = cpaliases[ i ] ) ; i++ ) {
     classpath = jst_valueOfParam( args, &numArgs, &numParamsToCheck, temp, JST_DOUBLE_PARAM, JNI_TRUE, &error ) ;
     if ( error ) goto end ;
     if ( classpath ) {
@@ -439,22 +460,30 @@ int rest_of_main( int argc, char** argv ) {
   } else {
     extraProgramOptions[ 4 ] = NULL ; // omit the --classpath param, extraProgramOptions is a NULL terminated char**
   }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  if ( !( groovyHome = getGroovyHome() ) ) goto end ;
+  
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // find out the groovy conf file to use
   
   groovyConfFile = jst_valueOfParam( args, &numArgs, &numParamsToCheck, "--conf", JST_DOUBLE_PARAM, JNI_TRUE, &error ) ;
   if ( error ) goto end ;
   
   if ( !groovyConfFile  ) groovyConfFile = getenv( "GROOVY_CONF" ) ; 
   
-  if ( !( groovyHome = getGroovyHome() ) ) goto end ;
-  
-  if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                           jars[ 0 ] = findGroovyStartupJar( groovyHome ) ) ) goto end ;
-      
-  // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
-
   if ( !groovyConfFile && // set the default groovy conf file if it was not given as a parameter
        !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
                            groovyConfFile = jst_createFileName( groovyHome, "conf", GROOVY_CONF, NULL ) ) ) goto end ;
+  
+  
+  if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
+                           jars[ 0 ] = findGroovyStartupJar( groovyHome ) ) ) goto end ;
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
+
 
   extraProgramOptions[ 3 ] = groovyConfFile ;
   

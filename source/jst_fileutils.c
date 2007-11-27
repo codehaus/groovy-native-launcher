@@ -357,12 +357,17 @@ extern char* jst_createFileName( const char* root, ... ) {
 
   if ( !jst_appendPointer( (void***)(void*)&strings, &stringsSize, (void*)root ) ) return NULL ;
   
-  previous = (char*)root ;
+  // empty string denotes root dir. In case of empty string, add that explicitly so the following 
+  // loop does not get confused (it assumes skipping empty strings).
+  previous = root[ 0 ] ? (char*)root : JST_FILE_SEPARATOR ;
+  
   va_start( args, root ) ;
+  
   while ( ( s = va_arg( args, char* ) ) ) {
     if ( s[ 0 ] ) { // skip empty strings
-      if ( ( previous[ strlen( previous ) - 1 ] != filesep[ 0 ] ) && 
-          !jst_appendPointer( (void***)(void*)&strings, &stringsSize, filesep ) ) goto end ;      
+      if ( ( s[ 0 ] != filesep[ 0 ] ) &&
+           ( previous[ strlen( previous ) - 1 ] != filesep[ 0 ] ) && 
+           !jst_appendPointer( (void***)(void*)&strings, &stringsSize, filesep ) ) goto end ;      
       if ( !jst_appendPointer( (void***)(void*)&strings, &stringsSize, s ) ) goto end ;
       previous = s ;
     }
