@@ -50,9 +50,9 @@ typedef enum {
 
 typedef struct {
   char          *name;
+  JstParamClass type;
   /** If != 0, the actual parameters followed by this one are passed on to the launchee. */
   short         terminating;  
-  JstParamClass type;
 } JstParamInfo;
 
 typedef enum {
@@ -133,15 +133,14 @@ typedef struct {
   JavaVMOption* jvmOptions;
   int numJvmOptions; 
   /** parameters to the java class' main method. These are put first before the command line args. */
-  char** extraProgramOptions;
-  char* mainClassName;
-  char* mainMethodName;
+  char** extraProgramOptions ;
+  char*  mainClassName ;
+  char*  mainMethodName ;
   /** The directories from which add all jars from to the startup classpath. NULL terminates the list. */
-  char** jarDirs;
-  char** jars;
-  /** parameterInfos is an array containing info about all the possible program params. */
-  JstParamInfo* paramInfos;
-  int           paramInfosCount;
+  char** jarDirs ;
+  char** jars ;
+  /** parameterInfos is an array containing info about all the possible program params. The terminating JstParamInfo has NULL for name. */
+  JstParamInfo* paramInfos ;
   /** terminatingSuffixes contains the suffixes that, if matched, indicate that the matching param and all the rest of the params 
    * are launcheeParams, e.g. {".groovy", "-e", "-v", NULL} */
   char** terminatingSuffixes;
@@ -186,16 +185,14 @@ char* jst_createFileName( const char* root, ... ) ;
  * Returns NULL on error. */
 char* jst_getExecutableHome() ;
 
-/** Returns pointer to the param info array that may be relocated. NULL if error occurs. */
-JstParamInfo* jst_setParameterDescription( JstParamInfo** paramInfo, int indx, size_t* size, char* name, JstParamClass type, short terminating ) ;
-
 /** Returns the index of the given str in the given str array, -1 if not found.  
  * Modifies args, numargs and checkUpto if removeIfFound == true */
 int jst_contains(char** args, int* numargs, const char* option, const jboolean removeIfFound);
 
 /** may return argc if none of the presented params are "terminating", i.e. indicate that it and all the rest of the params
- * go to the launchee. */
-int jst_findFirstLauncheeParamIndex(char** argv, int argc, char** terminatingSuffixes, JstParamInfo* paramInfos, int paramInfosCount);
+ * go to the launchee. 
+ * @param the terminating JstParamInfo has NULL for name. */
+int jst_findFirstLauncheeParamIndex( char** argv, int argc, char** terminatingSuffixes, JstParamInfo* paramInfos ) ;
 
 
 /** returns null if not found. For prefix params, returns the value w/out the prefix.

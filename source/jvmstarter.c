@@ -555,19 +555,6 @@ exitlookup:
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-extern JstParamInfo* jst_setParameterDescription(JstParamInfo** paramInfo, int ind, size_t* size, char* name, JstParamClass type, short terminating) {
-  JstParamInfo pinfo ;
-  
-  pinfo.name = name ;
-  pinfo.type = type ;
-  pinfo.terminating = terminating ;
-
-  return *paramInfo = (JstParamInfo*)jst_appendArrayItem( *paramInfo, ind, size, &pinfo, sizeof( JstParamInfo ) ) ; 
-  
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 /** To be called when there is a pending exception that is the result of some
  * irrecoverable error in this startup program. Clears the exception and prints its description. */
 static void clearException(JNIEnv* env) {
@@ -698,35 +685,35 @@ static jboolean addStringToJStringArray( JNIEnv* env, char *strToAdd, jobjectArr
  *  it is needed to find the first launchee param. */
 static char* _builtinDoubleParams[] = { "-cp", "-classpath", "--classpath", "-jh", "--javahome", NULL } ;
 
-extern int jst_findFirstLauncheeParamIndex(char** args, int numArgs, char** terminatingSuffixes, JstParamInfo* paramInfos, int paramInfosCount) {
-  int    i, j;
-  size_t len;
+extern int jst_findFirstLauncheeParamIndex( char** args, int numArgs, char** terminatingSuffixes, JstParamInfo* paramInfos ) {
+  int    i ;
+  size_t len ;
   
-  for(i = 0; i < numArgs; i++) {
-    char* arg = args[i];
+  for ( i = 0 ; i < numArgs ; i++ ) {
+    char* arg = args[ i ] ;
     
-    if((arg[0] == 0) || (arg[0] != '-') // empty strs and ones not beginning w/ - are considered to be terminating args to the launchee
-     || arrayContainsString(terminatingSuffixes, arg, SUFFIX_SEARCH)) {
-      return i;
+    if ( ( arg[ 0 ] == 0 ) || ( arg[ 0 ] != '-' ) || // empty strs and ones not beginning w/ - are considered to be terminating args to the launchee
+         arrayContainsString( terminatingSuffixes, arg, SUFFIX_SEARCH ) ) {
+      return i ;
     }
 
-    for(j = 0; j < paramInfosCount; j++) {
-      if(paramInfos[j].terminating) {
-        switch(paramInfos[j].type) {
+    for ( ; paramInfos->name ; paramInfos++ ) {
+      if ( paramInfos->terminating ) {
+        switch ( paramInfos->type ) {
           case JST_SINGLE_PARAM : // deliberate fallthrough, no break
           case JST_DOUBLE_PARAM : 
-            if(strcmp(paramInfos[j].name, arg) == 0) return i;
-            break;
+            if ( strcmp( paramInfos->name, arg ) == 0 ) return i ;
+            break ;
           case JST_PREFIX_PARAM :
-            len = strlen(paramInfos[j].name);
-            if((strlen(arg) >= len) && (memcmp(paramInfos[j].name, arg, len) == 0)) {
-              return i;
+            len = strlen( paramInfos->name ) ;
+            if ( ( strlen( arg ) >= len ) && ( memcmp( paramInfos->name, arg, len ) == 0 ) ) {
+              return i ;
             }
-            break;
+            break ;
         } // switch
-      } else if((paramInfos[j].type == JST_DOUBLE_PARAM)
-        && (strcmp(paramInfos[j].name, arg) == 0) ) {
-          i++;
+      } else if ( ( paramInfos->type == JST_DOUBLE_PARAM )
+        && ( strcmp( paramInfos->name, arg ) == 0 ) ) {
+          i++ ;
         }
     } // for j
     // if we have one of the builtin double params, skip the value of the param
@@ -748,6 +735,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   JNIEnv         *env    = NULL;
   JavaDynLib     javaLib;
   jint           result ;
+  JstParamInfo   *paramInfo ;
   JavaVMInitArgs vm_args;
   JavaVMOption   *jvmOptions = NULL,
                  // the options assigned by the user on cmdline are given last as that way they override the ones set before
@@ -793,7 +781,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   
   // find out the argument index after which all the params are launchee (prg being launched) params 
 
-  launcheeParamBeginIndex = jst_findFirstLauncheeParamIndex(launchOptions->arguments, launchOptions->numArguments, launchOptions->terminatingSuffixes, launchOptions->paramInfos, launchOptions->paramInfosCount);
+  launcheeParamBeginIndex = jst_findFirstLauncheeParamIndex( launchOptions->arguments, launchOptions->numArguments, launchOptions->terminatingSuffixes, launchOptions->paramInfos ) ;
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
   // classify the arguments as jvm or launchee params. Some are passed to neither as they are handled in this func.
@@ -820,29 +808,29 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
     }
 
     // check the param infos for params particular to the app we are launching
-    for(j = 0; j < launchOptions->paramInfosCount; j++) {
-      switch(launchOptions->paramInfos[j].type) {
+    for ( paramInfo = launchOptions->paramInfos ; paramInfo->name ; paramInfo++ ) {
+      switch ( paramInfo->type ) {
         case JST_SINGLE_PARAM :
-          if(strcmp(argument, launchOptions->paramInfos[j].name) == 0) {
-            isLauncheeOption[i] = JNI_TRUE;
-            goto next_arg;
+          if ( strcmp( argument, paramInfo->name ) == 0 ) {
+            isLauncheeOption[ i ] = JNI_TRUE;
+            goto next_arg ;
           }
-          break;
+          break ;
         case JST_DOUBLE_PARAM :
-          if(strcmp(argument, launchOptions->paramInfos[j].name) == 0) {
-            isLauncheeOption[i] = JNI_TRUE;
-            if(i == (launchOptions->numArguments - 1)) { // check that this is not the last param as it requires additional info
-              fprintf(stderr, "erroneous use of %s\n", argument);
-              goto end;
+          if ( strcmp( argument, paramInfo->name ) == 0 ) {
+            isLauncheeOption[i] = JNI_TRUE ;
+            if ( i == ( launchOptions->numArguments - 1 ) ) { // check that this is not the last param as it requires additional info
+              fprintf( stderr, "erroneous use of %s\n", argument ) ;
+              goto end ;
             }
-            isLauncheeOption[++i] = JNI_TRUE;
-            goto next_arg;
+            isLauncheeOption[ ++i ] = JNI_TRUE ;
+            goto next_arg ;
           }
-          break;
+          break ;
         case JST_PREFIX_PARAM :
-          if(memcmp(argument, launchOptions->paramInfos[j].name, len) == 0) {
-            isLauncheeOption[i] = JNI_TRUE;
-            goto next_arg;            
+          if ( memcmp( argument, paramInfo->name, len ) == 0 ) {
+            isLauncheeOption[i] = JNI_TRUE ;
+            goto next_arg ;            
           }
           break;
       } // switch

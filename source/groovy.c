@@ -209,6 +209,25 @@ static CygPadding *g_pad ;
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 
+// the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
+// are handled separately below
+static const JstParamInfo groovyParameters[] = {
+  { "-c",          JST_DOUBLE_PARAM, 0 }, 
+  { "--encoding",  JST_DOUBLE_PARAM, 0 },
+  { "-h",          JST_SINGLE_PARAM, 1 },
+  { "--help",      JST_SINGLE_PARAM, 1 },
+  { "-d",          JST_SINGLE_PARAM, 0 },
+  { "--debug",     JST_SINGLE_PARAM, 0 },
+  { "-e",          JST_DOUBLE_PARAM, 1 },
+  { "-i",          JST_DOUBLE_PARAM, 0 },
+  { "-l",          JST_DOUBLE_PARAM, 0 },
+  { "-n",          JST_SINGLE_PARAM, 0 },
+  { "-p",          JST_SINGLE_PARAM, 0 },
+  { "-v",          JST_SINGLE_PARAM, 0 },
+  { "--version",   JST_SINGLE_PARAM, 0 },
+  { NULL,          0,                0 }
+} ;
+
 int main( int argc, char** argv ) {
 
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
@@ -282,11 +301,9 @@ int rest_of_main( int argc, char** argv ) {
   JavaLauncherOptions options ;
 
   JavaVMOption *extraJvmOptions = NULL ;
-  size_t       extraJvmOptionsCount = 0, extraJvmOptionsSize = 5 ;
+  size_t       extraJvmOptionsCount = 0, 
+               extraJvmOptionsSize  = 5 ;
   
-  JstParamInfo* paramInfos     = NULL ;
-  int           paramInfoCount = 0    ;
-
   char *groovyConfFile  = NULL, 
        *groovyDConf     = NULL, // the -Dgroovy.conf=something to pass to the jvm
        *groovyHome      = NULL, 
@@ -306,7 +323,6 @@ int rest_of_main( int argc, char** argv ) {
   char **args = NULL ;
   int  numArgs = argc - 1 ;
          
-  size_t numGroovyOpts = 13 ;
   int    i,
          numParamsToCheck,
          rval = -1 ; 
@@ -350,22 +366,6 @@ int rest_of_main( int argc, char** argv ) {
 // cygwin compatibility end
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
-
-  // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
-  // are handled separately below
-  if ( !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-c",          JST_DOUBLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "--encoding",  JST_DOUBLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-h",          JST_SINGLE_PARAM, 1 ) ) ||
-       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "--help",      JST_SINGLE_PARAM, 1 ) ) ||
-       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-d",          JST_SINGLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "--debug",     JST_SINGLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-e",          JST_DOUBLE_PARAM, 1 ) ) ||
-       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-i",          JST_DOUBLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-l",          JST_DOUBLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-n",          JST_SINGLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-p",          JST_SINGLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "-v",          JST_SINGLE_PARAM, 0 ) ) ||
-       !( jst_setParameterDescription( &paramInfos, paramInfoCount++, &numGroovyOpts, "--version",   JST_SINGLE_PARAM, 0 ) ) ) goto end ;
   
   if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
                            args = jst_malloc( argc * sizeof( char* ) ) ) ) goto end ;
@@ -374,7 +374,7 @@ int rest_of_main( int argc, char** argv ) {
   args[ i ] = NULL ;
   
   // look up the first terminating launchee param and only search for --classpath and --conf up to that   
-  numParamsToCheck = jst_findFirstLauncheeParamIndex( args, numArgs, (char**)terminatingSuffixes, paramInfos, paramInfoCount ) ;
+  numParamsToCheck = jst_findFirstLauncheeParamIndex( args, numArgs, (char**)terminatingSuffixes, (JstParamInfo*)groovyParameters ) ;
 
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
@@ -403,7 +403,7 @@ int rest_of_main( int argc, char** argv ) {
   // look for classpath param
   // - If -cp is not given, then the value of CLASSPATH is given in groovy starter param --classpath. 
   // And if not even that is given, then groovy starter param --classpath is omitted.
-  for( i = 0 ; ( temp = cpaliases[i] ) ; i++ ) {
+  for ( i = 0 ; ( temp = cpaliases[i] ) ; i++ ) {
     classpath = jst_valueOfParam( args, &numArgs, &numParamsToCheck, temp, JST_DOUBLE_PARAM, JNI_TRUE, &error ) ;
     if ( error ) goto end ;
     if ( classpath ) {
@@ -499,8 +499,7 @@ int rest_of_main( int argc, char** argv ) {
   options.mainMethodName      = "main" ;
   options.jarDirs             = NULL ;
   options.jars                = jars ;
-  options.paramInfos          = paramInfos ;
-  options.paramInfosCount     = paramInfoCount ;
+  options.paramInfos          = (JstParamInfo*)groovyParameters ;
   options.terminatingSuffixes = terminatingSuffixes ;
 
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
@@ -560,8 +559,6 @@ end:
 // cygwin compatibility end
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
-
-  if ( paramInfos      ) free( paramInfos ) ;
 
   jst_freeAll( &dynReservedPointers ) ;
   
