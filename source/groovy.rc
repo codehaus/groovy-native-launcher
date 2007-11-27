@@ -28,6 +28,8 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 
 groovyicon  ICON  DISCARDABLE "icons/groovy.ico"
 
+// see http://msdn2.microsoft.com/en-us/library/aa381058.aspx for explanation of the stuff below
+
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION 1,1,0,0
  PRODUCTVERSION 1,1,0,0
