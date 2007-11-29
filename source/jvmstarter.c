@@ -169,7 +169,7 @@ extern char* jst_findJavaHomeFromPath() {
   p = getenv( "PATH" ) ;
   if ( !p ) goto end ;
   
-  if ( !( path = jst_append( NULL, NULL, p, NULL ) ) ) goto end ;
+  if ( !( path = strdup( p ) ) ) goto end ;
   
   for ( ; ( p = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
     size_t len = strlen( p ) ;
@@ -204,7 +204,7 @@ extern char* jst_findJavaHomeFromPath() {
       if ( memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
         javahome[ len -= 4 ] = '\0' ;
         assert( len == strlen( javahome ) ) ;
-        _javaHome = jst_append( NULL, NULL, javahome, NULL ) ;
+        _javaHome = strdup( javahome ) ;
         if ( !_javaHome ) goto end ; 
       }
       break ;
@@ -311,7 +311,7 @@ static char* findJavaHomeFromWinRegistry() {
         }
         
         if ( *javaHome ) {
-          if ( !( _javaHome = jst_append( NULL, NULL, javaHome, NULL ) ) ) {
+          if ( !( _javaHome = strdup( javaHome ) ) ) {
             irrecoverableError = JNI_TRUE ;
           } 
           goto endofloop ;          
@@ -951,14 +951,6 @@ next_arg:
   toolsJarFile = jst_append( NULL, NULL, javaHome, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR "tools.jar", NULL ) ;  
   if ( !toolsJarFile ) goto end ;
 
-// #if defined ( __APPLE__ )
-  // // os-x jdk seems to have tools.jar in a different place than other jdks...
-  // if ( !jst_fileExists( toolsJarFile ) ) { 
-    // toolsJarFile[ 0 ] = '\0' ;
-    // toolsJarFile = jst_append( toolsJarFile, &len, "/System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Classes/classes.jar", NULL ) ;
-    // if ( !toolsJarFile ) goto end ;
-  // } 
-// #endif // TODO: check if we are in a jre under a jdk. In that case the tools jar can be found by taking away the lib before appending lib/tools.jar
   if ( jst_fileExists( toolsJarFile ) ) {
     // add as java env property if requested
     if ( ( launchOptions->toolsJarHandling ) & JST_TOOLS_JAR_TO_SYSPROP ) {
@@ -1014,7 +1006,7 @@ next_arg:
       userJvmOptCount = 1 ;
       for ( i = 0 ; userOpts[ i ] ; i++ ) if ( userOpts[ i ] == ' ' ) userJvmOptCount++ ;
 
-      if ( !( userJvmOptsS = jst_append( NULL, NULL, userOpts, NULL ) ) ) goto end ;        
+      if ( !( userJvmOptsS = strdup( userOpts ) ) ) goto end ;        
 
       while ( ( s = strtok( firstTime ? userJvmOptsS : NULL, " " ) ) ) {
         firstTime = JNI_FALSE ;

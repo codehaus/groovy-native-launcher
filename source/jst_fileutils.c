@@ -134,7 +134,7 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
       if ( !( lastError = GetLastError() ) ) {
       
         do {
-          char* temp = jst_append( NULL, NULL, fdata.cFileName, NULL ) ;
+          char* temp = strdup( fdata.cFileName ) ;
           if ( !temp || 
                !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
             errorOccurred = JNI_TRUE ;
@@ -180,7 +180,7 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
         
         if ( ( !fileNamePrefix || memcmp( fileNamePrefix, fileName, prefixlen ) == 0 ) &&
              ( !fileNameSuffix || memcmp( fileNameSuffix, fileName + len - suffixlen, suffixlen ) == 0 ) ) {
-          char* temp = jst_append( NULL, NULL, fileName, NULL ) ;
+          char* temp = strdup( fileName ) ;
           if ( !temp || 
                !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
             errorOccurred = JNI_TRUE ;

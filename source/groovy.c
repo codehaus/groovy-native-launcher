@@ -126,7 +126,7 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
   } // while
   
   if ( !startupJar && firstGroovyJarFound ) {
-    if ( !( startupJar = jst_append( NULL, NULL, firstGroovyJarFound, NULL ) ) ) goto end ;
+    if ( !( startupJar = strdup( firstGroovyJarFound ) ) ) goto end ;
   }
 
   end:
@@ -167,13 +167,13 @@ char* getGroovyHome() {
   
   if ( !( appHome = jst_getExecutableHome() ) ) return NULL ;
   // make a copy of exec home str
-  if ( !( appHome = jst_append( NULL, NULL, appHome, NULL ) ) ) return NULL ;
+  if ( !( appHome = strdup( appHome ) ) ) return NULL ;
   
   if ( jst_pathToParentDir( appHome ) ) {
     validGroovyHome = isValidGroovyHome( appHome ) ;
     if ( validGroovyHome == -1 ) goto end ;
     if ( validGroovyHome ) {
-      if ( !( _ghome = jst_append( NULL, NULL, appHome, NULL ) ) ) goto end ;
+      if ( !( _ghome = strdup( appHome ) ) ) goto end ;
     }
   }
   
