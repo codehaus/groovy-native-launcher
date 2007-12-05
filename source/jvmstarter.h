@@ -159,6 +159,10 @@ int jst_launchJavaApp(JavaLauncherOptions* options);
 
 int jst_fileExists(const char* fileName);
 
+/** Returns 1 if the given fileName points to a dir, 0 if a file. If the given file does not exist, the behavior is undefined, most likely
+ * a crash. */
+int jst_isDir( const char* fileName ) ;
+
 /** Figures out the path to the parent dir of the given path (which may be a file or a dir). Modifies the argument so
  * that it points to the parent dir. Returns null (but does not modify the given string) if the given dir is the root dir.
  * For files, the dir containing the file is the parent dir. 

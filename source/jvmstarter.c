@@ -19,6 +19,10 @@
 // TODO:
 // * cygwin support
 //   * after the basics are working, make this generic (so that a param can be designated to have a value that must be cygwinized)
+// * add the possibility to define "recursive jar dirs", i.e. directories where jars are searched for recursively.
+// * add a check that the java home found can actually be used (i.e. it is valid). ATM the first java home is used; in some
+//   cases it may not be valid (e.g. if there are stale win registry entries, if the java executable found on path
+//   is not contained in a jdk/jre (even after following the symlinks). This can happen if the executable is a hard link.
 
 #include <stdlib.h>
 #include <string.h>
@@ -155,9 +159,6 @@ extern void printWinError( unsigned long errcode ) {
 
 #endif
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 /** Tries to find Java home by looking where java command is located on PATH. */
 extern char* jst_findJavaHomeFromPath() {
@@ -179,11 +180,12 @@ extern char* jst_findJavaHomeFromPath() {
     
     if ( !( javahome = jst_append( javahome, &jhlen, p, NULL ) ) ) goto end ;
     
-    javahome = jst_append( javahome, &jhlen, ( javahome[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) ? JST_FILE_SEPARATOR : "", "java" 
+    javahome = jst_append( javahome, &jhlen, ( javahome[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) ? JST_FILE_SEPARATOR : "", 
+                                             "java" 
 #if defined( _WIN32 )
-                      ".exe"
+                                             ".exe"
 #endif
-    , NULL ) ;
+                                             , NULL ) ;
     if ( !javahome ) goto end ;
     
     if ( jst_fileExists( javahome ) ) {
@@ -199,7 +201,7 @@ extern char* jst_findJavaHomeFromPath() {
 #endif
       *( strrchr( javahome, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;
       len = strlen( javahome ) ;
-      if ( len < 4 ) goto end ;
+      if ( len < 4 ) goto end ; // we are checking whether the executable is in "bin" dir, /bin is the shortest possibility (4 chars)
       // see if we are in the bin dir of java home
       if ( memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
         javahome[ len -= 4 ] = '\0' ;
@@ -410,7 +412,7 @@ extern int jst_indexOfParam( char** args, int numargs, char* paramToSearch ) {
   return -1 ;  
 }
 
-extern char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const char* option, const JstParamClass paramType, const jboolean removeIfFound, jboolean* error) {
+extern char* jst_valueOfParam( char** args, int* numargs, int* checkUpto, const char* option, const JstParamClass paramType, const jboolean removeIfFound, jboolean* error ) {
   int i    = 0, 
       step = 1;
   size_t len;
@@ -450,7 +452,7 @@ extern char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const c
       break ;
   }
   
-  if(retVal && removeIfFound) {
+  if ( retVal && removeIfFound ) {
     for ( ; i < ( *numargs - step ) ; i++ ) {
       args[ i ] = args[ i + step ] ;
     }
@@ -472,15 +474,17 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
   static char* potentialPathsToAnyJVMPreferringServer[] = { PATHS_TO_SERVER_JVM, PATHS_TO_CLIENT_JVM, NULL } ;
   static char* potentialPathsToAnyJVMPreferringClient[] = { PATHS_TO_CLIENT_JVM, PATHS_TO_SERVER_JVM, NULL } ;
   
-  char path[ PATH_MAX + 1 ], *mode ;
-  JavaDynLib rval;
-  int i = 0, j = 0;
-  DLHandle jvmLib = (DLHandle)0 ;
-  char** lookupDirs = NULL ;
-  char*  dynLibFile ;
-  jboolean preferClient = ( jvmSelectStrategy & 4 ) ? JNI_TRUE : JNI_FALSE,  // third bit
-           allowClient  = ( jvmSelectStrategy & 1 ) ? JNI_TRUE : JNI_FALSE,  // first bit
-           allowServer  = ( jvmSelectStrategy & 2 ) ? JNI_TRUE : JNI_FALSE ; // secons bit
+  char       *path = NULL, 
+             *mode ;
+  size_t     pathSize = PATH_MAX + 1 ;
+  JavaDynLib rval ;
+  int        i = 0, j = 0;
+  DLHandle   jvmLib = (DLHandle)0 ;
+  char**     lookupDirs = NULL ;
+  char*      dynLibFile ;
+  jboolean   preferClient = ( jvmSelectStrategy & 4 ) ? JNI_TRUE : JNI_FALSE,  // third bit
+             allowClient  = ( jvmSelectStrategy & 1 ) ? JNI_TRUE : JNI_FALSE,  // first bit
+             allowServer  = ( jvmSelectStrategy & 2 ) ? JNI_TRUE : JNI_FALSE ; // secons bit
   
   assert( allowClient || allowServer ) ;
   
@@ -500,13 +504,14 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
   
   for ( i = 0 ; i < 2 ; i++ ) { // try both jdk and jre style paths
     for ( j = 0; ( dynLibFile = lookupDirs[ j ] ) ; j++ ) {
-      // TODO: change this to use dynamic string buffer (w/ jst_append), do not rely on PATH_MAX being big enough
-      strcpy( path, java_home ) ;
-      strcat( path, JST_FILE_SEPARATOR ) ;
-      if ( i == 0 ) { // on a jdk, we need to add jre at this point of the path
-        strcat( path, "jre" JST_FILE_SEPARATOR ) ;
-      }
-      strcat( path, dynLibFile ) ;
+      if ( path ) path[ 0 ] = '\0' ;
+      if ( !( path = jst_append( path, &pathSize, java_home, 
+                                                  JST_FILE_SEPARATOR,
+                                                  // on a jdk, we need to add jre at this point of the path
+                                                  ( i == 0 ) ? "jre" JST_FILE_SEPARATOR : "",
+                                                  dynLibFile, 
+                                                  NULL ) ) ) goto end ;
+
       if ( jst_fileExists( path ) ) {
         errno = 0 ;
         if ( !( jvmLib = dlopen( path, RTLD_LAZY ) ) )  {
@@ -525,7 +530,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
       }
     }
   }
-exitlookup:
+  exitlookup:
   
   if( !jvmLib ) {
     fprintf(stderr, "error: could not find %s jvm under %s\n"
@@ -547,6 +552,9 @@ exitlookup:
 #   endif
     fprintf( stderr, "strange bug: jvm creator function not found in jvm dynamic library %s\n", path ) ;
   }
+  
+  end:
+  if ( path ) free( path ) ;
   
   return rval ;
 }

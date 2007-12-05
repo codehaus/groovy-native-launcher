@@ -51,6 +51,13 @@ extern int jst_fileExists( const char* fileName ) {
 
 }
 
+extern int jst_isDir( const char* fileName ) {
+  struct stat buf ;
+  int i = stat( fileName, &buf ) ;
+  assert( i == 0 ) ;
+  return ( buf.st_mode & S_IFDIR ) ? 1 : 0 ;
+}
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 static jboolean jst_dirNameEndsWithSeparator( const char* dirName ) {
