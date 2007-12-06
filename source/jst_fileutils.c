@@ -67,14 +67,13 @@ static jboolean jst_dirNameEndsWithSeparator( const char* dirName ) {
 extern char* jst_pathToParentDir( char* path ) {
   size_t   len                   = strlen( path ) ;
   jboolean pathEndsWithSeparator = jst_dirNameEndsWithSeparator( path ) ;
-  size_t   lenWithoutTrailingSep = pathEndsWithSeparator ? len - 1 : len ;
-      
+
   // this implementation is not perfect, but works ok in this program's context
-  
+
 #if defined( _WIN32 )
-  if ( ( lenWithoutTrailingSep == 0 ) || 
-       ( lenWithoutTrailingSep == 1 && path[ 0 ] == JST_FILE_SEPARATOR[ 0 ] ) ||
-       ( lenWithoutTrailingSep == 3 && isalpha( path[ 0 ] ) && path[ 1 ] == ':' && path[ 2 ] == JST_FILE_SEPARATOR[ 0 ] )
+  if ( ( len == 0 ) || 
+       ( len == 1 && path[ 0 ] == JST_FILE_SEPARATOR[ 0 ] ) ||
+       ( len == 3 && isalpha( path[ 0 ] ) && path[ 1 ] == ':' && path[ 2 ] == JST_FILE_SEPARATOR[ 0 ] )
      ) return NULL ;
 #else
   if ( len <= 1 ) return NULL ;  
