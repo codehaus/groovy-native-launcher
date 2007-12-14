@@ -143,13 +143,15 @@ typedef struct {
   JstParamInfo* paramInfos ;
   /** terminatingSuffixes contains the suffixes that, if matched, indicate that the matching param and all the rest of the params 
    * are launcheeParams, e.g. {".groovy", "-e", "-v", NULL} */
-  char** terminatingSuffixes;
-} JavaLauncherOptions;
+  char** terminatingSuffixes ;
+} JavaLauncherOptions ;
 
 
 #if defined( _WIN32 )
 // to have type DWORD in the func signature below we need this header
 //#include "Windows.h"
+// DWORD is defined as unsigned long, so we'll just use that
+// TODO: add jst_ prefix
 /** Prints an error message for the given windows error code. */
 void printWinError( unsigned long errcode ) ;
 

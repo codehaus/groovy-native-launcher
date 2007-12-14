@@ -17,12 +17,26 @@
 //  $Date$
 
 // TODO:
+// * refactor parameter classification into separate functions, possibly a separate source file
 // * cygwin support
 //   * after the basics are working, make this generic (so that a param can be designated to have a value that must be cygwinized)
 // * add the possibility to define "recursive jar dirs", i.e. directories where jars are searched for recursively.
 // * add a check that the java home found can actually be used (i.e. it is valid). ATM the first java home is used; in some
 //   cases it may not be valid (e.g. if there are stale win registry entries, if the java executable found on path
 //   is not contained in a jdk/jre (even after following the symlinks). This can happen if the executable is a hard link.
+// * check that all the optional members in JavaLauncherOptions struct have 0 / NULL as a sensible default value. 
+//   Thus setting all members is not necessary, just zeroing out the memory containing the struct before proceeding.
+// * the terminating suffixes is really only necessary in case where the name of the input file begins w/ "-". 
+//   Maybe it is such a special case that it can be ignored? In that case the terminating suffixes part could be
+//   removed.
+// * add an option to restrict which vendor's java implementations are used
+// * add an option to restrict the used jre/jdk version to be exactly something, greater than something, between some values etc.
+//   Have a look at how eclipse plugins define the required version of their dependant plugins in their manifest.mf
+//   A problem that needs to be solved: how to reliably tell the version of a java impl w/out actually loading and starting the jvm?
+// * According to a compiler define, the home folder for groovy is either a hard coded location (well known location) or it is looked up
+//   dynamically. Note that in certain cases dynamic location lookup can pose a security hole.
+// * make the groovy executable select the class passed as --main argument based on the executable name. That way all the groovy executables
+//   can be supported by just soft linking to the same executable (or making several copies on windows where soflinking is not available)
 
 #include <stdlib.h>
 #include <string.h>
@@ -41,6 +55,7 @@
 
 #include "jvmstarter.h"
 
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // NOTE: when compiling w/ gcc on cygwin, pass -mno-cygwin, which makes gcc define _WIN32 and handle the win headers ok
 #if defined( _WIN32 )
 
@@ -55,17 +70,22 @@
 #  define dlsym( libraryhandle, funcname ) GetProcAddress( libraryhandle, funcname )
 #  define dlclose( handle ) FreeLibrary( handle )
 
+// PATH_MAX is defined when compiling w/ e.g. msys gcc, but not w/ ms cl compiler (the visual studio c compiler)
 #if !defined( PATH_MAX )
 #  define PATH_MAX MAX_PATH
 #endif
    
 #else
 
-#  if defined( __linux__ ) && defined( __i386__ )
-
-#    define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
-#    define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
-
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  if defined( __linux__ )
+#    if defined( __i386__ )
+#      define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
+#      define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
+#    else
+#      error "linux on non-x86 hardware not currently supported. Please contact the author to have support added."
+#    endif
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  elif defined( __sun__ ) 
 
 #    if defined( __sparc__ ) || defined( __sparc ) || defined( __sparcv9 )
@@ -80,9 +100,10 @@
 
 #    else
        // should not happen, but this does not hurt either
-#      error "You are running solaris on an architecture that is currently not supported. Please contact the author for help with adding support."   
+#      error "You are running solaris on an architecture that is currently not supported. Please contact the author to have support added."
 #    endif
 
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  elif defined ( __APPLE__ )
 
 //  The user could use the /System/Library/Frameworks/JavaVM.framework/Home or
@@ -112,14 +133,15 @@
 #    include <link.h>
 #  endif
   
-   typedef void *DLHandle ;
+   typedef void* DLHandle ;
 
 #endif
 
 #if !defined( CREATE_JVM_FUNCTION_NAME )
-// this is what it's called on most platforms. E.g. Apple is different.
+// this is what it's called on most platforms (and in the jni specification). E.g. Apple is different.
 #  define CREATE_JVM_FUNCTION_NAME "JNI_CreateJavaVM"
 #endif
+   
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 static jboolean _jst_debug = JNI_FALSE;

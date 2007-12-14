@@ -140,8 +140,8 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
 /** Checks that the given dir is a valid groovy dir.
  * 0 => false, 1 => true, -1 => error */
 static int isValidGroovyHome( const char* dir ) {
-  char     *gconfFile = NULL ;
-  jboolean rval = -1 ;
+  char *gconfFile = NULL ;
+  int  rval = -1 ;
 
   gconfFile = jst_createFileName( dir, "conf", GROOVY_CONF, NULL ) ; 
   if ( !gconfFile ) goto end ;
