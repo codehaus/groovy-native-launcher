@@ -338,7 +338,7 @@ int rest_of_main( int argc, char** argv ) {
   JavaVMOption *extraJvmOptions = NULL ;
   size_t       extraJvmOptionsCount = 0, 
                extraJvmOptionsSize  = 5 ;
-  JstParamInfo* parameterInfos = (JstParamInfo*)noParameters ;  
+  JstParamInfo* parameterInfos = NULL ;
   char *groovyConfFile  = NULL, 
        *groovyDConf     = NULL, // the -Dgroovy.conf=something to pass to the jvm
        *groovyHome      = NULL, 
@@ -463,7 +463,7 @@ int rest_of_main( int argc, char** argv ) {
   // args is now a NULL terminated string array. We get the NULL termination as the memory is calloced
   
   // look up the first terminating launchee param and only search for --classpath and --conf up to that   
-  numParamsToCheck = jst_findFirstLauncheeParamIndex( args, numArgs, (char**)terminatingSuffixes, (JstParamInfo*)groovyParameters ) ;
+  numParamsToCheck = jst_findFirstLauncheeParamIndex( args, numArgs, (char**)terminatingSuffixes, parameterInfos ) ;
 
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  

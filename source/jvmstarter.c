@@ -47,6 +47,8 @@
 //   dynamically. Note that in certain cases dynamic location lookup can pose a security hole.
 // * make the groovy executable select the class passed as --main argument based on the executable name. That way all the groovy executables
 //   can be supported by just soft linking to the same executable (or making several copies on windows where soflinking is not available)
+// * see if there is a standard how the jvm aliases are stored in some file in the jdk. If so, it is possible to remove the hard coded
+//   paths to client / server jvms and support aliases for them
 
 #include <stdlib.h>
 #include <string.h>
