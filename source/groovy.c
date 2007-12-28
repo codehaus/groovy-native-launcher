@@ -474,7 +474,11 @@ int rest_of_main( int argc, char** argv ) {
       size_t len = strlen( execName ) ;
       if ( ( len > 4 ) && 
            ( memcmp( execName + len - 4, ".exe", 4 ) == 0 ) ) {
-        execName[ len - 4 ] = '\0' ;
+        execName[ len -= 4 ] = '\0' ;
+      }
+      if ( len > 0 && 
+           ( execName[ len - 1 ] == 'w' || execName[ len - 1 ] == 'W' ) ) {
+        execName[ len - 1 ] = '\0' ;
       }
     }
 #endif
@@ -482,11 +486,11 @@ int rest_of_main( int argc, char** argv ) {
     if ( eName ) execName = eName + 1 ;
     
     extraProgramOptions[ 1 ] = 
-      ( strcmp( execName, "groovy"        ) == 0 ) ? "groovy.ui.GroovyMain" :
-      ( strcmp( execName, "groovyc"       ) == 0 ) ? "org.codehaus.groovy.tools.FileSystemCompiler" :
-      ( strcmp( execName, "groovyConsole" ) == 0 ) ? "groovy.ui.Console" :
-      ( strcmp( execName, "groovysh"      ) == 0 ) ? ( getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ) :
-      ( strcmp( execName, "java2groovy"   ) == 0 ) ? "org.codehaus.groovy.antlr.java.Java2GroovyMain" :
+      (   strcmp( execName, "groovy"        ) == 0 ) ? "groovy.ui.GroovyMain" :
+      (   strcmp( execName, "groovyc"       ) == 0 ) ? "org.codehaus.groovy.tools.FileSystemCompiler" :
+      ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) ? "groovy.ui.Console" :
+      (   strcmp( execName, "groovysh"      ) == 0 ) ? ( getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ) :
+      (   strcmp( execName, "java2groovy"   ) == 0 ) ? "org.codehaus.groovy.antlr.java.Java2GroovyMain" :
       NULL ;
       
     jst_free( execNameTmp ) ;
