@@ -126,7 +126,7 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
   } // while
   
   if ( !startupJar && firstGroovyJarFound ) {
-    if ( !( startupJar = strdup( firstGroovyJarFound ) ) ) goto end ;
+    if ( !( startupJar = jst_strdup( firstGroovyJarFound ) ) ) goto end ;
   }
 
   end:
@@ -167,13 +167,13 @@ char* getGroovyHome() {
   
   if ( !( appHome = jst_getExecutableHome() ) ) return NULL ;
   // make a copy of exec home str
-  if ( !( appHome = strdup( appHome ) ) ) return NULL ;
+  if ( !( appHome = jst_strdup( appHome ) ) ) return NULL ;
   
   if ( jst_pathToParentDir( appHome ) ) {
     validGroovyHome = isValidGroovyHome( appHome ) ;
     if ( validGroovyHome == -1 ) goto end ;
     if ( validGroovyHome ) {
-      if ( !( _ghome = strdup( appHome ) ) ) goto end ;
+      if ( !( _ghome = jst_strdup( appHome ) ) ) goto end ;
     }
   }
   
@@ -380,7 +380,7 @@ int rest_of_main( int argc, char** argv ) {
     
     if ( !cygwin_initfunc || !cygwin_posix2win_path || !cygwin_posix2win_path_list ) {
       fprintf( stderr, "strange bug: could not find appropriate init and conversion functions inside cygwin1.dll\n" ) ;
-      printWinError( GetLastError() ) ;
+      jst_printWinError( GetLastError() ) ;
       goto end ;
     }
     cygwin_initfunc() ;
@@ -462,6 +462,42 @@ int rest_of_main( int argc, char** argv ) {
   }
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  { // deduce which class name to pass as --main param. In other words, this here supports all different groovy executables. 
+    // The execubale acts as a different groovy executable when it's renamed / symlinked to. 
+    char   *execName = jst_strdup( argv[ 0 ] ),
+           *eName,
+           *execNameTmp ;
+    
+    if ( !( execNameTmp = execName ) ) goto end ;
+#if defined( _WIN32 )
+    {
+      size_t len = strlen( execName ) ;
+      if ( ( len > 4 ) && 
+           ( memcmp( execName + len - 4, ".exe", 4 ) == 0 ) ) {
+        execName[ len - 4 ] = '\0' ;
+      }
+    }
+#endif
+    eName = strrchr( execName, JST_FILE_SEPARATOR[ 0 ] ) ;
+    if ( eName ) execName = eName + 1 ;
+    
+    extraProgramOptions[ 1 ] = 
+      ( strcmp( execName, "groovy"        ) == 0 ) ? "groovy.ui.GroovyMain" :
+      ( strcmp( execName, "groovyc"       ) == 0 ) ? "org.codehaus.groovy.tools.FileSystemCompiler" :
+      ( strcmp( execName, "groovyConsole" ) == 0 ) ? "groovy.ui.Console" :
+      ( strcmp( execName, "groovysh"      ) == 0 ) ? ( getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ) :
+      ( strcmp( execName, "java2groovy"   ) == 0 ) ? "org.codehaus.groovy.antlr.java.Java2GroovyMain" :
+      NULL ;
+      
+    jst_free( execNameTmp ) ;
+    
+    if ( !extraProgramOptions[ 1 ] ) {
+      fprintf( stderr, "error: could not deduce the program to launch from exec name. You should not rename this executable / symlink.\n" ) ;
+      goto end ;
+    }
+    
+  }
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   if ( !( groovyHome = getGroovyHome() ) ) goto end ;
   
@@ -513,9 +549,10 @@ int rest_of_main( int argc, char** argv ) {
   // TODO: remove this, it gives false sense of safety...
   // memset( &options, 0, sizeof( JavaLauncherOptions ) ) ;
   
-  options.java_home           = NULL ; // let the launcher func figure it out
+  options.javaHome            = NULL ; // let the launcher func figure it out
   options.jvmSelectStrategy   = JST_CLIENT_FIRST ; // mimic java launcher, which also prefers client vm due to its faster startup (despite it running much slower)
   options.javaOptsEnvVar      = "JAVA_OPTS" ;
+  // refactor so that the target sys prop can be defined
   options.toolsJarHandling    = JST_TOOLS_JAR_TO_SYSPROP ;
   options.javahomeHandling    = JST_ALLOW_JH_ENV_VAR_LOOKUP | JST_ALLOW_JH_PARAMETER | JST_ALLOW_PATH_LOOKUP | JST_ALLOW_REGISTRY_LOOKUP ; 
   options.classpathHandling   = JST_IGNORE_GLOBAL_CP ; 

@@ -49,11 +49,11 @@ typedef enum {
 } JstParamClass;
 
 typedef struct {
-  char          *name;
-  JstParamClass type;
+  char          *name ;
+  JstParamClass type ;
   /** If != 0, the actual parameters followed by this one are passed on to the launchee. */
-  short         terminating;  
-} JstParamInfo;
+  int           terminating ;  
+} JstParamInfo ;
 
 typedef enum {
 // classpath handling constants
@@ -69,7 +69,7 @@ typedef enum {
 
 /** The strategy to use when selecting between using client and server jvm *if* no explicit -client/-server param. If explicit param
  * is given, then that type of jvm is used, period.
- *  is given by the user. Bitwise meaning:
+ * Bitwise meaning:
  *  001 -> allow using client jvm
  *  010 -> allow using server jvm
  *  100 -> prefer client over server
@@ -106,7 +106,7 @@ typedef enum {
 typedef enum {
   JST_IGNORE_TOOLS_JAR       = 0,
   JST_TOOLS_JAR_TO_CLASSPATH = 1,
-  JST_TOOLS_JAR_TO_SYSPROP = 2
+  JST_TOOLS_JAR_TO_SYSPROP   = 2
 } ToolsJarHandling ;
  /** Note that if you tell that -cp / --classpath and/or -jh / --javahome params are handled automatically. 
   * If you do not want the user to be able to affect 
@@ -114,7 +114,7 @@ typedef enum {
   */
 typedef struct {
   /** May be null. */
-  char* java_home ;
+  char* javaHome ;
   /** what kind of jvm to use. */
   JVMSelectStrategy jvmSelectStrategy ;
   /** The name of the env var where to take extra jvm params from. May be NULL. */
@@ -135,6 +135,7 @@ typedef struct {
   /** parameters to the java class' main method. These are put first before the command line args. */
   char** extraProgramOptions ;
   char*  mainClassName ;
+  /** Defaults to "main" */
   char*  mainMethodName ;
   /** The directories from which add all jars from to the startup classpath. NULL terminates the list. */
   char** jarDirs ;
@@ -142,7 +143,10 @@ typedef struct {
   /** parameterInfos is an array containing info about all the possible program params. The terminating JstParamInfo has NULL for name. */
   JstParamInfo* paramInfos ;
   /** terminatingSuffixes contains the suffixes that, if matched, indicate that the matching param and all the rest of the params 
-   * are launcheeParams, e.g. {".groovy", "-e", "-v", NULL} */
+   * are launcheeParams, e.g. {".groovy", ".gy", NULL}. 
+   * The significance of this is marginal, as any param w/ no preceding "-" is terminating. So, this is only significant
+   * if the terminating option has "-" as prefix, but is not one of the enumerated options. Usually this would be
+   * a file name associated w/ the app, e.g. "-foobar.groovy". As file names do not usually begin w/ "-" this is rather unimportant. */
   char** terminatingSuffixes ;
 } JavaLauncherOptions ;
 
@@ -153,13 +157,13 @@ typedef struct {
 // DWORD is defined as unsigned long, so we'll just use that
 // TODO: add jst_ prefix
 /** Prints an error message for the given windows error code. */
-void printWinError( unsigned long errcode ) ;
+void jst_printWinError( unsigned long errcode ) ;
 
 #endif
 
-int jst_launchJavaApp(JavaLauncherOptions* options);
+int jst_launchJavaApp( JavaLauncherOptions* options ) ;
 
-int jst_fileExists(const char* fileName);
+int jst_fileExists( const char* fileName ) ;
 
 /** Returns 1 if the given fileName points to a dir, 0 if a file. If the given file does not exist, the behavior is undefined, most likely
  * a crash. */
@@ -252,6 +256,8 @@ char** jst_packStringArray( char** nullTerminatedStringArray ) ;
 void* jst_malloc( size_t size ) ;
 void* jst_calloc( size_t nelem, size_t elsize ) ;
 void* jst_realloc( void* ptr, size_t size ) ;
+char* jst_strdup( const char* s ) ;
+
 
 #define jst_free( x ) free( x ) ; x = NULL
 

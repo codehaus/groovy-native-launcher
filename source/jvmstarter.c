@@ -18,6 +18,16 @@
 
 // TODO:
 // * refactor parameter classification into separate functions, possibly a separate source file
+//   options:
+//   - value into system property
+//   - value to classpath (a sysprop, yes, but needs to be handled separaterly)
+//   - value used as java home
+//   - map to another launchee param (single or double)
+//   - optional: if not set, 
+//     * use the value of an env var
+//     * use hard coded default (can refer to install dir by ${app_home}.
+//   * what about the other way around, i.e. specifying that a sys prop / launchee param is to
+//     be created using a param value / env var value / hard coded default value?
 // * cygwin support
 //   * after the basics are working, make this generic (so that a param can be designated to have a value that must be cygwinized)
 // * add the possibility to define "recursive jar dirs", i.e. directories where jars are searched for recursively.
@@ -160,7 +170,7 @@ typedef struct {
 #if defined( _WIN32 )
 
 // what we really want is DWORD, but unsigned long is what it really is and using it directly we avoid having to include "Windows.h" in jvmstarter.h 
-extern void printWinError( unsigned long errcode ) {
+extern void jst_printWinError( unsigned long errcode ) {
   
   LPVOID message ;
      
@@ -192,7 +202,7 @@ extern char* jst_findJavaHomeFromPath() {
   p = getenv( "PATH" ) ;
   if ( !p ) goto end ;
   
-  if ( !( path = strdup( p ) ) ) goto end ;
+  if ( !( path = jst_strdup( p ) ) ) goto end ;
   
   for ( ; ( p = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
     size_t len = strlen( p ) ;
@@ -228,7 +238,7 @@ extern char* jst_findJavaHomeFromPath() {
       if ( memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
         javahome[ len -= 4 ] = '\0' ;
         assert( len == strlen( javahome ) ) ;
-        _javaHome = strdup( javahome ) ;
+        _javaHome = jst_strdup( javahome ) ;
         if ( !_javaHome ) goto end ; 
       }
       break ;
@@ -303,7 +313,7 @@ static char* findJavaHomeFromWinRegistry() {
           
       if ( status != ERROR_SUCCESS ) {
         if ( status != ERROR_FILE_NOT_FOUND ) {
-          printWinError( GetLastError() ) ;
+          jst_printWinError( GetLastError() ) ;
         }
         continue ;
       }
@@ -317,7 +327,7 @@ static char* findJavaHomeFromWinRegistry() {
         // so it does not seem useful to prepare for it
         if ( status != ERROR_SUCCESS ) {
           if ( status != ERROR_FILE_NOT_FOUND ) {
-            printWinError( status ) ;
+            jst_printWinError( status ) ;
           }
           goto endofloop ;
         }        
@@ -329,13 +339,13 @@ static char* findJavaHomeFromWinRegistry() {
 
         if ( status != ERROR_SUCCESS ) {
           if ( status != ERROR_FILE_NOT_FOUND ) {
-            printWinError( status ) ;
+            jst_printWinError( status ) ;
           }
           goto endofloop ;
         }
         
         if ( *javaHome ) {
-          if ( !( _javaHome = strdup( javaHome ) ) ) {
+          if ( !( _javaHome = jst_strdup( javaHome ) ) ) {
             irrecoverableError = JNI_TRUE ;
           } 
           goto endofloop ;          
@@ -347,11 +357,11 @@ static char* findJavaHomeFromWinRegistry() {
       endofloop:
       if ( key ) {
         status = RegCloseKey( key ) ;
-        if ( status != ERROR_SUCCESS ) printWinError( status ) ;
+        if ( status != ERROR_SUCCESS ) jst_printWinError( status ) ;
       }
       if ( subkey ) {
         status = RegCloseKey( subkey ) ;
-        if ( status != ERROR_SUCCESS ) printWinError( status ) ;    
+        if ( status != ERROR_SUCCESS ) jst_printWinError( status ) ;    
       }
       
       if ( _javaHome || irrecoverableError ) break ;
@@ -540,7 +550,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
           fprintf( stderr, "error: dynamic library %s exists but could not be loaded!\n", path ) ;
           if ( errno ) fprintf( stderr, strerror( errno ) ) ;
 #         if defined( _WIN32 )
-          printWinError( GetLastError() ) ;
+          jst_printWinError( GetLastError() ) ;
 #         else
           {
             char* errorMsg = dlerror() ;
@@ -567,7 +577,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
     rval.dynLibHandle = jvmLib ;
   } else {
 #   if defined( _WIN32 )
-    printWinError( GetLastError() ) ;
+    jst_printWinError( GetLastError() ) ;
 #   else 
     char* errorMsg = dlerror() ;
     if ( errorMsg ) fprintf( stderr, "%s\n", errorMsg ) ;
@@ -896,8 +906,8 @@ next_arg:
   } 
 
   // print debug if necessary
-  if( _jst_debug ) { 
-    if( launchOptions->numArguments != 0 ) {
+  if ( _jst_debug ) { 
+    if ( launchOptions->numArguments != 0 ) {
       fprintf( stderr, "DEBUG: param classication\n" ) ;
       for ( i = 0 ; i < launchOptions->numArguments ; i++ ) {
         fprintf( stderr, "  %s\t: %s\n", launchOptions->arguments[i], (isLauncheeOption[i] || i >= launcheeParamBeginIndex) ? "launcheeparam" : "non launchee param" ) ;  
@@ -912,14 +922,14 @@ next_arg:
 
   // handle java home
   // it is null if it was not given as a param
-  if ( !javaHome ) javaHome = launchOptions->java_home ;
+  if ( !javaHome ) javaHome = launchOptions->javaHome ;
   if ( !javaHome ) javaHome = findJavaHome( launchOptions->javahomeHandling ) ; 
 
   if ( !javaHome || !javaHome[ 0 ] ) { // not found or an empty string
     fprintf( stderr, ( ( launchOptions->javahomeHandling ) & JST_ALLOW_JH_ENV_VAR_LOOKUP ) ? "error: JAVA_HOME not set\n" : 
                                                                                              "error: java home not provided\n");
     goto end ;
-  } else if( _jst_debug ) {
+  } else if ( _jst_debug ) {
     fprintf( stderr, "DEBUG: using java home: %s\n", javaHome ) ;
   }
 
@@ -1036,7 +1046,7 @@ next_arg:
       userJvmOptCount = 1 ;
       for ( i = 0 ; userOpts[ i ] ; i++ ) if ( userOpts[ i ] == ' ' ) userJvmOptCount++ ;
 
-      if ( !( userJvmOptsS = strdup( userOpts ) ) ) goto end ;        
+      if ( !( userJvmOptsS = jst_strdup( userOpts ) ) ) goto end ;        
 
       while ( ( s = strtok( firstTime ? userJvmOptsS : NULL, " " ) ) ) {
         firstTime = JNI_FALSE ;
@@ -1175,7 +1185,10 @@ next_arg:
     fprintf( stderr, "error: could not find startup class %s\n", launchOptions->mainClassName ) ;
     goto end ;
   }
-  launcheeMainMethodID = (*env)->GetStaticMethodID( env, launcheeMainClassHandle, launchOptions->mainMethodName, "([Ljava/lang/String;)V" ) ;
+  
+  launcheeMainMethodID = (*env)->GetStaticMethodID( env, launcheeMainClassHandle, 
+                                                         launchOptions->mainMethodName ? launchOptions->mainMethodName : "main", 
+                                                         "([Ljava/lang/String;)V" ) ;
   if ( !launcheeMainMethodID ) {
     clearException( env ) ;
     fprintf( stderr, "error: could not find startup method \"%s\" in class %s\n", 

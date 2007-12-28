@@ -45,6 +45,15 @@ extern void* jst_realloc( void* ptr, size_t size ) {
   return rval ;
 }
 
+extern char* jst_strdup( const char* s ) {
+  char* result ;
+  if ( !s ) return NULL ;
+  result = strdup( s ) ;
+  if ( !result ) fprintf( stderr, "error: out of memory when copying string \"%s\"\n", s ) ;
+
+  return result ;
+}
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #define DYNAMIC_ARRAY_LENGTH_INCREMENT 5

@@ -132,7 +132,7 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
       if ( fileHandle == INVALID_HANDLE_VALUE ) {
         lastError = GetLastError() ;
         fprintf( stderr, "error: opening directory %s failed\n", dirName ) ;
-        printWinError( lastError ) ;
+        jst_printWinError( lastError ) ;
         errorOccurred = JNI_TRUE ;
         goto end ;
       }
@@ -140,7 +140,7 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
       if ( !( lastError = GetLastError() ) ) {
       
         do {
-          char* temp = strdup( fdata.cFileName ) ;
+          char* temp = jst_strdup( fdata.cFileName ) ;
           if ( !temp || 
                !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
             errorOccurred = JNI_TRUE ;
@@ -153,7 +153,7 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
       if ( !lastError ) lastError = GetLastError() ;
       if ( lastError != ERROR_NO_MORE_FILES ) {
         fprintf( stderr, "error: error occurred when finding jars from %s\n", dirName ) ;
-        printWinError( lastError ) ;
+        jst_printWinError( lastError ) ;
         errorOccurred = JNI_TRUE ;
       }
   
@@ -186,7 +186,7 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
         
         if ( ( !fileNamePrefix || memcmp( fileNamePrefix, fileName, prefixlen ) == 0 ) &&
              ( !fileNameSuffix || memcmp( fileNameSuffix, fileName + len - suffixlen, suffixlen ) == 0 ) ) {
-          char* temp = strdup( fileName ) ;
+          char* temp = jst_strdup( fileName ) ;
           if ( !temp || 
                !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
             errorOccurred = JNI_TRUE ;
@@ -258,7 +258,7 @@ extern char* jst_getExecutableHome() {
   
   if ( len == 0 ) {
     fprintf( stderr, "error: finding out executable location failed\n" ) ;
-    printWinError( GetLastError() ) ;
+    jst_printWinError( GetLastError() ) ;
     free( execHome ) ;
     return NULL ; 
   }
