@@ -250,6 +250,19 @@ static const JstParamInfo groovyParameters[] = {
   { NULL,          0,                0 }
 } ;
 
+static const JstParamInfo groovycParameters[] = {
+  { "-d",          JST_DOUBLE_PARAM, 0 }, 
+  { "--encoding",  JST_DOUBLE_PARAM, 0 },
+  { "--version",   JST_SINGLE_PARAM, 0 },
+  { "--help",      JST_SINGLE_PARAM, 1 },
+  { "--exception", JST_SINGLE_PARAM, 0 },
+  { NULL,          0,                0 }
+} ;
+
+static const JstParamInfo noParameters[] = {
+  { NULL,          0,                0 }    
+} ;
+
 int main( int argc, char** argv ) {
 
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
@@ -325,7 +338,7 @@ int rest_of_main( int argc, char** argv ) {
   JavaVMOption *extraJvmOptions = NULL ;
   size_t       extraJvmOptionsCount = 0, 
                extraJvmOptionsSize  = 5 ;
-  
+  JstParamInfo* parameterInfos = (JstParamInfo*)noParameters ;  
   char *groovyConfFile  = NULL, 
        *groovyDConf     = NULL, // the -Dgroovy.conf=something to pass to the jvm
        *groovyHome      = NULL, 
@@ -391,6 +404,57 @@ int rest_of_main( int argc, char** argv ) {
 // cygwin compatibility end
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  { // deduce which class name to pass as --main param. In other words, this here supports all different groovy executables. 
+    // The execubale acts as a different groovy executable when it's renamed / symlinked to. 
+    char *execName = jst_strdup( argv[ 0 ] ),
+         *eName,
+         *execNameTmp ;
+    
+    if ( !( execNameTmp = execName ) ) goto end ;
+#if defined( _WIN32 )
+    {
+      size_t len = strlen( execName ) ;
+      if ( ( len > 4 ) && 
+           ( memcmp( execName + len - 4, ".exe", 4 ) == 0 ) ) {
+        execName[ len -= 4 ] = '\0' ;
+      }
+      if ( len > 0 && 
+           ( execName[ len - 1 ] == 'w' || execName[ len - 1 ] == 'W' ) ) {
+        execName[ len - 1 ] = '\0' ;
+      }
+    }
+#endif
+    eName = strrchr( execName, JST_FILE_SEPARATOR[ 0 ] ) ;
+    if ( eName ) execName = eName + 1 ;
+
+    if ( strcmp( execName, "groovy" ) == 0 ) {
+      extraProgramOptions[ 1 ] = "groovy.ui.GroovyMain" ;
+      parameterInfos = (JstParamInfo*)groovyParameters ;
+    } else if ( strcmp( execName, "groovyc"       ) == 0 ) {
+      extraProgramOptions[ 1 ] = "org.codehaus.groovy.tools.FileSystemCompiler" ;
+      parameterInfos = (JstParamInfo*)groovycParameters ;      
+    } else {
+      parameterInfos = (JstParamInfo*)noParameters ;      
+      extraProgramOptions[ 1 ] = 
+        ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) ? "groovy.ui.Console" :
+        (   strcmp( execName, "groovysh"      ) == 0 ) ? ( getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ) :
+        (   strcmp( execName, "java2groovy"   ) == 0 ) ? "org.codehaus.groovy.antlr.java.Java2GroovyMain" :
+        NULL ;
+      
+    }
+      
+    jst_free( execNameTmp ) ;
+    
+    if ( !extraProgramOptions[ 1 ] ) {
+      fprintf( stderr, "error: could not deduce the program to launch from exec name. You should not rename this executable / symlink.\n" ) ;
+      goto end ;
+    }
+    
+  }
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   
   if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
                            args = jst_calloc( argc, sizeof( char* ) ) ) ) goto end ;
@@ -461,47 +525,6 @@ int rest_of_main( int argc, char** argv ) {
     extraProgramOptions[ 4 ] = NULL ; // omit the --classpath param, extraProgramOptions is a NULL terminated char**
   }
 
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  { // deduce which class name to pass as --main param. In other words, this here supports all different groovy executables. 
-    // The execubale acts as a different groovy executable when it's renamed / symlinked to. 
-    char   *execName = jst_strdup( argv[ 0 ] ),
-           *eName,
-           *execNameTmp ;
-    
-    if ( !( execNameTmp = execName ) ) goto end ;
-#if defined( _WIN32 )
-    {
-      size_t len = strlen( execName ) ;
-      if ( ( len > 4 ) && 
-           ( memcmp( execName + len - 4, ".exe", 4 ) == 0 ) ) {
-        execName[ len -= 4 ] = '\0' ;
-      }
-      if ( len > 0 && 
-           ( execName[ len - 1 ] == 'w' || execName[ len - 1 ] == 'W' ) ) {
-        execName[ len - 1 ] = '\0' ;
-      }
-    }
-#endif
-    eName = strrchr( execName, JST_FILE_SEPARATOR[ 0 ] ) ;
-    if ( eName ) execName = eName + 1 ;
-    
-    extraProgramOptions[ 1 ] = 
-      (   strcmp( execName, "groovy"        ) == 0 ) ? "groovy.ui.GroovyMain" :
-      (   strcmp( execName, "groovyc"       ) == 0 ) ? "org.codehaus.groovy.tools.FileSystemCompiler" :
-      ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) ? "groovy.ui.Console" :
-      (   strcmp( execName, "groovysh"      ) == 0 ) ? ( getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ) :
-      (   strcmp( execName, "java2groovy"   ) == 0 ) ? "org.codehaus.groovy.antlr.java.Java2GroovyMain" :
-      NULL ;
-      
-    jst_free( execNameTmp ) ;
-    
-    if ( !extraProgramOptions[ 1 ] ) {
-      fprintf( stderr, "error: could not deduce the program to launch from exec name. You should not rename this executable / symlink.\n" ) ;
-      goto end ;
-    }
-    
-  }
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   if ( !( groovyHome = getGroovyHome() ) ) goto end ;
   
@@ -569,7 +592,7 @@ int rest_of_main( int argc, char** argv ) {
   options.mainMethodName      = "main" ;
   options.jarDirs             = NULL ;
   options.jars                = jars ;
-  options.paramInfos          = (JstParamInfo*)groovyParameters ;
+  options.paramInfos          = parameterInfos ;
   options.terminatingSuffixes = terminatingSuffixes ;
 
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
