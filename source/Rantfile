@@ -75,6 +75,7 @@ when CYGWIN
 when MSYS
   $libs = ''
   $cppFlags = "-I\"#{javaHome}\\include\\win32\" -I\"#{javaHome}\\include\""
+  def linkCommand( target , sources ) ; "#{$gcc} #{if target =~ /w\.exe$/ then '-mwindows' end} #{$lFlags} -o #{target} #{sources} #{$libs}" end
 when WINDOWS
   $gcc = 'cl'
   
