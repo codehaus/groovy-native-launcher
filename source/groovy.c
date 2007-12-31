@@ -437,7 +437,8 @@ int rest_of_main( int argc, char** argv ) {
       extraProgramOptions[ 1 ] = "org.codehaus.groovy.tools.FileSystemCompiler" ;
       parameterInfos = (JstParamInfo*)groovycParameters ;      
     } else {
-      parameterInfos = (JstParamInfo*)noParameters ;      
+      parameterInfos = (JstParamInfo*)noParameters ;
+      displayHelp = JNI_FALSE ;
       extraProgramOptions[ 1 ] = 
         ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) ? "groovy.ui.Console" :
         (   strcmp( execName, "groovysh"      ) == 0 ) ? ( getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ) :
