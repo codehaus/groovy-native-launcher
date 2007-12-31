@@ -367,7 +367,8 @@ int rest_of_main( int argc, char** argv ) {
            // this flag is used to tell us whether we reserved the memory for the conf file location string
            // or whether it was obtained from cmdline or environment var. That way we don't try to free memory
            // we did not allocate.
-           displayHelp          = ( ( numArgs == 0 )                    || 
+           displayHelp          = ( ( numArgs == 0 )                    || // FIXME - this causes additional helps to be always printed. 
+                                                                           //         Add check that this is groovy executable.
                                     ( strcmp( argv[ 1 ], "-h"     ) == 0 ) || 
                                     ( strcmp( argv[ 1 ], "--help" ) == 0 )
                                   ) ? JNI_TRUE : JNI_FALSE ; 
@@ -441,6 +442,8 @@ int rest_of_main( int argc, char** argv ) {
         ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) ? "groovy.ui.Console" :
         (   strcmp( execName, "groovysh"      ) == 0 ) ? ( getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ) :
         (   strcmp( execName, "java2groovy"   ) == 0 ) ? "org.codehaus.groovy.antlr.java.Java2GroovyMain" :
+        (   strcmp( execName, "gant"          ) == 0 ) ? "gant.Gant" :
+        ( ( strcmp( execName, "graphicsPad"   ) == 0 ) || strcmp( execName, "graphicspad" ) ) ? "groovy.swing.j2d.GraphicsPad" :
         NULL ;
       
     }

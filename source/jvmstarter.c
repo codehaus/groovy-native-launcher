@@ -17,6 +17,9 @@
 //  $Date$
 
 // TODO:
+// * renaming groovyw.exe to groovyConsole.exe causes the latter exec to always open a console window. This only occurs w/ executables 
+//   produced w/ mingw/msys gcc (not ms visual studio or cygwin).
+// * fix groovy.c so that help msg appendix is not printed for other executables than groovy
 // * refactor parameter classification into separate functions, possibly a separate source file
 //   options:
 //   - value into system property
