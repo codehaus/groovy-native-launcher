@@ -505,16 +505,18 @@ int rest_of_main( int argc, char** argv ) {
       
       if ( numArgs == 0 ) displayHelp = JNI_FALSE ;
       
-      if ( strcmp( execName, "gant"          ) == 0 ) {
+      if ( strcmp( execName, "gant" ) == 0 ) {
         extraProgramOptions[ 1 ] = "gant.Gant" ; 
         parameterInfos = (JstParamInfo*)gantParameters ;
-      } else if ( strcmp( execName, "groovysh"      ) == 0 ) {
+      } else if ( strcmp( execName, "groovysh" ) == 0 ) {
         extraProgramOptions[ 1 ] = getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ;
         parameterInfos = (JstParamInfo*)groovyshParameters ;
       } else if ( strcmp( execName, "java2groovy" ) == 0 ) {
+        displayHelp = JNI_FALSE ;
         extraProgramOptions[ 1 ] = "org.codehaus.groovy.antlr.java.Java2GroovyMain" ; 
         parameterInfos = (JstParamInfo*)java2groovyParameters ;
       } else {
+        displayHelp = JNI_FALSE ;
         parameterInfos = (JstParamInfo*)noParameters ;
         extraProgramOptions[ 1 ] = 
           ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) ? "groovy.ui.Console" :
