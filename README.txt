@@ -35,6 +35,7 @@ enough so that these can be used for any purpose commercial or open source. If
 you are for some reason restricted by that licence, please contact the author and
 we'll work it out - the purpose is for these sources to be as widely usable as possible.
 
+
 Porting to currently unsupported operating systems
 --------------------------------------------------
 
@@ -52,9 +53,11 @@ More information
 
 See http://docs.codehaus.org/display/GROOVY/Native+Launcher
 
+
 TODO
 ----
 
+ * FIXME: parameter definitions for other commands than groovy and groovyc
  * According to a compiler define, the home folder for groovy is either a hard coded location (well known location) or it is looked up
    dynamically. Note that in certain cases dynamic location lookup can pose a security hole.
  * refactor parameter classification into separate functions, possibly a separate source file

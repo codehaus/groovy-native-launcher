@@ -234,6 +234,8 @@ static CygPadding *g_pad ;
 // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
 // are handled separately below
 static const JstParamInfo groovyParameters[] = {
+  { "-D",          JST_DOUBLE_PARAM, 0 }, 
+  { "--define",    JST_DOUBLE_PARAM, 0 }, 
   { "-c",          JST_DOUBLE_PARAM, 0 }, 
   { "--encoding",  JST_DOUBLE_PARAM, 0 },
   { "-h",          JST_SINGLE_PARAM, 1 },
@@ -251,11 +253,74 @@ static const JstParamInfo groovyParameters[] = {
 } ;
 
 static const JstParamInfo groovycParameters[] = {
-  { "-d",          JST_DOUBLE_PARAM, 0 }, 
   { "--encoding",  JST_DOUBLE_PARAM, 0 },
-  { "--version",   JST_SINGLE_PARAM, 0 },
-  { "--help",      JST_SINGLE_PARAM, 1 },
+  { "-F",          JST_DOUBLE_PARAM, 0 }, 
+  { "-J",          JST_DOUBLE_PARAM, 0 }, 
+  { "-d",          JST_DOUBLE_PARAM, 0 }, 
+  { "-e",          JST_SINGLE_PARAM, 0 },
   { "--exception", JST_SINGLE_PARAM, 0 },
+  { "--version",   JST_SINGLE_PARAM, 0 },
+  { "-h",          JST_SINGLE_PARAM, 1 },
+  { "--help",      JST_SINGLE_PARAM, 1 },
+  { "-j",          JST_SINGLE_PARAM, 0 },
+  { "--jointCompilation", JST_SINGLE_PARAM, 0 },
+  { "-v",          JST_SINGLE_PARAM, 0 },
+  { "--version",   JST_SINGLE_PARAM, 0 },
+  { NULL,          0,                0 }
+} ;
+
+static const JstParamInfo gantParameters[] = {
+  { "-c",          JST_SINGLE_PARAM, 0 },
+  { "--usecache",  JST_SINGLE_PARAM, 0 },
+  { "-n",          JST_SINGLE_PARAM, 0 },
+  { "--dry-run",   JST_SINGLE_PARAM, 0 },
+  { "-D",          JST_DOUBLE_PARAM, 0 }, 
+  { "-P",          JST_DOUBLE_PARAM, 0 },
+  { "-T",          JST_DOUBLE_PARAM, 0 },
+  { "--targets",   JST_DOUBLE_PARAM, 0 },
+  { "-V",          JST_SINGLE_PARAM, 0 },
+  { "--version",   JST_SINGLE_PARAM, 0 },
+  { "-d",          JST_SINGLE_PARAM, 0 },
+  { "--cachedir",  JST_DOUBLE_PARAM, 0 },
+  { "-f",          JST_SINGLE_PARAM, 0 },
+  { "--gantfile",  JST_DOUBLE_PARAM, 0 },
+  { "-h",          JST_SINGLE_PARAM, 1 },
+  { "--help",      JST_SINGLE_PARAM, 1 },
+  { "-l",          JST_DOUBLE_PARAM, 0 },
+  { "--gantlib",   JST_DOUBLE_PARAM, 0 },
+  { "-p",          JST_SINGLE_PARAM, 0 },
+  { "--projecthelp", JST_SINGLE_PARAM, 0 },
+  { "-q",          JST_SINGLE_PARAM, 0 },
+  { "--quiet",     JST_SINGLE_PARAM, 0 },
+  { "-s",          JST_SINGLE_PARAM, 0 },
+  { "--silent",    JST_SINGLE_PARAM, 0 },  
+  { "-v",          JST_SINGLE_PARAM, 0 },
+  { "--verbose",   JST_SINGLE_PARAM, 0 },
+  { NULL,          0,                0 }
+} ;
+
+static const JstParamInfo groovyshParameters[] = {
+  { "-C",          JST_PREFIX_PARAM, 0 },
+  { "--color",     JST_PREFIX_PARAM, 0 },
+  { "-D",          JST_DOUBLE_PARAM, 0 }, 
+  { "--define",    JST_DOUBLE_PARAM, 0 }, 
+  { "-T",          JST_PREFIX_PARAM, 0 }, 
+  { "--terminal",  JST_PREFIX_PARAM, 0 }, 
+  { "-V",          JST_SINGLE_PARAM, 0 }, 
+  { "--version",   JST_SINGLE_PARAM, 0 }, 
+  { "-d",          JST_SINGLE_PARAM, 0 },
+  { "--debug",     JST_SINGLE_PARAM, 0 },
+  { "-h",          JST_SINGLE_PARAM, 1 },
+  { "--help",      JST_SINGLE_PARAM, 1 },
+  { "-q",          JST_SINGLE_PARAM, 0 },
+  { "--quiet",     JST_SINGLE_PARAM, 0 },
+  { "-v",          JST_SINGLE_PARAM, 0 },
+  { "--verbose",   JST_SINGLE_PARAM, 0 },
+  { NULL,          0,                0 }
+} ;
+
+static const JstParamInfo java2groovyParameters[] = {
+  { "-h",          JST_SINGLE_PARAM, 1 },
   { NULL,          0,                0 }
 } ;
 
@@ -433,20 +498,29 @@ int rest_of_main( int argc, char** argv ) {
     if ( strcmp( execName, "groovy" ) == 0 ) {
       extraProgramOptions[ 1 ] = "groovy.ui.GroovyMain" ;
       parameterInfos = (JstParamInfo*)groovyParameters ;
-    } else if ( strcmp( execName, "groovyc"       ) == 0 ) {
+    } else if ( strcmp( execName, "groovyc" ) == 0 ) {
       extraProgramOptions[ 1 ] = "org.codehaus.groovy.tools.FileSystemCompiler" ;
-      parameterInfos = (JstParamInfo*)groovycParameters ;      
+      parameterInfos = (JstParamInfo*)groovycParameters ;
     } else {
-      parameterInfos = (JstParamInfo*)noParameters ;
-      displayHelp = JNI_FALSE ;
-      extraProgramOptions[ 1 ] = 
-        ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) ? "groovy.ui.Console" :
-        (   strcmp( execName, "groovysh"      ) == 0 ) ? ( getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ) :
-        (   strcmp( execName, "java2groovy"   ) == 0 ) ? "org.codehaus.groovy.antlr.java.Java2GroovyMain" :
-        (   strcmp( execName, "gant"          ) == 0 ) ? "gant.Gant" :
-        ( ( strcmp( execName, "graphicsPad"   ) == 0 ) || strcmp( execName, "graphicspad" ) ) ? "groovy.swing.j2d.GraphicsPad" :
-        NULL ;
       
+      if ( numArgs == 0 ) displayHelp = JNI_FALSE ;
+      
+      if ( strcmp( execName, "gant"          ) == 0 ) {
+        extraProgramOptions[ 1 ] = "gant.Gant" ; 
+        parameterInfos = (JstParamInfo*)gantParameters ;
+      } else if ( strcmp( execName, "groovysh"      ) == 0 ) {
+        extraProgramOptions[ 1 ] = getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ;
+        parameterInfos = (JstParamInfo*)groovyshParameters ;
+      } else if ( strcmp( execName, "java2groovy" ) == 0 ) {
+        extraProgramOptions[ 1 ] = "org.codehaus.groovy.antlr.java.Java2GroovyMain" ; 
+        parameterInfos = (JstParamInfo*)java2groovyParameters ;
+      } else {
+        parameterInfos = (JstParamInfo*)noParameters ;
+        extraProgramOptions[ 1 ] = 
+          ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) ? "groovy.ui.Console" :
+          ( ( strcmp( execName, "graphicsPad"   ) == 0 ) || strcmp( execName, "graphicspad" ) ) ? "groovy.swing.j2d.GraphicsPad" :
+          NULL ;
+      }
     }
       
     jst_free( execNameTmp ) ;
