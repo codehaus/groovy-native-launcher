@@ -51,3 +51,35 @@ More information
 ----------------
 
 See http://docs.codehaus.org/display/GROOVY/Native+Launcher
+
+TODO
+----
+
+ * According to a compiler define, the home folder for groovy is either a hard coded location (well known location) or it is looked up
+   dynamically. Note that in certain cases dynamic location lookup can pose a security hole.
+ * refactor parameter classification into separate functions, possibly a separate source file
+   options:
+   - value into system property
+   - value to classpath (a sysprop, yes, but needs to be handled separaterly)
+   - value used as java home
+   - map to another launchee param (single or double)
+   - optional: if not set, 
+     * use the value of an env var
+     * use hard coded default (can refer to install dir by ${app_home}.
+   * what about the other way around, i.e. specifying that a sys prop / launchee param is to
+     be created using a param value / env var value / hard coded default value?
+ * cygwin support
+   * after the basics are working, make this generic (so that a param can be designated to have a value that must be cygwinized)
+ * add the possibility to define "recursive jar dirs", i.e. directories where jars are searched for recursively.
+ * add a check that the java home found can actually be used (i.e. it is valid). ATM the first java home is used; in some
+   cases it may not be valid (e.g. if there are stale win registry entries, if the java executable found on path
+   is not contained in a jdk/jre (even after following the symlinks). This can happen if the executable is a hard link.
+ * the terminating suffixes is really only necessary in case where the name of the input file begins w/ "-". 
+   Maybe it is such a special case that it can be ignored? In that case the terminating suffixes part could be
+   removed.
+ * add an option to restrict which vendor's java implementations are used
+ * add an option to restrict the used jre/jdk version to be exactly something, greater than something, between some values etc.
+   Have a look at how eclipse plugins define the required version of their dependant plugins in their manifest.mf
+   A problem that needs to be solved: how to reliably tell the version of a java impl w/out actually loading and starting the jvm?
+ * see if there is a standard how the jvm aliases are stored in some file in the jdk. If so, it is possible to remove the hard coded
+   paths to client / server jvms and support aliases for them
