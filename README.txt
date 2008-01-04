@@ -57,7 +57,6 @@ See http://docs.codehaus.org/display/GROOVY/Native+Launcher
 TODO
 ----
 
- * FIXME: parameter definitions for other commands than groovy and groovyc
  * According to a compiler define, the home folder for groovy is either a hard coded location (well known location) or it is looked up
    dynamically. Note that in certain cases dynamic location lookup can pose a security hole.
  * refactor parameter classification into separate functions, possibly a separate source file
