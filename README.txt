@@ -65,9 +65,10 @@ TODO
    - value to classpath (a sysprop, yes, but needs to be handled separaterly)
    - value used as java home
    - map to another launchee param (single or double)
-   - optional: if not set, 
+   - if not set, 
      * use the value of an env var
      * use hard coded default (can refer to install dir by ${app_home}.
+     * leave out
    * what about the other way around, i.e. specifying that a sys prop / launchee param is to
      be created using a param value / env var value / hard coded default value?
  * cygwin support

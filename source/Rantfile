@@ -105,6 +105,13 @@ when WINDOWS
   end
 end 
 
+def msys_shrink_executable( exec_name )
+  if ( Environment[ 'Architecture' ] == MSYS )
+    # see http://www.mingw.org/mingwfaq.shtml#faq-cpp-size
+    sys.sh( "strip --strip-all #{exec_name}" )
+  end  
+end
+
 def object( source ) ; ObjectsDirectory + '/' + source.sub( '.c' , '.o' ) end
 
 executablePrerequisites = Sources.map { | source | object( source ) }
@@ -126,11 +133,13 @@ if [ WINDOWS , MSYS , CYGWIN ].include?( Environment[ 'Architecture' ] )
   
   file Executable_W => executablePrerequisites.dup do | target |
     sys.sh( linkCommand( target.name , target.prerequisites ) )
+    msys_shrink_executable( target.name )
   end
 end
 
 file Executable => executablePrerequisites do | target |
   sys.sh( linkCommand( target.name , target.prerequisites ) )
+  msys_shrink_executable( target.name )
 end
 
 Sources.each { | source |
