@@ -1,0 +1,115 @@
+# This file contains plans for how specifications for a code generator
+# generating a java launcher might look like. The generator is still
+# vaporware, so this file does not do anything yet. = )
+
+# the sequence of actions:
+
+# 1. cygwin path conversions, if applicable
+# 2. Figuring out javahome to use
+# 3. Getting values for artificial java program parameters and system properties
+
+# TODO:
+#  - way to specify certain specifications to apply to multiple executables to 
+#    avoid copy-pasting
+
+# for each executable, make an entry w/ the executable name as key
+groovy :
+  java program parameters and system properties :
+    - 
+      # set value to a launchee program parameter
+      name : --conf
+      # possible values: "separate value", "prefix param"
+      type : separate value
+      # if this value should be set as a system property at startup
+      system property : groovy.conf
+      value list :
+        # parameter values may be referenced like this. If the parameter has 
+        # several names, any one of them will do.
+        - ${--conf}
+        # value list may contain references to environment variables, apphome and javahome
+        # Values w/ environment variables are used only if all the environment variables
+        # used have a value.
+        - ${GROOVY_CONF}
+        # use / for file separator - it will be changed to platform specific version automatically
+        - ${apphome}/conf/groovy-starter.conf
+      # if no value can be given, still pass in this param?
+      # possible values : no, both, system property, parameter, fail
+      # defaults to no. 
+      # in this case this could be left empty since the last value will always 
+      # have a value.
+      use even without value : fail
+    -
+      name : --classpath
+      type : separate value
+      value list :
+        - ${-cp}
+        - ${CLASSPATH}
+    -
+      name : --main
+      type : separate value
+      value : groovy.ui.GroovyMain
+  
+  # all parameters the program can accept must be defined here
+  # unless the option "unrecognized parameters to" is set to "application".
+  parameter specifications :
+    -
+      name : --conf
+      # possible values: "separate value", "prefix param", "loner"
+      type : separate value
+      # possible values : application, jvm, nonw
+      # defaults to application. If none, this parameter and its value are not passed
+      # to the application or jvm nor do they cause error (unrecognized param).
+      # The point with this kind of parameters is that they may be used above
+      # in generating values for system properties or artificial launchee params
+      pass to : none
+      # if cygwin support is generated, does the value of this 
+      # parameter require conversion?
+      # possible values : false (default), path, path list
+      # path means its value is path to a file or folder
+      # path list means its a path a la PATH or CLASSPATH
+      cygwin conversion : false
+      # defaults to false. If true, all input parameters after this are passed 
+      # to the launched program
+      terminating : false
+      help text : use the given groovy conf file
+      # text to be printed after the param name
+      help text value marker : <conf file>
+    - 
+      names : 
+        - -cp
+        - -classpath
+        - --classpath
+      pass to : none
+      cygwin conversion : path list
+      help text : the classpath to use
+      help text value marker : <user classpath>
+    -
+      name : --javahome
+      pass to : none
+      # TODO: maybe change this to true / false - the conversion can be done w/ the same func as a single path is a special case of path list
+      cygwin conversion : path
+      help text : the classpath to use
+      help text value marker : <user classpath>
+      
+      
+    java runtime :
+      # the classpath when jvm is started
+      bootstrap classpath entries :
+        # a list of values, can contain refs to env vars, javahome, apphome
+        #values :
+        jar dirs :
+          - 
+            name : ${apphome}/lib
+            # defaults to false
+            recursive : false
+            # optional 
+            # TODO: spec the variables that can be referred to here
+            # also specify which c funcs are available (via header includes)
+            filter code : ( strcmp( "groovy-starter.jar", jarName ) == 0 ) || ( jarNameLen >= 8 && isdigit( jarName[ 7 ] ) )
+      java home :
+        - ${--javahome}
+        - $JAVA_HOME
+        # special value allowed only here
+        - ${path lookup}
+      
+      

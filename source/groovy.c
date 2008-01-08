@@ -116,13 +116,14 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
       if ( !( startupJar = jst_createFileName( groovyLibDir, jarName, NULL ) ) ) goto end ;
       break ;
     }
-    if ( !firstGroovyJarFound && 
+    if ( !firstGroovyJarFound ) {
+      size_t jarNameLen = strlen( jarName ) ;
        // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
        // aren't available, we'll just check that the char following 
        // groovy- is a digit
-       isdigit( jarName[ 7 ] ) && 
-      !( firstGroovyJarFound = jst_createFileName( groovyLibDir, jarName, NULL ) ) ) goto end ;  
-     
+       if ( jarNameLen >= 8 && isdigit( jarName[ 7 ] ) &&
+            !( firstGroovyJarFound = jst_createFileName( groovyLibDir, jarName, NULL ) ) ) goto end ;
+    }
   } // while
   
   if ( !startupJar && firstGroovyJarFound ) {
@@ -226,6 +227,7 @@ typedef struct {
 static CygPadding *g_pad ;
 
 #endif
+
 
 // cygwin compatibility end
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  

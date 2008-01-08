@@ -240,16 +240,21 @@ void** jst_appendPointer( void*** pointerToNullTerminatedPointerArray, size_t* a
 int jst_pointerArrayLen( void** nullTerminatedPointerArray ) ;
 
 /** Returns the given item, NULL if the item was not in the array. */
-void* jst_RemovePointer( void** nullTerminatedPointerArray, void* itemToBeRemoved ) ;
+void* jst_removePointer( void** nullTerminatedPointerArray, void* itemToBeRemoved ) ;
 
 /** returns 0 if the given item was not in the given array. pointer pointed to is set to NULL. */
-int jst_RemoveAndFreePointer( void** nullTerminatedPointerArray, void** pointerToItemToBeRemoved ) ;
+int jst_removeAndFreePointer( void** nullTerminatedPointerArray, void** pointerToItemToBeRemoved ) ;
 
 
 /** Given a null terminated string array, makes a dynamically allocated copy of it that can be freed using a single call to free. Useful for constructing
  * string arrays returned to caller who must free them. In technical detail, the returned mem block first contains all the char*, the termiting NULL and
  * then all the strings one after another. Note that whoever uses the char** does not need to know this mem layout. */
 char** jst_packStringArray( char** nullTerminatedStringArray ) ;
+
+typedef enum { PREFIX_SEARCH, SUFFIX_SEARCH, EXACT_SEARCH } SearchMode;
+
+/** The first param may be NULL, it is considered an empty array. */
+jboolean arrayContainsString( char** nullTerminatedArray, const char* searchString, SearchMode mode ) ; 
 
 /** These wrap the corresponding memory allocation routines. The only difference is that these print an error message if
  * the call fails. */

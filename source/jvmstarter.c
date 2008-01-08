@@ -625,43 +625,6 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
   
 }
 
-
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-typedef enum { PREFIX_SEARCH, SUFFIX_SEARCH, EXACT_SEARCH } SearchMode;
-
-/** The first param may be NULL, it is considered an empty array. */
-static jboolean arrayContainsString( char** nullTerminatedArray, const char* searchString, SearchMode mode ) {
-  int    i = 0 ;
-  size_t sslen, len ;
-  char   *str ;
-
-  if ( nullTerminatedArray ) {
-    switch ( mode ) {
-      case PREFIX_SEARCH : 
-        while ( ( str = nullTerminatedArray[ i++ ] ) ) {
-          len = strlen( str ) ;
-          if ( memcmp( str, searchString, len ) == 0 ) return JNI_TRUE ;
-        }
-        break ;
-      case SUFFIX_SEARCH : 
-        sslen = strlen( searchString ) ;        
-        while( ( str = nullTerminatedArray[ i++ ] ) ) {
-          len = strlen( str ) ;
-          if ( len <= sslen && memcmp( searchString + sslen - len, str, len ) == 0 ) return JNI_TRUE ;
-        }
-        break ;
-      case EXACT_SEARCH : 
-        while ( ( str = nullTerminatedArray[ i++ ] ) ) {
-          if ( strcmp( str, searchString ) == 0 ) return JNI_TRUE ;
-        }
-        break ;
-    }
-  }
-  return JNI_FALSE ;
-}
-
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 /** Returns true on error. */

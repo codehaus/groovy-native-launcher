@@ -207,7 +207,7 @@ extern void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) {
   *pointerToNullTerminatedPointerArray = NULL ;
 }
 
-extern void* jst_RemovePointer( void** nullTerminatedPointerArray, void* itemToBeRemoved ) {
+extern void* jst_removePointer( void** nullTerminatedPointerArray, void* itemToBeRemoved ) {
   while ( *nullTerminatedPointerArray && *nullTerminatedPointerArray != itemToBeRemoved ) nullTerminatedPointerArray++ ;
   if ( !*nullTerminatedPointerArray ) return NULL ;
   while ( *nullTerminatedPointerArray ) {
@@ -217,8 +217,8 @@ extern void* jst_RemovePointer( void** nullTerminatedPointerArray, void* itemToB
   return itemToBeRemoved ;
 }
 
-extern int jst_RemoveAndFreePointer( void** nullTerminatedPointerArray, void** pointerToItemToBeRemoved ) {
-  int rval = jst_RemovePointer( nullTerminatedPointerArray, *pointerToItemToBeRemoved ) ? JNI_TRUE : JNI_FALSE ;
+extern int jst_removeAndFreePointer( void** nullTerminatedPointerArray, void** pointerToItemToBeRemoved ) {
+  int rval = jst_removePointer( nullTerminatedPointerArray, *pointerToItemToBeRemoved ) ? JNI_TRUE : JNI_FALSE ;
   free( *pointerToItemToBeRemoved ) ;
   *pointerToItemToBeRemoved = NULL ;
   return rval ;
@@ -244,6 +244,37 @@ extern char* jst_concatenateStrArray( char** nullTerminatedStringArray ) {
   
   return rval ;
 }
+
+extern jboolean arrayContainsString( char** nullTerminatedArray, const char* searchString, SearchMode mode ) {
+  int    i = 0 ;
+  size_t sslen, len ;
+  char   *str ;
+
+  if ( nullTerminatedArray ) {
+    switch ( mode ) {
+      case PREFIX_SEARCH : 
+        while ( ( str = nullTerminatedArray[ i++ ] ) ) {
+          len = strlen( str ) ;
+          if ( memcmp( str, searchString, len ) == 0 ) return JNI_TRUE ;
+        }
+        break ;
+      case SUFFIX_SEARCH : 
+        sslen = strlen( searchString ) ;        
+        while ( ( str = nullTerminatedArray[ i++ ] ) ) {
+          len = strlen( str ) ;
+          if ( len <= sslen && memcmp( searchString + sslen - len, str, len ) == 0 ) return JNI_TRUE ;
+        }
+        break ;
+      case EXACT_SEARCH : 
+        while ( ( str = nullTerminatedArray[ i++ ] ) ) {
+          if ( strcmp( str, searchString ) == 0 ) return JNI_TRUE ;
+        }
+        break ;
+    }
+  }
+  return JNI_FALSE ;
+}
+
 
 extern int jst_pointerArrayLen( void** nullTerminatedPointerArray ) {
   int count = 0 ;
