@@ -14,6 +14,28 @@
 
 # for each executable, make an entry w/ the executable name as key
 groovy :
+  general :
+    main class : org.codehaus.groovy.tools.GroovyStarter
+    # optional
+    # if this list is provided, these options are recognized by the launcher so that if given,
+    # the actual java program is not launched at all but help msg is printed
+    help options :
+      # if the option has several names, one of them is sufficient to mention here
+      - -h
+    # optional
+    help prologue : usage: groovy [options] [args]
+    # optional
+    help epilogue : >-
+      In addition, you can give any parameters accepted by the jvm you are using, e.g.
+      -Xmx<size> (see java -help and java -X for details)
+    # defaults to "to jvm", possible other values "error", "to application"
+    unrecognized options : to jvm
+    # this can be used to mimic how many launch scripts allow the user to pass
+    # jvm options by preceding the option name w/ e.g. a J, e.g. -JXmx200m. 
+    # Useful if you want to mimic the behavior of those build scripts or 
+    # there is a conflict bethween parameters 
+    # defaults to none
+    #jvm option prefix : 
   java program parameters and system properties :
     - 
       # set value to a launchee program parameter
@@ -74,6 +96,38 @@ groovy :
       help text : use the given groovy conf file
       # text to be printed after the param name
       help text value marker : <conf file>
+      # optional
+      # set jvm options :
+      #   - -ea
+      #   - javaagent:foo=${SOME_ENV_VAR}
+      # defaults to false. 
+      # This enables you to specify some parameters to have cygwin path conversion done
+      # to them before starting the jvm and passing the parameters on. 
+      # The significance is in that there is currently no cygwin java. Thus, 
+      # you can not compile sources w/ jni headers included in cygwin (unless w/ -mno-cygwin param to gcc,
+      # which means it's a regular windows app). cygwin path conversions can be done
+      # from a non-cygwin executable, but this requires loading cygwin1.dll and has licence implications:
+      # see http://www.cygwin.com/faq/faq.programming.html#faq.programming.msvs-mingw
+      cygwin support : true
+      # TODO: How to map params to mean whether to load client / server jvm?
+      # mandatory. Possible values : prefer client, prefer server, server only, client only
+      # You can google for the differences, but in short, client jvm is better in short running programs where startup time
+      # dominates, server jvm does more runtime optimization and is faster in long running programs.
+      jvm select policy : prefer client
+      application home : 
+        # TODO: enable specifying app home relative to exec location, a hard coded value, a registry entry
+        #       Also write about security implications of using deduction of apphome relative to exec location.
+      windows specific :
+        #optional 
+        icon file : groovy.ico
+        # possible values : console, windows, both
+        subsystem : both
+        # if windows executable is created and this option is not given, 
+        # the windows executable will have the name of the console app + "w" 
+        # e.g. groovy.exe and groovyw.exe (cf java.exe, javaw.exe)
+        # Give the name w/out the .exe suffix.
+        # If only a windows executable is produced, this is ignored.
+        # winapp name : xxx
     - 
       names : 
         - -cp
@@ -90,7 +144,7 @@ groovy :
       cygwin conversion : path
       help text : the classpath to use
       help text value marker : <user classpath>
-      
+     
       
     java runtime :
       # the classpath when jvm is started
@@ -102,14 +156,30 @@ groovy :
             name : ${apphome}/lib
             # defaults to false
             recursive : false
-            # optional 
+            # optional. If provided, must be valid c source code. 
             # TODO: spec the variables that can be referred to here
             # also specify which c funcs are available (via header includes)
-            filter code : ( strcmp( "groovy-starter.jar", jarName ) == 0 ) || ( jarNameLen >= 8 && isdigit( jarName[ 7 ] ) )
+            # You can have as many lines of code as you like. Assign the result to variable called includeInClasspath
+            filter code : includeInClasspath = ( strcmp( "groovy-starter.jar", jarName ) == 0 ) || ( jarNameLen >= 8 && memcmp( "groovy-", jarName, 7) && isdigit( jarName[ 7 ] ) ) ;
       java home :
+      # ${apphome} could be used here
         - ${--javahome}
-        - $JAVA_HOME
+        - ${JAVA_HOME}
         # special value allowed only here
-        - ${path lookup}
+        - path lookup
+        # TODO: specify how windows registry keys are referred to here
+      # defaults to all, possible values: sun, bea (later on ibm and friends)
+      # NO SUPPORT FOR THIS YET
+      # a comma separated list
+      allowed vendors :
+      # TODO: specify how this works (similar to eclipse plugin version dependency spec)
+      required version :
+      # e.g. ${JAVA_OPTS} -Xmx200m
+      # note that if the same option is provided twice, the latter stands.
+      # Also note that if env vars are used, they are split into several options
+      # by spaces (so e.g. "-Xms100m -Xmx200m" is two jvm options, not one)
+      # NOTE: when converting / to platform specific path separators, take care
+      #       to convert only after : if the parameter is of the form -[a-zA-Z]+(\/::alnum::)?:
+      default jvm options : ${JAVA_OPTS} -Dgroovy.home=${apphome}
       
       
