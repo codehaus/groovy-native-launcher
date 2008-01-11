@@ -58,14 +58,14 @@ groovy :
       # the first value here that can be evaluated is used. Evaluation can 
       # fail e.g. if a parameter referenced is not given or env var referenced
       # is not defined.
-      value list :
+      value alternatives :
       # input parameter values may be referenced like this. If the parameter has 
       # several names, any one of them will do.
       # NOTE: here ${--conf} refers to the INPUT parameter of that name. Here
       #       it is the same as the name of the program parameter we are setting the
       #       value for, but it doesn't have to be.
       - ${--conf}
-      # value list may contain references to environment variables, apphome and javahome
+      # value alternatives may contain references to environment variables, apphome and javahome
       # Values w/ environment variables are used only if all the environment variables
       # used have a value.
       - ${GROOVY_CONF}
@@ -148,7 +148,7 @@ groovy :
       value : ${var.conf}
     - name : --classpath
       type : separate value
-      value list :
+      value alternatives :
         - ${-cp}
         - ${-classpath}
         - ${--classpath}
@@ -160,6 +160,13 @@ groovy :
   # possible to know their value as it can't be known whether it is a prefix param 
   # of a separate value param)
   input parameter specifications :
+    - names :
+        - -D
+        - --define
+      type    : separate value
+      pass to : none
+      set jvm option : -D{value}
+      help text : use the given groovy conf file
     - name : --conf
       # possible values: "separate value", "prefix param", "loner"
       type : separate value
