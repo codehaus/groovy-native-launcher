@@ -6,14 +6,23 @@
 
 # the sequence of actions:
 
-# 1. cygwin path conversions, if applicable
-# 2. Figuring out javahome to use
-# 3. Getting values for artificial java program parameters and system properties
+# 1. Figure out apphome
+# 2. Figure out javahome
+# 3. Process variables TODO: vars could be usable in figuring out javahome etc. 
+# 4. Process artificial program parameters
+# 5. Process input parameters
+#   5.1. cygwin path conversions, if applicable
 
 # TODO:
 #  - way to specify certain specifications to apply to multiple executables to 
 #    avoid copy-pasting
 #  - specify looking up apphome : relative to executable, env var, known location, registry entry
+#  - a way to specify a certain value as being used only on certain platform ( c.f. #if defined(_WIN32) )
+
+# To specify that a value should only be used on a certain platform :
+#  - platforms : windows
+#    value     : foo/bar
+# You can refer to variables, apphome etc. normally.
 
 # terminology
 # About parameters
@@ -59,19 +68,37 @@ groovy :
       # fail e.g. if a parameter referenced is not given or env var referenced
       # is not defined.
       value alternatives :
-      # input parameter values may be referenced like this. If the parameter has 
-      # several names, any one of them will do.
-      # NOTE: here ${--conf} refers to the INPUT parameter of that name. Here
-      #       it is the same as the name of the program parameter we are setting the
-      #       value for, but it doesn't have to be.
-      - ${--conf}
-      # value alternatives may contain references to environment variables, apphome and javahome
-      # Values w/ environment variables are used only if all the environment variables
-      # used have a value.
-      - ${GROOVY_CONF}
-      - ${apphome}/conf/groovy-starter.conf
+        # input parameter values may be referenced like this. If the parameter has 
+        # several names, any one of them will do.
+        # NOTE: here ${--conf} refers to the INPUT parameter of that name. Here
+        #       it is the same as the name of the program parameter we are setting the
+        #       value for, but it doesn't have to be.
+        - ${--conf}
+        # value alternatives may contain references to environment variables, apphome and javahome
+        # Values w/ environment variables are used only if all the environment variables
+        # used have a value.
+        - ${GROOVY_CONF}
+        - ${apphome}/conf/groovy-starter.conf
     
   general :
+    # parameters may be used in defining app home. Variables may also be used, 
+    # but only ones that do not depend on javahome or apphome (naturally).
+    application home :
+      # this means that on other platforms than windows, if the named c macro (compiler define)
+      # is defined at compile time, use that (so you can e.g. give -DMYAPPHOME="/usr/local/lib/myapp".
+      # You may supply several values for platform, separated by ||. You may also use negation, like below.
+      - 
+        platform        : !windows
+        # note: this is NOT an env var reference
+        compiler define : GROOVYHOME
+        # registry values are only defined on windows, so it is unnecessary to supply "platform" here. You may if you want.
+      - 
+      #TODO
+        registry value : \\HKEY_LOCAL_MACHINE\SOFTWARE\JavaSoft\Java Development Kit
+#\\HKEY_LOCAL_MACHINE\SOFTWARE\JavaSoft\Java Development Kit
+      # TODO: enable specifying app home relative to exec location, a hard coded value, a registry entry
+      #       Also write about security implications of using deduction of apphome relative to exec location.
+
     # note that you can use ${something} references or a list of values (first evaluable of which is used)
     # here, too.
     main class : org.codehaus.groovy.tools.GroovyStarter
@@ -98,37 +125,44 @@ groovy :
     # Note that giving value "to jvm" is a convenient way to let user pass arbitrary jvm parameters
     # mixed arbitrarily w/ the parameters to your program.
     unrecognized parameters : to jvm
-      # This enables you to specify some parameters to have cygwin path conversion done
-      # to them before starting the jvm and passing the parameters on. 
-      # The significance is in that there is currently no cygwin java. Thus, 
-      # you can not compile sources w/ jni headers included in cygwin (unless w/ -mno-cygwin param to gcc,
-      # which means it's a regular windows app). cygwin path conversions can be done
-      # from a non-cygwin executable, but this requires loading cygwin1.dll and has licence implications:
-      # see http://www.cygwin.com/faq/faq.programming.html#faq.programming.msvs-mingw
-      # Note that this only adds the necessary sources between appropriate #if defined( _cygsupport ) preprocessor defines, 
-      # you can still compile a cygwin supporting and a non-cygwin supporting version if you wish (cygwin support uses 4k on
-      # the stack whether it is used or not). 
-      # TODO: check if the stack manipulation can be undone if cygwin1.dll is not found.
-      cygwin support : true
-      # TODO: How to map params to mean whether to load client / server jvm?
-      # mandatory. Possible values : prefer client, prefer server, server only, client only
-      # You can google for the differences, but in short, client jvm is better in short running programs where startup time
-      # dominates, server jvm does more runtime optimization and is faster in long running programs.
-      jvm select policy : prefer client
-      application home : 
-        # TODO: enable specifying app home relative to exec location, a hard coded value, a registry entry
-        #       Also write about security implications of using deduction of apphome relative to exec location.
-      windows specific :
-        #optional 
-        icon file : groovy.ico
-        # possible values : console, windows, both
-        subsystem : both
-        # if both console and windows executables are created and this option is not given, 
-        # the windows executable will have the name of the console app + "w" 
-        # e.g. groovy.exe and groovyw.exe (cf java.exe, javaw.exe)
-        # Give the name w/out the .exe suffix.
-        # If only a windows executable is produced, this is ignored.
-        # winapp name : xxx
+    # This enables you to specify some parameters to have cygwin path conversion done
+    # to them before starting the jvm and passing the parameters on. 
+    # The significance is in that there is currently no cygwin java. Thus, 
+    # you can not compile sources w/ jni headers included in cygwin (unless w/ -mno-cygwin param to gcc,
+    # which means it's a regular windows app). cygwin path conversions can be done
+    # from a non-cygwin executable, but this requires loading cygwin1.dll and has licence implications:
+    # see http://www.cygwin.com/faq/faq.programming.html#faq.programming.msvs-mingw
+    # Note that this only adds the necessary sources between appropriate #if defined( _cygsupport ) preprocessor defines, 
+    # you can still compile a cygwin supporting and a non-cygwin supporting version if you wish (cygwin support uses 4k on
+    # the stack whether it is used or not). 
+    # TODO: check if the stack manipulation can be undone if cygwin1.dll is not found.
+    cygwin support : true
+    # TODO: How to map params to mean whether to load client / server jvm?
+    # mandatory. Possible values : prefer client, prefer server, server only, client only
+    # You can google for the differences, but in short, client jvm is better in short running programs where startup time
+    # dominates, server jvm does more runtime optimization and is faster in long running programs.
+    jvm select policy : prefer client
+    windows specific :
+      #optional 
+      icon file : groovy.ico
+      # possible values : console, windows, both
+      subsystem : both
+      # if both console and windows executables are created and this option is not given, 
+      # the windows executable will have the name of the console app + "w" 
+      # e.g. groovy.exe and groovyw.exe (cf java.exe, javaw.exe)
+      # Give the name w/out the .exe suffix.
+      # If only a windows executable is produced, this is ignored.
+      # winapp name : xxx
+      exe metadata :
+        CompanyName      : Codehaus
+        FileDescription  : groovy binary
+        FileVersion      : 1.5
+        InternalName     : groovy
+        LegalCopyright   : Copyright (C) 2007
+        OriginalFilename : groovy.rc
+        ProductName      : groovy
+        ProductVersion   : 1.5
+        Comments : See http://groovy.codehaus.org
   program parameters :
       # Design note: it was considered whether one parameter could be given on 
       # a single line such as
@@ -176,7 +210,7 @@ groovy :
       # The point with this kind of parameters is that they may be used above
       # in generating values for system properties or artificial launchee params
       pass to : none
-      cygwin conversion : false
+      cygwin conversion : true
       # defaults to false. If true, all input parameters after this are passed 
       # to the launched program
       terminating : false
@@ -225,7 +259,7 @@ groovy :
             # TODO: spec the variables that can be referred to here
             # also specify which c funcs are available (via header includes)
             # You can have as many lines of code as you like. Assign the result to variable called includeInClasspath
-            filter code : |
+            filter c code : |
               includeInClasspath = ( strcmp( "groovy-starter.jar", jarName ) == 0 ) || 
                                    ( jarNameLen >= 8 && memcmp( "groovy-", jarName, 7) && isdigit( jarName[ 7 ] ) ) ;
       java home :
@@ -235,9 +269,13 @@ groovy :
         # special value allowed only here
         - path lookup
         # TODO: specify how windows registry keys are referred to here
+        # TODO: maybe support "known" registry values (sun & jrockit jvms) out of the box?
+        # TODO: a way to specify local temp variables. They're neceessary here as 
+        #       e.g. in the case of sun / jrockit jvm the registry key of current
+        #       version is stored as a value of registry entry.
       # defaults to all, possible values: sun, bea (later on ibm and friends)
       # NO SUPPORT FOR THIS YET
-      # a comma separated list
+      # a comma separated list (or a yaml list)
       allowed vendors :
       # Defaults to any jvm version.
       # This works as follows:
