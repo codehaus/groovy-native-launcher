@@ -6,26 +6,28 @@
 
 # the sequence of actions:
 
-# 1. Figure out apphome
-# 2. Figure out javahome
-# 3. Process variables TODO: vars could be usable in figuring out javahome etc. 
-# 4. Process artificial program parameters
-# 5. Process input parameters
-#   5.1. cygwin path conversions, if applicable
+# - evaluate variables not using apphome or javahome
+# - Figure out apphome
+# - evaluate variables not using javahome that aren't already evaluated
+# - Figure out javahome 
+# - evaluate the rest of the variables
+# - Process input parameters
+#  - classify (where to pass)
+#  - make cygwin conversions where applicable
+# - Process artificial program parameters
+#   * note : these will be passed into the program before the actual cmdline parameters
+#   - cygwin path conversions, if applicable
+# - start jvm
+# - create a java String[] to hold the program params and populate it
+# - free the memory allocated to hold the parameters, variables
+# - find the main class and invoke the main method
+# - exit
 
-# TODO:
-#  - way to specify certain specifications to apply to multiple executables to 
-#    avoid copy-pasting
-#  - specify looking up apphome : relative to executable, env var, known location, registry entry
-#  - a way to specify a certain value as being used only on certain platform ( c.f. #if defined(_WIN32) )
-
-# To specify that a value should only be used on a certain platform :
-#  - platforms : windows
-#    value     : foo/bar
-# You can refer to variables, apphome etc. normally.
-
-# terminology
+# TERMINOLOGY
+#
 # About parameters
+# ----------------
+#
 # A lot of what the native launcher generator does has to do with parameter handling. 
 # There are three classes of parameters :
 #  - input parameters   : these are the parameters user gives when invoking
@@ -48,6 +50,12 @@
 # and (assuming -r is specified as program parameter) the two last values would be
 # passed to the java program.
 # These unprocessed parameters can be referred to as $0, $1 etc. 
+
+# TODO: a way to specify a rule telling which $0 etc. are passed to program etc.
+#       Presently they are all passed to the launched java program.
+#       There needs to be a way to at least remove
+#       one or more. Think of making your custom java launcher (i.e. substitute for java.exe)
+#       ALSO, whether $x variables should be converted from cygwin paths to win paths.
 
 # for each executable, make an entry w/ the executable name as key. Leave out
 # .exe even if you are working (only) on windows.
@@ -86,15 +94,23 @@ groovy :
     application home :
       # this means that on other platforms than windows, if the named c macro (compiler define)
       # is defined at compile time, use that (so you can e.g. give -DMYAPPHOME="/usr/local/lib/myapp".
-      # You may supply several values for platform, separated by ||. You may also use negation, like below.
+      # You may supply several values for platform specifier, separated by ||. You may also use negation, like below.
       - 
         platform        : !windows
         # note: this is NOT an env var reference
-        compiler define : GROOVYHOME
+        compiler define : GROOVY_HOME
         # registry values are only defined on windows, so it is unnecessary to supply "platform" here. You may if you want.
       - 
-      #TODO
-        registry value : \\HKEY_LOCAL_MACHINE\SOFTWARE\JavaSoft\Java Development Kit
+      #TODO : specify two phase registry lookup NOTE: this points to java home, it is just sketching, i.e. this value should not be here
+        # b  = \\HKEY_LOCAL_MACHINE\SOFTWARE\JavaSoft\Java Development Kit 
+        # cv = $b[CurrentVersion]
+        # jhome = $b\$cv[JavaHome]
+        registry value : \\HKEY_LOCAL_MACHINE\SOFTWARE\JavaSoft\Java Development Kit[CurrentVersion]
+      - 
+        # here you can specify a path relative to which the apphome is to be found in relation to the 
+        # location of the executable. If it is the same dir, just specify "." (without quotes). You may
+        # use .. to denote parent dir. Remember to use / as dir separator.
+        relative to executable location : ..
 #\\HKEY_LOCAL_MACHINE\SOFTWARE\JavaSoft\Java Development Kit
       # TODO: enable specifying app home relative to exec location, a hard coded value, a registry entry
       #       Also write about security implications of using deduction of apphome relative to exec location.
@@ -116,7 +132,7 @@ groovy :
       # defaults to false
       print help when invoked with no arguments : yes
       # optional
-      help prologue : usage: groovy [options] [args]
+      help prologue : "usage\: groovy [options] [args]"
       # optional
       help epilogue : |
         In addition, you can give any parameters accepted by the jvm you are using, e.g.
@@ -149,7 +165,7 @@ groovy :
       subsystem : both
       # if both console and windows executables are created and this option is not given, 
       # the windows executable will have the name of the console app + "w" 
-      # e.g. groovy.exe and groovyw.exe (cf java.exe, javaw.exe)
+      # e.g. groovy.exe and groovyw.exe (cf. java.exe, javaw.exe)
       # Give the name w/out the .exe suffix.
       # If only a windows executable is produced, this is ignored.
       # winapp name : xxx
@@ -162,7 +178,7 @@ groovy :
         OriginalFilename : groovy.rc
         ProductName      : groovy
         ProductVersion   : 1.5
-        Comments : See http://groovy.codehaus.org
+        Comments         : See http://groovy.codehaus.org
   program parameters :
       # Design note: it was considered whether one parameter could be given on 
       # a single line such as
@@ -245,60 +261,59 @@ groovy :
     # ${self} is the value of this parameter
     # set jvm options : -${self}
     # 
-      
-    java runtime :
-      # the classpath when jvm is started
-      bootstrap classpath entries :
-        # a list of values, can contain refs to env vars, javahome, apphome
-        #values :
-        jar dirs :
-          - name : ${apphome}/lib
-            # defaults to false
-            recursive : false
-            # optional. If provided, must be valid c source code. 
-            # TODO: spec the variables that can be referred to here
-            # also specify which c funcs are available (via header includes)
-            # You can have as many lines of code as you like. Assign the result to variable called includeInClasspath
-            filter c code : |
-              includeInClasspath = ( strcmp( "groovy-starter.jar", jarName ) == 0 ) || 
-                                   ( jarNameLen >= 8 && memcmp( "groovy-", jarName, 7) && isdigit( jarName[ 7 ] ) ) ;
-      java home :
-      # ${apphome} could be used here
-        - ${--javahome}
-        - ${JAVA_HOME}
-        # special value allowed only here
-        - path lookup
-        # TODO: specify how windows registry keys are referred to here
-        # TODO: maybe support "known" registry values (sun & jrockit jvms) out of the box?
-        # TODO: a way to specify local temp variables. They're neceessary here as 
-        #       e.g. in the case of sun / jrockit jvm the registry key of current
-        #       version is stored as a value of registry entry.
-      # defaults to all, possible values: sun, bea (later on ibm and friends)
-      # NO SUPPORT FOR THIS YET
-      # a comma separated list (or a yaml list)
-      allowed vendors :
-      # Defaults to any jvm version.
-      # This works as follows:
-      # You can specify constraints on any four parts of the jvm version number.
-      # Star (*) means any value is accepted. You can also use ranges expressed
-      # as [lower bound,upper bound]. If you leave out one of the bounds, the range
-      # is open to that direction. Ranges are inclusive.
-      # You can specify a list of values. If the actual jvm version matches ANY of 
-      # these, it is accepted.
-      # 1.4.*_*, 1.5.0_03. 1.5.0_[06,08], 1.5.0_[10,], 1.[6,].*_*
-      # NO SUPPORT FOR THIS YET
-      required version :
-      # e.g. ${JAVA_OPTS} -Xmx200m
-      # note that if the same option is provided twice, the latter stands.
-      # Also note that if env vars are used alone, they are split into several options.
-      # by spaces (so e.g. "-Xms100m -Xmx200m" is two jvm options, not one)
-      # To have some jvm option in an env var that contains a space (e.g. in a path name, e.g. "-Dmyapp.log.file=c:\Program Files\myapp\foo.txt")
-      # that particular option needs to be enclosed in double quotes (like above).
-      # NOTE: when converting / to platform specific path separators, take care
-      #       to convert only after : if the parameter is of the form -[a-zA-Z]+(\/::alnum::)?:
-      # NOTE: as all parameters are handled separately, having a part that can't be evaluated
-      #       (e.g. ref to env var) only affects that single parameter.
-      default jvm parameters : ${JAVA_OPTS} -Dgroovy.home=${apphome} -Dgroovy.conf=${var.conf}
+  &java runtime :
+    # the classpath when jvm is started
+    bootstrap classpath entries :
+      # a list of values, can contain refs to env vars, javahome, apphome
+      #values :
+      jar dirs :
+        - name : ${apphome}/lib
+          # defaults to false
+          recursive : false
+          # optional. If provided, must be valid c source code. 
+          # TODO: spec the variables that can be referred to here
+          # also specify which c funcs are available (via header includes)
+          # You can have as many lines of code as you like. Assign the result to variable called includeInClasspath
+          filter c code : |
+            includeInClasspath = ( strcmp( "groovy-starter.jar", jarName ) == 0 ) || 
+                                 ( jarNameLen >= 8 && memcmp( "groovy-", jarName, 7) && isdigit( jarName[ 7 ] ) ) ;
+    java home :
+    # ${apphome} could be used here
+      - ${--javahome}
+      - ${JAVA_HOME}
+      # special value allowed only here
+      - path lookup
+      # TODO: specify how windows registry keys are referred to here
+      # TODO: maybe support "known" registry values (sun & jrockit jvms) out of the box?
+      # TODO: a way to specify local temp variables. They're neceessary here as 
+      #       e.g. in the case of sun / jrockit jvm the registry key of current
+      #       version is stored as a value of registry entry.
+    # defaults to all, possible values: sun, bea (later on ibm and friends)
+    # NO SUPPORT FOR THIS YET
+    # a comma separated list (or a yaml list)
+    allowed vendors :
+    # Defaults to any jvm version.
+    # This works as follows:
+    # You can specify constraints on any four parts of the jvm version number.
+    # Star (*) means any value is accepted. You can also use ranges expressed
+    # as [lower bound,upper bound]. If you leave out one of the bounds, the range
+    # is open to that direction. Ranges are inclusive.
+    # You can specify a list of values. If the actual jvm version matches ANY of 
+    # these, it is accepted.
+    # 1.4.*_*, 1.5.0_03. 1.5.0_[06,08], 1.5.0_[10,], 1.[6,].*_*
+    # NO SUPPORT FOR THIS YET
+    required version :
+    # e.g. ${JAVA_OPTS} -Xmx200m
+    # note that if the same option is provided twice, the latter stands.
+    # Also note that if env vars are used alone, they are split into several options.
+    # by spaces (so e.g. "-Xms100m -Xmx200m" is two jvm options, not one)
+    # To have some jvm option in an env var that contains a space (e.g. in a path name, e.g. "-Dmyapp.log.file=c:\Program Files\myapp\foo.txt")
+    # that particular option needs to be enclosed in double quotes (like above).
+    # NOTE: when converting / to platform specific path separators, take care
+    #       to convert only after : if the parameter is of the form -[a-zA-Z]+(\/::alnum::)?:
+    # NOTE: as all parameters are handled separately, having a part that can't be evaluated
+    #       (e.g. ref to env var) only affects that single parameter.
+    default jvm parameters : ${JAVA_OPTS} -Dgroovy.home=${apphome} -Dgroovy.conf=${var.conf}
       
 groovyc :
   program parameters and system properties :
