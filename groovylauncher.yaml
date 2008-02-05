@@ -62,7 +62,7 @@
 groovy :
   # here you may define placeholders for values to be figured out. You may refer to 
   # them in any number of places (even in other variables, but only if the variable
-  # you refer to is defined before the one doing the referring) as ${var.myvar}.
+  # you refer to is defined before the one doing the referring) as ${myvar}.( or ${var:myvar} )
   # Variable names must be valid c variable names.
   variables :
     conf : 
@@ -97,17 +97,18 @@ groovy :
       # You may supply several values for platform specifier, separated by ||. You may also use negation, like below.
       - 
         platform        : !windows
-        # note: this is NOT an env var reference
-        compiler define : GROOVY_HOME
+        # this is an example of referencing a preprocessor define
+        value : "${prepdef:GROOVY_HOME}"
         # registry values are only defined on windows, so it is unnecessary to supply "platform" here. You may if you want.
-      - 
       #TODO : specify two phase registry lookup NOTE: this points to java home, it is just sketching, i.e. this value should not be here
         # b  = \\HKEY_LOCAL_MACHINE\SOFTWARE\JavaSoft\Java Development Kit 
         # cv = $b[CurrentVersion]
         # jhome = $b\$cv[JavaHome]
-        registry value : \\HKEY_LOCAL_MACHINE\SOFTWARE\JavaSoft\Java Development Kit[CurrentVersion]
+        # Registry references can contain nested evaluations
+        # Yes, you must escape all the \s. I could not think of a way to make it work in all necessary circumstances otherwise...
+      - ${reg:\\\\HKEY_LOCAL_MACHINE\\SOFTWARE\\JavaSoft\\Java Development Kit\\${reg:\\\\HKEY_LOCAL_MACHINE\\SOFTWARE\\JavaSoft\\Java Development Kit[CurrentVersion]}[JavaHome]}
       - 
-        # here you can specify a path relative to which the apphome is to be found in relation to the 
+        # (only) here you can specify a path relative to which the apphome is to be found in relation to the 
         # location of the executable. If it is the same dir, just specify "." (without quotes). You may
         # use .. to denote parent dir. Remember to use / as dir separator.
         relative to executable location : ..
@@ -195,7 +196,7 @@ groovy :
       name : --conf
       # possible values: "separate value", "prefix param", "loner" (no value, default)
       type  : separate value
-      value : ${var.conf}
+      value : "${var:conf}"
     - name : --classpath
       type : separate value
       value alternatives :
@@ -313,7 +314,7 @@ groovy :
     #       to convert only after : if the parameter is of the form -[a-zA-Z]+(\/::alnum::)?:
     # NOTE: as all parameters are handled separately, having a part that can't be evaluated
     #       (e.g. ref to env var) only affects that single parameter.
-    default jvm parameters : ${JAVA_OPTS} -Dgroovy.home=${apphome} -Dgroovy.conf=${var.conf}
+    default jvm parameters : "${JAVA_OPTS} -Dgroovy.home=${apphome} -Dgroovy.conf=${var:conf}"
       
 groovyc :
   program parameters and system properties :
