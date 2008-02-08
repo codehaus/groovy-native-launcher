@@ -251,11 +251,13 @@ static DWORD queryRegistryValue( HKEY key, char* valueName, char* valueBuffer, D
 static char* findJavaHomeFromWinRegistry() {
   static char* _javaHome = NULL ;
   
+  // all these are under key HKEY_LOCAL_MACHINE
   static char* registryEntriesToCheck[] = { "SOFTWARE\\JavaSoft\\Java Development Kit", 
-                                                  "SOFTWARE\\JRockit\\Java Development Kit",
-                                                  "SOFTWARE\\JavaSoft\\Java Runtime Environment", 
-                                                  "SOFTWARE\\JRockit\\Java Runtime Environment",
-                                                  NULL } ;
+                                            "SOFTWARE\\JRockit\\Java Development Kit",
+                                            "SOFTWARE\\JavaSoft\\Java Runtime Environment", 
+                                            "SOFTWARE\\JRockit\\Java Runtime Environment",
+                                            NULL 
+                                          } ;
   
   if ( _javaHome ) return _javaHome ;
   
