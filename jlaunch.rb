@@ -46,12 +46,17 @@ module EasilyInitializable
 end
   
 # represents an executable we are generating sources for
-class Executable
+class Executable  
+  include EasilyInitializable
+  
   attr_reader :name
   attr_accessor :variables
-  def initialize( name )
-    @name = name
+  
+  def application_home=( value )
+    @apphome_alternatives = 
+    ( ( Array === value ) ? value : [ value ] ).collect { |v| DynString.new( v ) }
   end
+  
 end
 
 class Variable
@@ -112,6 +117,7 @@ class VariableAccess < ValueEvaluator
   attr_accessor :name
   
   def VariableAccess.create( name )
+    puts "tutkitaan " + name
     if name =~ /\A[A-Z_]+\Z/
       EnvVarAccess.new( :name => name )
     elsif name =~ /\A-/
@@ -119,7 +125,8 @@ class VariableAccess < ValueEvaluator
     elsif name =~ /\Aprepdef:/
       PreProcessorDefineAccess.new( :name => name[ 8...(name.length) ] )
     elsif name =~ /\Areg:/
-      #TODO
+      ds = DynString.new( name[ 4...(name.length) ] ) 
+      WindowsRegistryAccess.new( :definition => ds )
     else
       realname = ( name =~ /\Avar:/ ) ? name[ 4...(name.length) ] : name
       VariableAccess.new( :name => realname )
@@ -144,6 +151,14 @@ class InputParamAccess < VariableAccess
   
 end
 
+class WindowsRegistryAccess < VariableAccess
+  def definition=( defin )
+    # TODO
+    puts "WIN reg entry #{defin.class.name}"
+    puts defin
+  end
+end
+
 class FileSeparator
   include Singleton
   def to_s
@@ -158,12 +173,14 @@ end
 # backwards compatibility (if needed at that stage) it may need to be a special hash key.
 class DynString
   def initialize( definition )
+    definition = definition.to_s 
     parts = []
     if definition.size > 0
       i = 0
       s = ''
-      # TODO: take into account case where definition is an empty string
+      
       while i < definition.length
+        
         c = definition[ i ]
         if c == ?\ 
           if ( i + 1 <= definition.length - 1 ) && [ ?/, ?$ ].include?( definition[ i + 1 ] ) 
@@ -178,14 +195,34 @@ class DynString
         
         if [ ?/, ?$ ].include?( c )
 
-          case definition[ i ]
+          case c
             when ?$
               begin_index = i + 2
-              if ( definition.length - 1 > begin_index ) && ( definition[ i + 1 ] == ?{ )           
+              if ( definition.length - 1 > begin_index ) && # this is not the last character 
+                 ( definition[ i + 1 ] == ?{ ) # next char is {
+                 
                 end_index = 
-                if definition.length - 1 > begin_index + 5 && definition[ begin_index..( begin_index + 4 ) ] = 'reg:'
+                if ( definition.length - 1 > begin_index + 5 ) && ( definition[ begin_index..( begin_index + 3 ) ] == 'reg:' )
                   # handle registry entry
-                  # TODO: take into account that registry entry values can be nested
+                  end_i = nil
+                  # look for ending {
+                  # take into account that registry entry values can be nested (one level) and contain any references
+                  nesting = 0
+                  for j in (begin_index + 6)...(definition.length)
+                    ch = definition[ j ]
+                    if ch == ?$ && !escaped?( definition, j ) && j < definition.length - 1 && definition[ j + 1 ] == ?{
+                      nesting += 1
+                      #raise "too deep nesting in " + definition if nesting > 1
+                    elsif ch == ?}
+                      if nesting > 0 && definition[ j - 1 ] != ?\ 
+                        nesting -= 1
+                      else 
+                        end_i = j
+                        break
+                      end
+                    end
+                  end
+                  end_i
                 else
                   definition.index( '}', begin_index )
                 end
@@ -231,6 +268,42 @@ class DynString
     #puts "analysoitu " + definition
     #parts.each { |p| puts "  " + p.to_s }
   end # initialize()
+  
+  # a helper method telling whether the character at ind in str is escaped by \
+  def escaped?( str, ind )
+    c = str[ ind ]
+    return false if ind == 0
+    count = 0 # the number of \s
+    i = ind - 1
+    while i >= 0
+      break if ( str[ i ] != ?\ ) 
+      count += 1
+      i -= 1
+    end
+    return false if count == 0
+    ( count % 2 ) == ( ( c == ?\ ) ? 1 : 0 ) # odd number of \s to escape a \, even otherwise 
+  end
+  private :escaped?
+
+  def each( &block )
+    @parts.each( &block )
+  end
+  
+  def []( index )
+    @parts[ index ]
+  end
+
+  def to_s
+    print self.class.name
+    puts ': '
+    self.each { |part| 
+      print ' -- '
+      print part.class.name 
+      print ' : '
+      puts part 
+    }
+  end
+  
 end # class DynString
 
 end # module jlaunchgenerator
@@ -242,7 +315,7 @@ executables = []
 # read the yaml into more usable form
 rawdata.each_pair { | execname, execdata |
 
-  exec = Executable.new( execname )
+  exec = Executable.new( :name => execname )
   executables << exec
   
   variables = execdata[ 'variables' ]
@@ -252,6 +325,10 @@ rawdata.each_pair { | execname, execdata |
       v.name = varname
     }
   end
+
+  general = execdata[ 'general' ]
+  raise "part 'general' missing for executable #{exec.name} in the spec yaml file " + yaml_file unless general
+  exec.init_attrs( general )
 }
 
 puts "done."

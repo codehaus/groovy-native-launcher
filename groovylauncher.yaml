@@ -91,6 +91,7 @@ groovy :
   general :
     # parameters may be used in defining app home. Variables may also be used, 
     # but only ones that do not depend on javahome or apphome (naturally).
+    # app home defaults to being the directory the executable resides in
     application home :
       # this means that on other platforms than windows, if the named c macro (compiler define)
       # is defined at compile time, use that (so you can e.g. give -DMYAPPHOME="/usr/local/lib/myapp".
@@ -316,7 +317,7 @@ groovy :
     #       (e.g. ref to env var) only affects that single parameter.
     default jvm parameters : "${JAVA_OPTS} -Dgroovy.home=${apphome} -Dgroovy.conf=${var:conf}"
       
-groovyc :
-  program parameters and system properties :
-    - *conf_program_param
+#groovyc :
+#  program parameters and system properties :
+#    - *conf_program_param
     
