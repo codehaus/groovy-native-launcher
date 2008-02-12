@@ -47,7 +47,17 @@ Currently the implementation of the following things are platform dependent:
   * directory handling (jst_fileutils.c). If your system has dirent.h this works out of the box.
   * getting the location of the current process' executable (jst_fileutils.c)
   
+Java launcher generator
+-----------------------
 
+This directory (and subdirectories) also contains a work in progress: a code 
+generator to generate c sources and build files for a native launcher for any 
+java app.
+
+Ruby was chosen as the implementation language to avoid any bootstrap issues,
+and due to its great yaml support.
+  
+  
 More information
 ----------------
 
