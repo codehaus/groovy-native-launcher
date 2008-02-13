@@ -5,7 +5,37 @@ require 'singleton'
 
 module Jlaunchgenerator
 
+# returns a list of Executables as defined in the given yaml file
+def Jlaunchgenerator.load_file( yaml_file )
+  rawdata = File.open( yaml_file ) { |f|
+    YAML::load( f )  
+  }
   
+  executables = []
+  
+  # read the yaml into more usable form
+  rawdata.each_pair { | execname, execdata |
+  
+    exec = Executable.new( :name => execname )
+    executables << exec
+    
+    variables = execdata[ 'variables' ]
+    if variables
+      exec.variables = variables.collect { |varname, data|
+        v = Variable.new( data )
+        v.name = varname
+      }
+    end
+  
+    general = execdata[ 'general' ]
+    raise "part 'general' missing for executable #{exec.name} in the spec yaml file " + yaml_file unless general
+    exec.init_attrs( general )
+  }
+
+  return executables
+end
+
+
 # represents an executable we are generating sources for
 class Executable  
   include JLauncherUtils::EasilyInitializable
@@ -16,6 +46,11 @@ class Executable
   def application_home=( value )
     @apphome_alternatives = 
     ( ( Array === value ) ? value : [ value ] ).collect { |v| ValueEvaluator.create( v ) }
+  end
+  
+  def generate_c_source( dir, filename = self.name + '.c' )
+    # TODO
+    puts "generating " + dir + '/' + filename
   end
   
 end
@@ -134,8 +169,7 @@ end
 class WindowsRegistryAccess < VariableAccess
   def definition=( defin )
     # TODO
-    puts "WIN reg entry #{defin.class.name}"
-    puts defin
+    
   end
 end
 
@@ -163,12 +197,12 @@ class DynString
       while i < definition.length
         
         c = definition[ i ]
-        if c == ?\ 
+        if c == ?\\ 
           if ( i + 1 <= definition.length - 1 ) && [ ?/, ?$ ].include?( definition[ i + 1 ] ) 
             s << definition[ i + 1 ]
             i += 2
           else
-            s << ?\ 
+            s << ?\\ 
             i += 1
           end
           next
@@ -195,7 +229,7 @@ class DynString
                       nesting += 1
                       #raise "too deep nesting in " + definition if nesting > 1
                     elsif ch == ?}
-                      if nesting > 0 && definition[ j - 1 ] != ?\ 
+                      if nesting > 0 && definition[ j - 1 ] != ?\\ 
                         nesting -= 1
                       else 
                         end_i = j
@@ -257,17 +291,21 @@ class DynString
     count = 0 # the number of \s
     i = ind - 1
     while i >= 0
-      break if ( str[ i ] != ?\ ) 
+      break if ( str[ i ] != ?\\ ) 
       count += 1
       i -= 1
     end
     return false if count == 0
-    ( count % 2 ) == ( ( c == ?\ ) ? 1 : 0 ) # odd number of \s to escape a \, even otherwise 
+    ( count % 2 ) == ( ( c == ?\\ ) ? 1 : 0 ) # odd number of \s to escape a \, even otherwise 
   end
   private :escaped?
 
   def each( &block )
     @parts.each( &block )
+  end
+  
+  def size
+    @parts.size
   end
   
   def []( index )

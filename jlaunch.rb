@@ -5,15 +5,16 @@
 # A program for generation of c sources and associated build and resource files
 # for a native program to launch a java application.
 
-$: << 'generator_src'
+$: << 'generator'
 
-require 'jlauncher_utils'
+require 'jlauncher'
 
 require 'yaml'
 
 
-if ARGV.size == 0 || ARGV[ 0 ] == '-h' || ARGV[ 0 ] == '--help'
-  puts( "usage: #{File.basename( __FILE__, '.*' )} <input yaml file>" )
+if ARGV.size == 0 || ARGV.size > 2 || !( ARGV & [ '-h', '--help', '-?' ] ).empty?
+  puts( "usage: #{File.basename( __FILE__, '.*' )} <input yaml file> (<target dir>)" )
+  puts( "if tharget dir is not provided, output is directed to the same folder as the input file" )
   exit
 end
 
@@ -21,32 +22,13 @@ yaml_file = ARGV[ 0 ]
 
 raise "input file #{yaml_file} does not exist" unless File.exists?( yaml_file )
 
-rawdata = File.open( yaml_file ) { |f|
-  YAML::load( f )  
-}
+output_dir = ( ARGV.size == 2 ) ? ARGV[ 1 ] : File.dirname( yaml_file )
 
 
-include Jlaunchgenerator
+execs = Jlaunchgenerator.load_file( yaml_file )
 
-executables = []
-
-# read the yaml into more usable form
-rawdata.each_pair { | execname, execdata |
-
-  exec = Executable.new( :name => execname )
-  executables << exec
-  
-  variables = execdata[ 'variables' ]
-  if variables
-    exec.variables = variables.collect { |varname, data|
-      v = Variable.new( data )
-      v.name = varname
-    }
-  end
-
-  general = execdata[ 'general' ]
-  raise "part 'general' missing for executable #{exec.name} in the spec yaml file " + yaml_file unless general
-  exec.init_attrs( general )
+execs.each { |exec|
+  exec.generate_c_source( output_dir )
 }
 
 puts "done!"

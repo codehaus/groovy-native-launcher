@@ -59,7 +59,8 @@
 
 # for each executable, make an entry w/ the executable name as key. Leave out
 # .exe even if you are working (only) on windows.
-groovy :
+# x in this name is just not to overwrite the present sources until the generator is fully functional
+xgroovy :
   # here you may define placeholders for values to be figured out. You may refer to 
   # them in any number of places (even in other variables, but only if the variable
   # you refer to is defined before the one doing the referring) as ${myvar}.( or ${var:myvar} )
