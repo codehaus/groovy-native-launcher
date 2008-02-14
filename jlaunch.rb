@@ -5,7 +5,7 @@
 # A program for generation of c sources and associated build and resource files
 # for a native program to launch a java application.
 
-$: << 'generator'
+$: << File.dirname( __FILE__ ) + '/generator/src'
 
 require 'jlauncher'
 
