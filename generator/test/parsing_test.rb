@@ -1,6 +1,6 @@
 # Copyright Antti Karanta <Antti dot Karanta at iki dot fi>, all rights reserved.
 
-$: << File.basename( __FILE__, '.*' ) + '/..'
+$: << File.basename( __FILE__, '.*' ) + '/../src'
 
 require 'jlauncher'
 
@@ -41,6 +41,14 @@ class ParsingTest < Test::Unit::TestCase
     ra = ds[ 0 ]
     assert_instance_of( WindowsRegistryAccess, ra )
     
+    assert_equal( 'HKEY_LOCAL_MACHINE', ra.main_key )
+    assert_equal( 'JavaHome', ra.value_id )
+    ds2 = ra.subkey
+    assert_equal( 2, ds2.size )
+    assert_equals( "SOFTWARE\\JavaSoft\\Java Development Kit\\", ds2[ 0 ] )
+    ra2 = ds2[ 1 ]
+    assert_instance_of( WindowsRegistryAccess, ra2 )
+    assert_equals( 'HKEY_LOCAL_MACHINE', ra2.main_key )
     
   end
   

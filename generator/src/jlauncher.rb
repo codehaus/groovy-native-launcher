@@ -167,8 +167,24 @@ class InputParamAccess < VariableAccess
 end
 
 class WindowsRegistryAccess < VariableAccess
+  attr_reader :main_key, :sub_key, :value_id
   def definition=( defin )
-    # TODO
+    first = defin[ 0 ]
+    last  = defin[ defin.size - 1 ]
+    raise "the name of the main key must ATM be constant. If this is a problem, please file a change request" unless
+      String === first && first =~ /\A\\\\([A-Z_]+)\\/
+    @main_key = $1
+    first = first[ (@main_key.size + 3)...(first.size) ]
+    
+    values = defin[ 1...(defin.size)]
+    values.insert( 0, first ) unless first.empty?
+    
+    sub_key_parts  = []
+    value_id_parts = []
+    
+    # look up the element in "values" that has the starting [. Split at that. Put the previous
+    # parts into subkey parts. put the rest into value_id_parts ( remove the closing ] )    
+    
     
   end
 end
@@ -300,16 +316,12 @@ class DynString
   end
   private :escaped?
 
-  def each( &block )
-    @parts.each( &block )
-  end
-  
-  def size
-    @parts.size
-  end
-  
-  def []( index )
-    @parts[ index ]
+  def method_missing( sym, *args )
+    if @parts.respond_to?( sym )
+      @parts.send( sym, args )
+    else
+      raise NoMethodError, "undefined method `#{sym}' for #{self}"
+    end
   end
 
   def to_s
