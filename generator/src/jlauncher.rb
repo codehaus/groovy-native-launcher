@@ -167,26 +167,59 @@ class InputParamAccess < VariableAccess
 end
 
 class WindowsRegistryAccess < VariableAccess
+
   attr_reader :main_key, :sub_key, :value_id
+  
   def definition=( defin )
-    first = defin[ 0 ]
-    last  = defin[ defin.size - 1 ]
+    first = defin.first
+    last  = defin.last
     raise "the name of the main key must ATM be constant. If this is a problem, please file a change request" unless
-      String === first && first =~ /\A\\\\([A-Z_]+)\\/
+      String === first 
+    raise "main key could not be figured out from #{first}" unless first =~ /\A\\\\([A-Z_]+)\\/
     @main_key = $1
     first = first[ (@main_key.size + 3)...(first.size) ]
     
-    values = defin[ 1...(defin.size)]
+    values = defin[ 1...(defin.size) ]
+    values.collect! { |v| 
+      d = DynString.new( v )
+      d.size == 1 && String === d.first ? d.first : d
+    }
     values.insert( 0, first ) unless first.empty?
     
-    sub_key_parts  = []
-    value_id_parts = []
+    puts "valuet"
+    values.each { |it| puts it}
+    
+    indexer_start_index = values.index_of { |v| String === v && v.include?( ?[ ) }
     
     # look up the element in "values" that has the starting [. Split at that. Put the previous
     # parts into subkey parts. put the rest into value_id_parts ( remove the closing ] )    
+    raise "registry value reference #{defin} does not contain proper indexer for querying a registry value" unless indexer_start_index 
+          
+    str = values[ indexer_start_index ]
+    parts = str.split( '[' )
+    raise "invalid registry entry #{defin} : two starting [s in #{str}" unless parts.size == 2
     
+    values[ indexer_start_index ] = parts.first
+    values.insert( indexer_start_index + 1, parts.last )
+
+    last = values.last
+    raise "registry value reference #{defin} does not contain proper indexer for querying a registry value" unless String === last && last[ last.size - 1 ] == ?]
+    last = last.chop
+    if last.empty?
+      values.pop
+    else
+      values.last = last
+    end
     
+    @sub_key  = values[ 0..indexer_start_index ]
+    @value_id = values[ (indexer_start_index + 1)...(values.size) ]
+        
   end
+  
+  def to_s
+    self.class.name + " -- \nmain key #{@main_key}\nsub key #{@sub_key}\nvalue_id #{@value_id}"
+  end
+  
 end
 
 class FileSeparator
@@ -218,7 +251,7 @@ class DynString
             s << definition[ i + 1 ]
             i += 2
           else
-            s << ?\\ 
+            s << ?\\ if definition.escaped?( i )
             i += 1
           end
           next
@@ -241,7 +274,7 @@ class DynString
                   nesting = 0
                   for j in (begin_index + 6)...(definition.length)
                     ch = definition[ j ]
-                    if ch == ?$ && !escaped?( definition, j ) && j < definition.length - 1 && definition[ j + 1 ] == ?{
+                    if ch == ?$ && !definition.escaped?( j ) && j < definition.length - 1 && definition[ j + 1 ] == ?{
                       nesting += 1
                       #raise "too deep nesting in " + definition if nesting > 1
                     elsif ch == ?}
@@ -300,39 +333,18 @@ class DynString
     #parts.each { |p| puts "  " + p.to_s }
   end # initialize()
   
-  # a helper method telling whether the character at ind in str is escaped by \
-  def escaped?( str, ind )
-    c = str[ ind ]
-    return false if ind == 0
-    count = 0 # the number of \s
-    i = ind - 1
-    while i >= 0
-      break if ( str[ i ] != ?\\ ) 
-      count += 1
-      i -= 1
-    end
-    return false if count == 0
-    ( count % 2 ) == ( ( c == ?\\ ) ? 1 : 0 ) # odd number of \s to escape a \, even otherwise 
-  end
-  private :escaped?
-
-  def method_missing( sym, *args )
+  def method_missing( sym, *args, &block )
     if @parts.respond_to?( sym )
-      @parts.send( sym, args )
+      @parts.send( sym, *args, &block )
     else
       raise NoMethodError, "undefined method `#{sym}' for #{self}"
     end
   end
 
   def to_s
-    print self.class.name
-    puts ': '
-    self.each { |part| 
-      print ' -- '
-      print part.class.name 
-      print ' : '
-      puts part 
-    }
+    s = self.class.name + " -- "
+    self.each_with_index { |element, idx| s << idx.to_s << ' : ' << element.to_s << "\n" }
+    s
   end
   
 end # class DynString

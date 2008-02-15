@@ -35,8 +35,29 @@ class ParsingTest < Test::Unit::TestCase
     assert_equal( 'foo/bar', ds[ 0 ] )
   end
   
-  def test_registry_access
-    ds = DynString.new( "${reg:\\\\HKEY_LOCAL_MACHINE\\SOFTWARE\\JavaSoft\\Java Development Kit\\${reg:\\\\HKEY_LOCAL_MACHINE\\SOFTWARE\\JavaSoft\\Java Development Kit[CurrentVersion]}[JavaHome]}" )
+  def test_basic_registry_access
+    # basic registry access
+    ds = DynString.new( "${reg:\\\\\\\\HKEY_LOCAL_MACHINE\\\\SOFTWARE\\\\JavaSoft\\\\Java Development Kit[JavaHome]}" )
+    assert_equal 1, ds.size
+    ra = ds.first
+    assert_instance_of( WindowsRegistryAccess, ra )
+    assert_equal( 'HKEY_LOCAL_MACHINE', ra.main_key )
+    value_id = ra.value_id
+    assert_equal( 'JavaHome', value_id.first )
+    assert_equal( 1, value_id.size )
+    assert_equal( "SOFTWARE\\JavaSoft\\Java Development Kit", ra.sub_key.first )
+    assert_equal( 1, ra.sub_key.size )
+    
+  end
+  
+  def test_nested_registry_access
+    
+    # yeah, you can get migraine with all those backslashes. This is why it looks so horrible:
+    # we need to get a string that has the escaping \s in it. Thus, in order to get literal \\ (escaped \)
+    # we have to have \\\\ in the string below, as ruby eats half of them.
+    # In other words, ruby considers them as escape chars, as does DynString parsing.
+    ds = DynString.new( "${reg:\\\\\\\\HKEY_LOCAL_MACHINE\\\\SOFTWARE\\\\JavaSoft\\\\Java Development Kit\\\\${reg:\\\\\\\\HKEY_LOCAL_MACHINE\\\\SOFTWARE\\\\JavaSoft\\\\Java Development Kit[CurrentVersion]}[JavaHome]}" )
+    
     assert_equal( 1, ds.size )
     ra = ds[ 0 ]
     assert_instance_of( WindowsRegistryAccess, ra )
@@ -45,11 +66,20 @@ class ParsingTest < Test::Unit::TestCase
     assert_equal( 'JavaHome', ra.value_id )
     ds2 = ra.subkey
     assert_equal( 2, ds2.size )
-    assert_equals( "SOFTWARE\\JavaSoft\\Java Development Kit\\", ds2[ 0 ] )
+    assert_equal( "SOFTWARE\\JavaSoft\\Java Development Kit\\", ds2[ 0 ] )
     ra2 = ds2[ 1 ]
     assert_instance_of( WindowsRegistryAccess, ra2 )
     assert_equals( 'HKEY_LOCAL_MACHINE', ra2.main_key )
     
+  end
+  
+  def test_dyn_string_creation
+    ds = DynString.new( "\\\\" )
+    assert_equal( 1, ds.size )
+    s = ds.first
+    assert_instance_of( String, s )
+    assert_equal( 1, s.size )
+    assert_equal( ?\\, s[ 0 ] )
   end
   
 end
