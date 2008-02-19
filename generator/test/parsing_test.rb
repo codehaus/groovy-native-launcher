@@ -6,6 +6,11 @@ require 'jlauncher'
 
 require 'test/unit'
 
+# to see the build and run environment
+#require 'rbconfig'    
+#Config::CONFIG.each_pair { |k,v| puts "#{k}: #{v}" }
+
+
 include Jlaunchgenerator
 
 class ParsingTest < Test::Unit::TestCase
@@ -51,7 +56,7 @@ class ParsingTest < Test::Unit::TestCase
   end
   
   def test_nested_registry_access
-    
+
     # yeah, you can get migraine with all those backslashes. This is why it looks so horrible:
     # we need to get a string that has the escaping \s in it. Thus, in order to get literal \\ (escaped \)
     # we have to have \\\\ in the string below, as ruby eats half of them.
@@ -63,14 +68,16 @@ class ParsingTest < Test::Unit::TestCase
     assert_instance_of( WindowsRegistryAccess, ra )
     
     assert_equal( 'HKEY_LOCAL_MACHINE', ra.main_key )
-    assert_equal( 'JavaHome', ra.value_id )
-    ds2 = ra.subkey
+    value_id = ra.value_id
+    assert_equal( 'JavaHome', value_id.first )
+    ds2 = ra.sub_key
     assert_equal( 2, ds2.size )
     assert_equal( "SOFTWARE\\JavaSoft\\Java Development Kit\\", ds2[ 0 ] )
     ra2 = ds2[ 1 ]
     assert_instance_of( WindowsRegistryAccess, ra2 )
-    assert_equals( 'HKEY_LOCAL_MACHINE', ra2.main_key )
-    
+    assert_equal( 'HKEY_LOCAL_MACHINE', ra2.main_key )
+    assert_equal( 'CurrentVersion', ra2.value_id.first )
+    assert_equal( 1, ra2.value_id.size )
   end
   
   def test_dyn_string_creation

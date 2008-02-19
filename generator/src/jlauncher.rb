@@ -127,8 +127,8 @@ class VariableAccess < ValueEvaluator
     elsif name =~ /\Aprepdef:/
       PreProcessorDefineAccess.new( :name => name[ 8...(name.length) ] )
     elsif name =~ /\Areg:/
-      ds = DynString.new( name[ 4...(name.length) ] ) 
-      WindowsRegistryAccess.new( :definition => ds )
+      s = name[ 4...(name.length) ] 
+      WindowsRegistryAccess.new( :definition => s )
     else
       realname = ( name =~ /\Avar:/ ) ? name[ 4...(name.length) ] : name
       VariableAccess.new( :name => realname )
@@ -170,50 +170,50 @@ class WindowsRegistryAccess < VariableAccess
 
   attr_reader :main_key, :sub_key, :value_id
   
-  def definition=( defin )
+  def definition=( defi )
+    defin = DynString.new( defi )
     first = defin.first
     last  = defin.last
     raise "the name of the main key must ATM be constant. If this is a problem, please file a change request" unless
       String === first 
-    raise "main key could not be figured out from #{first}" unless first =~ /\A\\\\([A-Z_]+)\\/
+    raise "main key could not be figured out from #{defi}" unless first =~ /\A\\\\([A-Z_]+)\\/
     @main_key = $1
     first = first[ (@main_key.size + 3)...(first.size) ]
     
     values = defin[ 1...(defin.size) ]
-    values.collect! { |v| 
-      d = DynString.new( v )
-      d.size == 1 && String === d.first ? d.first : d
+    values.collect! { |v|
+      v.respond_to?( :size ) && v.respond_to?( :first ) && v.size == 1 && String === v.first ? v.first : v
     }
     values.insert( 0, first ) unless first.empty?
-    
-    puts "valuet"
-    values.each { |it| puts it}
     
     indexer_start_index = values.index_of { |v| String === v && v.include?( ?[ ) }
     
     # look up the element in "values" that has the starting [. Split at that. Put the previous
     # parts into subkey parts. put the rest into value_id_parts ( remove the closing ] )    
-    raise "registry value reference #{defin} does not contain proper indexer for querying a registry value" unless indexer_start_index 
+    raise "registry value reference #{defi} does not contain proper indexer for querying a registry value" unless indexer_start_index 
           
     str = values[ indexer_start_index ]
     parts = str.split( '[' )
-    raise "invalid registry entry #{defin} : two starting [s in #{str}" unless parts.size == 2
+    raise "invalid registry entry #{defi} : two starting [s in #{str}" unless parts.size == 2
     
     values[ indexer_start_index ] = parts.first
     values.insert( indexer_start_index + 1, parts.last )
 
     last = values.last
-    raise "registry value reference #{defin} does not contain proper indexer for querying a registry value" unless String === last && last[ last.size - 1 ] == ?]
+    raise "registry value reference #{defi} does not contain proper indexer for querying a registry value" unless String === last && last[ last.size - 1 ] == ?]
     last = last.chop
+    
     if last.empty?
       values.pop
     else
       values.last = last
     end
     
-    @sub_key  = values[ 0..indexer_start_index ]
-    @value_id = values[ (indexer_start_index + 1)...(values.size) ]
-        
+    delete_empties = lambda { |item| item.respond_to?(:size) && item.size == 0 }
+    
+    @sub_key  = values[ 0..indexer_start_index ].delete_if &delete_empties 
+    @value_id = values[ (indexer_start_index + 1)...(values.size) ].delete_if &delete_empties
+            
   end
   
   def to_s
@@ -247,7 +247,7 @@ class DynString
         
         c = definition[ i ]
         if c == ?\\ 
-          if ( i + 1 <= definition.length - 1 ) && [ ?/, ?$ ].include?( definition[ i + 1 ] ) 
+          if ( i + 1 <= definition.length - 1 ) # && [ ?/, ?$ ].include?( definition[ i + 1 ] ) 
             s << definition[ i + 1 ]
             i += 2
           else
@@ -299,7 +299,7 @@ class DynString
                 
                 parts << ValueEvaluator.create( varref )
                 
-                i = end_index + 1                  
+                i = end_index + 1
               else
                 s << definition[ i ]
                 i += 1
@@ -339,6 +339,10 @@ class DynString
     else
       raise NoMethodError, "undefined method `#{sym}' for #{self}"
     end
+  end
+
+  def respond_to?( sym )
+    super( sym ) || @parts.respond_to?( sym )
   end
 
   def to_s
