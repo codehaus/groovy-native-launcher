@@ -96,6 +96,7 @@ when WINDOWS
   
   $cppFlags = "-nologo -c -MD -I #{javaHome}\\include -I #{javaHome}\\include\\win32"
   #$cppFlags += ' -D_cwcompat'
+  $cppFlags += " -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN "
   def compileCommand( target , sources)
     "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"
   end
