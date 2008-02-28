@@ -87,6 +87,10 @@
 
 #include "jvmstarter.h"
 
+#if !defined( PATH_MAX )
+#  define PATH_MAX MAX_PATH
+#endif
+  
 #define GROOVY_CONF "groovy-starter.conf"
 
 static jboolean _groovy_launcher_debug = JNI_FALSE ;
@@ -547,6 +551,44 @@ int rest_of_main( int argc, char** argv ) {
   // look up the first terminating launchee param and only search for --classpath and --conf up to that   
   numParamsToCheck = jst_findFirstLauncheeParamIndex( args, numArgs, (char**)terminatingSuffixes, parameterInfos ) ;
 
+  // append script.name w/ full path info as a jvm sys prop (groovy requires it)
+  // TODO: once this is resolved, reassign http://jira.codehaus.org/browse/GROOVY-2636 to Jochen so he can 
+  //       comment on whether this type of thing should be taken care of in the launcher at all
+  if ( numArgs > 0 && numParamsToCheck < numArgs ) {
+    char scriptNameOut[ PATH_MAX + 1 ] ;
+    char *scriptNameIn = args[ numParamsToCheck ],
+         *scriptNameDyn = NULL ;
+#if defined( _WIN32 )
+    char *lpFilePart = NULL ;
+    DWORD pathLen = GetFullPathName( scriptNameIn, MAX_PATH, scriptNameOut, &lpFilePart ) ;
+    
+    if ( pathLen == 0 ) {
+      fprintf( stderr, "error: failed to get full path name for script %s\n", scriptNameIn ) ;
+      jst_printWinError( GetLastError() ) ;
+      goto end ;      
+    } else if ( pathLen > PATH_MAX ) {
+      // FIXME - reserve a bigger buffer (size pathLen) and get the dir name into that
+      fprintf( stderr, "launcher bug: full path name of %s is too long to hold in the reserved buffer (%d/%d). Please report this bug.\n", scriptNameIn, (int)pathLen, PATH_MAX ) ;
+      goto end ;
+    }
+#else
+    if ( !realpath( scriptNameIn, scriptNameOut ) ) {
+      fprintf( stderr, strerror( errno ) ) ;
+      goto end ;
+    }
+#endif
+
+    if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
+                             scriptNameDyn = jst_append( NULL, NULL, "-Dscript.name=", scriptNameOut, NULL ) ) ) goto end ;
+    
+    if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
+                                                (int)extraJvmOptionsCount++, 
+                                                &extraJvmOptionsSize, 
+                                                scriptNameDyn, 
+                                                NULL ) ) ) goto end ;
+    
+  }
+  
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // cygwin compatibility code begin
