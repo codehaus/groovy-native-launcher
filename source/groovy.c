@@ -571,9 +571,12 @@ int rest_of_main( int argc, char** argv ) {
       goto end ;
     }
 #else
+    // TODO: how to get the path name of a file that does not necessarily exist on *nix? 
+    //       realpath seems to raise an error for a nonexistent file. 
     if ( !realpath( scriptNameIn, scriptNameOut ) ) {
-      fprintf( stderr, strerror( errno ) ) ;
-      goto end ;
+//      fprintf( stderr, "error: could not get full path of %s\n%s\n", scriptNameIn, strerror( errno ) ) ;
+//      goto end ;
+      strcpy( scriptNameOut, scriptNameIn ) ;
     }
 #endif
 
