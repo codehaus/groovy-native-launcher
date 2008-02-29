@@ -88,6 +88,13 @@ class ParsingTest < Test::Unit::TestCase
     assert_equal( 1, s.size )
     assert_equal( ?\\, s[ 0 ] )
   end
+
+  def test_compiler_define
+    definition = { 
+      'preprocessor filter' => '',
+      
+    } 
+  end
   
 end
 

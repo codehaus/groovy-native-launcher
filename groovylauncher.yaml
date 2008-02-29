@@ -97,7 +97,9 @@ xgroovy :
       # this means that on other platforms than windows, if the named c macro (compiler define)
       # is defined at compile time, use that (so you can e.g. give -DMYAPPHOME="/usr/local/lib/myapp".
       # You may supply several values for platform specifier, separated by ||. You may also use negation, like below.
-      - platform        : !windows
+      # Other supported platforms are referred to by osx, linux, solaris. 
+      # Any other values are included as they are (so you can e.g. write !defined(FOO)  ) 
+      - preprocessor filter : !windows
         # this is an example of referencing a preprocessor define
         value : "${prepdef:GROOVY_HOME}"
       # registry values are only defined on windows, so it is unnecessary to supply "platform" here. You may if you want.

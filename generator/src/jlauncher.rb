@@ -77,10 +77,10 @@ class ValueEvaluator
       when Hash
         actual_value = value[ 'value' ] 
         actual_val_d = DynString.new( actual_value ) if actual_value
-        platform     = value[ 'platform' ]
-        comp_def     = value[ 'compiler define' ]
+        prep_filter  = value[ 'preprocessor filter' ]
         relative_loc = value[ 'relative to executable location' ]
-        if platform
+        if prep_filter
+          v = value.dup
           
         elsif comp_def
           
@@ -96,18 +96,27 @@ class ValueEvaluator
   
 end
 
-# represents a c code section that is only present on a certain platform, i.e.
+# represents a c code section that is only present depending on a preprocessor filter, i.e.
 # separated by an appropriate preprocessor if, e.g. #if defined( _WIN32 ) || defined( __APPLE__ )
-class PlatformDependentValueEvaluator
+class PreprocessorFilteredValueEvaluator
   WINDOWS = '_WIN32'.freeze
   OSX     = '__APPLE__'.freeze
   LINUX   = '__linux__'.freeze
   SOLARIS = '__sun__'.freeze
   
-  attr_accessor :platforms
+  NAME2DEFINE = {
+    'windows' => WINDOWS,
+    'osx'     => OSX,
+    'linux'   => LINUX,
+    'solaris' => SOLARIS
+  }
+  
+  attr_reader :filter
 
-  def platform=( p )
-    self.platforms = [ p ]
+  def filter=( p )
+    s = p.dup
+    NAME2DEFINE.each_pair { |key,value| s.gsub!( key, "defined( #{value} )" ) }
+    @filter = s
   end
   
   # the evaluator this evaluator wraps (w/ platform dependence)
@@ -229,6 +238,14 @@ class FileSeparator
   end
 end
 
+class PathSeparator
+  include Singleton
+  def to_s
+    'PATH_SEP'
+  end
+end
+
+
 # represents a string constructed in a c program from parts
 # Note that escaping is a little funny to make it more convenient to write the strings.
 # The catch is that \ only escapes / and $, not \. Thus is is not possible to have a literal string
@@ -311,6 +328,8 @@ class DynString
               end
               parts << FileSeparator.instance
               i += 1
+            when ?:
+              # TODO
           end
           
         else
