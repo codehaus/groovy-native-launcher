@@ -415,7 +415,9 @@ int rest_of_main( int argc, char** argv ) {
        *groovyHome      = NULL, 
        *groovyDHome     = NULL, // the -Dgroovy.home=something to pass to the jvm
        *classpath       = NULL,
+       *classpath_dyn  = NULL,
        *temp ;
+
   void** dynReservedPointers = NULL ; // free all reserved pointers at at end of func
   size_t dreservedPtrsSize   = 0 ;
         
@@ -444,16 +446,13 @@ int rest_of_main( int argc, char** argv ) {
                                     ( strcmp( argv[ 1 ], "--help" ) == 0 )
                                   ) ? JNI_TRUE : JNI_FALSE ; 
 
-  _groovy_launcher_debug = ( getenv( "__JLAUNCHER_DEBUG" ) ? JNI_TRUE : JNI_FALSE ) ;
-
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // cygwin compatibility code begin
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   
-  char *classpath_dyn  = NULL,
-       *scriptpath_dyn = NULL ;
+  char *scriptpath_dyn = NULL ;
   HINSTANCE cygwinDllHandle = LoadLibrary( "cygwin1.dll" ) ;
 
   if ( cygwinDllHandle ) {
@@ -477,6 +476,8 @@ int rest_of_main( int argc, char** argv ) {
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 
+  _groovy_launcher_debug = ( getenv( "__JLAUNCHER_DEBUG" ) ? JNI_TRUE : JNI_FALSE ) ;
+  
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   { // deduce which class name to pass as --main param. In other words, this here supports all different groovy executables. 
     // The execubale acts as a different groovy executable when it's renamed / symlinked to. 
@@ -552,8 +553,6 @@ int rest_of_main( int argc, char** argv ) {
   numParamsToCheck = jst_findFirstLauncheeParamIndex( args, numArgs, (char**)terminatingSuffixes, parameterInfos ) ;
 
   // append script.name w/ full path info as a jvm sys prop (groovy requires it)
-  // TODO: once this is resolved, reassign http://jira.codehaus.org/browse/GROOVY-2636 to Jochen so he can 
-  //       comment on whether this type of thing should be taken care of in the launcher at all
   if ( numArgs > 0 && numParamsToCheck < numArgs ) {
     char scriptNameOut[ PATH_MAX + 1 ] ;
     char *scriptNameIn = args[ numParamsToCheck ],
@@ -616,6 +615,7 @@ int rest_of_main( int argc, char** argv ) {
     classpath = jst_valueOfParam( args, &numArgs, &numParamsToCheck, temp, JST_DOUBLE_PARAM, JNI_TRUE, &error ) ;
     if ( error ) goto end ;
     if ( classpath ) {
+      int cpind = jst_indexOfParam( args, numParamsToCheck, cpaliases[ i ] ) ;
 
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
@@ -625,12 +625,16 @@ int rest_of_main( int argc, char** argv ) {
       // - - - - - - - - - - - - -
       // cygwin compatibility: path conversion from cygwin to win format
       // - - - - - - - - - - - - -
-      int cpind = jst_indexOfParam( args, numParamsToCheck, cpaliases[ i ] ) ;
-            
+      size_t bufSize ;
+      
       classpath_dyn = jst_convertCygwin2winPathList( classpath ) ; 
       if ( !classpath_dyn ) goto end ;
-      
+      bufSize = strlen( classpath_dyn ) + 1 ;
+      if ( !( classpath_dyn = jst_append( classpath_dyn, &bufSize, classpath_dyn, JST_PATH_SEPARATOR ".", NULL ) ) ||
+           !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, classpath_dyn ) ) goto end ;
+
       args[ cpind ] = classpath = classpath_dyn ;
+
 #     endif
 
 // cygwin compatibility end
@@ -643,10 +647,13 @@ int rest_of_main( int argc, char** argv ) {
 
   if ( !classpath ) classpath = getenv( "CLASSPATH" ) ;
 
+  // add "." to the end of the used classpath. This is what the script launcher also does
   if ( classpath ) {
-    extraProgramOptions[ 5 ] = classpath ;
+    if ( !( classpath_dyn = jst_append( NULL, NULL, classpath, JST_PATH_SEPARATOR ".", NULL ) ) ||
+         !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, classpath_dyn ) ) goto end ;
+    extraProgramOptions[ 5 ] = classpath_dyn ;
   } else {
-    extraProgramOptions[ 4 ] = NULL ; // omit the --classpath param, extraProgramOptions is a NULL terminated char**
+    extraProgramOptions[ 5 ] = "." ;
   }
 
 
@@ -769,14 +776,13 @@ end:
   // cygwin compatibility
   // - - - - - - - - - - - - -
   if ( cygwinDllHandle ) FreeLibrary( cygwinDllHandle ) ;
-  if ( classpath_dyn   ) free( classpath_dyn ) ;
   if ( scriptpath_dyn  ) free( scriptpath_dyn ) ; 
 #endif
 
 // cygwin compatibility end
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
-
+  
   jst_freeAll( &dynReservedPointers ) ;
   
   return rval ;
