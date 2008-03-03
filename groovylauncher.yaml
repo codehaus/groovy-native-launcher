@@ -219,7 +219,7 @@ xgroovy :
         - --define
       type    : separate value
       pass to : none
-      set jvm option : -D{value}
+      set jvm option : -D${value}
       help text : use the given groovy conf file
     - name : --conf
       # possible values: "separate value", "prefix param", "loner"

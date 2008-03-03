@@ -93,8 +93,6 @@
   
 #define GROOVY_CONF "groovy-starter.conf"
 
-static jboolean _groovy_launcher_debug = JNI_FALSE ;
-
 /** If groovy-starter.jar exists, returns path to that. If not, the first jar whose name starts w/ "groovy-x" (where x is a digit) is returned.
  * The previous is appropriate for groovy <= 1.0, the latter for groovy >= 1.1
  * Returns NULL on error, otherwise dynallocated string (which caller must free). */
@@ -186,7 +184,7 @@ char* getGroovyHome() {
   if ( !_ghome ) {
     char *ghome = getenv( "GROOVY_HOME" ) ;
     if ( ghome ) {
-      if ( _groovy_launcher_debug ) {
+      if ( _jst_debug ) {
         fprintf( stderr, "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME=%s\n", ghome ) ;
       }
       validGroovyHome = isValidGroovyHome( ghome ) ;
@@ -199,7 +197,7 @@ char* getGroovyHome() {
     } else {
       fprintf( stderr, "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n" ) ;
     }
-  } else if ( _groovy_launcher_debug ) {
+  } else if ( _jst_debug ) {
     fprintf( stderr, "debug: groovy home located based on executable location: %s\n", _ghome ) ;
   }
 
@@ -446,12 +444,16 @@ int rest_of_main( int argc, char** argv ) {
                                     ( strcmp( argv[ 1 ], "--help" ) == 0 )
                                   ) ? JNI_TRUE : JNI_FALSE ; 
 
+  // _jst_debug is a global debug flag
+  if ( getenv( "__JLAUNCHER_DEBUG" ) ) _jst_debug = JNI_TRUE ;
+
+  
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // cygwin compatibility code begin
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
-  
+  {  
   char *scriptpath_dyn = NULL ;
   HINSTANCE cygwinDllHandle = LoadLibrary( "cygwin1.dll" ) ;
 
@@ -469,14 +471,14 @@ int rest_of_main( int argc, char** argv ) {
     }
     cygwin_initfunc() ;
   } // if cygwin1.dll is not found, just carry on. It means we're not inside cygwin shell and don't need to care about cygwin path conversions
-
+  }
 #endif
 
 // cygwin compatibility end
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 
-  _groovy_launcher_debug = ( getenv( "__JLAUNCHER_DEBUG" ) ? JNI_TRUE : JNI_FALSE ) ;
+  //_groovy_launcher_debug = ( getenv( "__JLAUNCHER_DEBUG" ) ? JNI_TRUE : JNI_FALSE ) ;
   
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   { // deduce which class name to pass as --main param. In other words, this here supports all different groovy executables. 
@@ -522,13 +524,18 @@ int rest_of_main( int argc, char** argv ) {
         displayHelp = JNI_FALSE ;
         extraProgramOptions[ 1 ] = "org.codehaus.groovy.antlr.java.Java2GroovyMain" ; 
         parameterInfos = (JstParamInfo*)java2groovyParameters ;
-      } else {
+      } else if ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) {
         displayHelp = JNI_FALSE ;
         parameterInfos = (JstParamInfo*)noParameters ;
-        extraProgramOptions[ 1 ] = 
-          ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) ? "groovy.ui.Console" :
-          ( ( strcmp( execName, "graphicsPad"   ) == 0 ) || strcmp( execName, "graphicspad" ) ) ? "groovy.swing.j2d.GraphicsPad" :
-          NULL ;
+        extraProgramOptions[ 1 ] = "groovy.ui.Console" ;
+      } else if ( ( strcmp( execName, "graphicsPad"   ) == 0 ) || strcmp( execName, "graphicspad" ) == 0 ) {
+        displayHelp = JNI_FALSE ;
+        parameterInfos = (JstParamInfo*)noParameters ;
+        extraProgramOptions[ 1 ] = "groovy.swing.j2d.GraphicsPad" ;
+      } else { // default to being "groovy"
+        if ( numArgs == 0 ) displayHelp = JNI_TRUE ;
+        extraProgramOptions[ 1 ] = "groovy.ui.GroovyMain" ;
+        parameterInfos = (JstParamInfo*)groovyParameters ;        
       }
     }
       
@@ -618,13 +625,13 @@ int rest_of_main( int argc, char** argv ) {
     classpath = jst_valueOfParam( args, &numArgs, &numParamsToCheck, temp, JST_DOUBLE_PARAM, JNI_TRUE, &error ) ;
     if ( error ) goto end ;
     if ( classpath ) {
-      int cpind = jst_indexOfParam( args, numParamsToCheck, cpaliases[ i ] ) ;
 
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // cygwin compatibility code begin
 
 #     if defined ( _WIN32 ) && defined ( _cwcompat )
+      int cpind = jst_indexOfParam( args, numParamsToCheck, cpaliases[ i ] ) ;
       // - - - - - - - - - - - - -
       // cygwin compatibility: path conversion from cygwin to win format
       // - - - - - - - - - - - - -

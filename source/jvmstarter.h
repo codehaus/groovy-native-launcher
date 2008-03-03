@@ -38,7 +38,10 @@
 #  define JST_PATH_SEPARATOR ":"
 
 #endif
-        
+
+/** set to true at startup to print debug information about what the launcher is doing to stdout */
+jboolean _jst_debug ;    
+    
 typedef enum { 
   /** a standalone parameter, such as -v */
   JST_SINGLE_PARAM,
@@ -52,7 +55,8 @@ typedef struct {
   char          *name ;
   JstParamClass type ;
   /** If != 0, the actual parameters followed by this one are passed on to the launchee. */
-  int           terminating ;  
+  int           terminating ;
+  
 } JstParamInfo ;
 
 typedef enum {

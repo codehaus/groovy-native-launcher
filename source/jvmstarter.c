@@ -122,7 +122,7 @@
    
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static jboolean _jst_debug = JNI_FALSE;
+jboolean _jst_debug = JNI_FALSE ;
 
 // The pointer to the JNI_CreateJavaVM function needs to be called w/ JNICALL calling convention. Using this typedef
 // takes care of that.
@@ -697,6 +697,143 @@ extern int jst_findFirstLauncheeParamIndex( char** args, int numArgs, char** ter
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+// Used to hold dyn allocated jvm options
+typedef struct {
+  JavaVMOption* jvmOptions ;
+  // number of options present in the above array
+  int           optionsCount ; 
+  // the size of the above array (in number of JavaVMOptions that can be fit in)
+  int           optionsSize ; 
+  
+} JSTJVMOptionHolder ;
+
+// TODO: yeah, the signature of this one's ugly. It will be refactored to be prettier.
+
+/** Returns 0 on error. 
+ * @param inLauncheeOption pointer to a jboolean*. Will contain classifications of params on successfull execution. 
+ * @param jvmSelectStrategy output param. Value set only if param affecting this is given on the commend line
+ * */
+static jboolean jst_classifyParameters( char**              parameters, 
+                                        JstParamInfo*       paramInfos, 
+                                        int                 numParametersToCheck, 
+                                        int                 numOfActualParameters, 
+                                        ClasspathHandling   classpathHandling,
+                                        JavaHomeHandling    javahomeHandling,
+                                        // output
+                                        char**              javaHome,
+                                        char**              userClasspath,
+                                        jboolean**          isLauncheeOption, 
+                                        JVMSelectStrategy*  jvmSelectStrategy, 
+                                        JSTJVMOptionHolder* jvmOptions ) {
+
+  int i ;
+    
+  // calloc effectively sets all elems to JNI_FALSE.  
+  if ( numOfActualParameters > 0 && !( *isLauncheeOption = jst_calloc( numOfActualParameters, sizeof( jboolean ) ) ) ) return JNI_FALSE ;
+  
+  if ( numParametersToCheck == 0 ) return JNI_TRUE ;
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+  // classify the arguments as jvm or launchee params. Some are passed to neither as they are handled in this func.
+  // An example is the -client / -server option that selects the type of jvm
+  for ( i = 0 ; i < numParametersToCheck ; i++ ) {
+    JstParamInfo   *paramInfo ;
+    char* paramStr = parameters[ i ] ;
+    size_t len = strlen( paramStr ) ;
+
+    if ( strcmp( "-cp",         paramStr ) == 0 
+      || strcmp( "-classpath",  paramStr ) == 0
+      || strcmp( "--classpath", paramStr ) == 0
+      ) {
+      if ( i == ( numOfActualParameters - 1 ) ) { // check that this is not the last param as it requires additional info
+        fprintf( stderr, "erroneous use of %s\n", paramStr ) ;
+        return JNI_FALSE ;
+      }
+      if ( ( classpathHandling ) & JST_CP_PARAM_TO_APP ) {
+        (*isLauncheeOption)[ i ]     = JNI_TRUE ;
+        (*isLauncheeOption)[ i + 1 ] = JNI_TRUE ;
+      } 
+      if ( classpathHandling & JST_CP_PARAM_TO_JVM ) *userClasspath = paramStr ;
+      i++ ;
+      continue ;
+    }
+
+    // check the param infos for params particular to the app we are launching
+    for ( paramInfo = paramInfos ; paramInfo->name ; paramInfo++ ) {
+      switch ( paramInfo->type ) {
+        case JST_SINGLE_PARAM :
+          if ( strcmp( paramStr, paramInfo->name ) == 0 ) {
+            (*isLauncheeOption)[ i ] = JNI_TRUE ;
+            goto next_arg ;
+          }
+          break ;
+        case JST_DOUBLE_PARAM :
+          if ( strcmp( paramStr, paramInfo->name ) == 0 ) {
+            (*isLauncheeOption)[ i ] = JNI_TRUE ;
+            if ( i == ( numOfActualParameters - 1 ) ) { // check that this is not the last param as it requires additional info
+              fprintf( stderr, "erroneous use of %s\n", paramStr ) ;
+              return JNI_FALSE ;
+            }
+            (*isLauncheeOption)[ ++i ] = JNI_TRUE ;
+            goto next_arg ;
+          }
+          break ;
+        case JST_PREFIX_PARAM :
+          if ( memcmp( paramStr, paramInfo->name, len ) == 0 ) {
+            (*isLauncheeOption)[ i ] = JNI_TRUE ;
+            goto next_arg ;            
+          }
+          break;
+      } // switch
+    } // for j
+
+    if ( strcmp( "-server", paramStr ) == 0 ) { // jvm client or server
+      *jvmSelectStrategy = JST_TRY_SERVER_ONLY ;
+      continue ;
+    } else if ( strcmp( "-client", paramStr ) == 0 ) {
+      *jvmSelectStrategy = JST_TRY_CLIENT_ONLY ;
+      continue ;
+    } else if ( ( javahomeHandling & JST_ALLOW_JH_PARAMETER ) &&  
+               ( ( strcmp( "-jh",        paramStr ) == 0 ) ||
+                 ( strcmp( "--javahome", paramStr ) == 0 ) 
+               )
+              ) {
+        if ( i == ( numOfActualParameters - 1 ) ) { // check that this is not the last param as it requires additional info
+          fprintf( stderr, "erroneous use of %s\n", paramStr ) ;
+          return JNI_FALSE ;
+        }
+        *javaHome = parameters[ ++i ] ;
+    } else { // jvm option
+      // add these to a separate array and add these last. This way the ones given by the user on command line override
+      // the ones set programmatically or from JAVA_OPTS
+
+      if ( ! ( jvmOptions->jvmOptions = appendJvmOption( jvmOptions->jvmOptions, 
+                                                         jvmOptions->optionsCount++, 
+                                                         &(jvmOptions->optionsSize), 
+                                                         paramStr, 
+                                                         NULL ) ) ) return JNI_FALSE ;
+    }
+// this label is needed to be able to break out of nested for and switch (by jumping here w/ goto)
+next_arg: 
+   ;  // at least w/ ms compiler, the tag needs a statement after it before the closing brace. Thus, an empty statement here.
+  } 
+
+  // print debug if necessary
+  if ( _jst_debug ) { 
+    if ( numOfActualParameters > 0 ) {
+      fprintf( stderr, "DEBUG: param classication\n" ) ;
+      for ( i = 0 ; i < numOfActualParameters ; i++ ) {
+        fprintf( stderr, "  %s\t: %s\n", parameters[ i ], ((*isLauncheeOption)[ i ] || i >= numParametersToCheck ) ? "launcheeparam" : "non launchee param" ) ;  
+      }
+    } else {
+      fprintf( stderr, "DEBUG: no parameters\n" ) ;
+    }
+  }
+  
+  return JNI_TRUE ;
+  
+}
+
 /** See the header file for information.
  */
 extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
@@ -706,19 +843,20 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   JNIEnv         *env    = NULL;
   JavaDynLib     javaLib;
   jint           result ;
-  JstParamInfo   *paramInfo ;
   JavaVMInitArgs vm_args;
-  JavaVMOption   *jvmOptions = NULL,
-                 // the options assigned by the user on cmdline are given last as that way they override the ones set before
-                 *userJvmOptions  = NULL ; 
-  size_t         len,
+  // TODO: put this inside a JSTJVMOptionHolder 
+  JavaVMOption   *jvmOptions = NULL ;
+  // the options assigned by the user on cmdline are given last as that way they override the ones set previously. 
+  // e.g. if you start java -Xmx100m -Xmx200m ... -> you end up w/ max mem of 200m
+  JSTJVMOptionHolder userJvmOptions ;
+           
                  // jvm opts from command line
-                 userJvmOptionsSize  = 5, // initial size
+                 // userJvmOptionsSize  = 5, // initial size
                  // all jvm options combined
-                 jvmOptionsSize = 5 ;
+  size_t         jvmOptionsSize = 5 ;
   int            i, j, 
                  launcheeParamBeginIndex = launchOptions->numArguments,
-                 userJvmOptionsCount  = 0,
+                 //userJvmOptionsCount  = 0,
                  jvmOptionsCount      = 0 ;
 
   jclass       launcheeMainClassHandle  = NULL;
@@ -737,122 +875,48 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   char      *javaHome     = NULL, 
             *toolsJarD    = NULL,
             *toolsJarFile = NULL ;
+
   JVMSelectStrategy jvmSelectStrategy = launchOptions->jvmSelectStrategy ;
 
-  if( getenv( "__JLAUNCHER_DEBUG" ) ) _jst_debug = JNI_TRUE;
-            
+  
+  userJvmOptions.jvmOptions = NULL ;
+  userJvmOptions.optionsCount = 0 ;
+  userJvmOptions.optionsSize  = 5 ; // initial size
+  
   javaLib.creatorFunc  = NULL ;
   javaLib.dynLibHandle = NULL ;  
 
-  // calloc effectively sets all elems to JNI_FALSE.  
-  if ( launchOptions->numArguments ) isLauncheeOption = jst_calloc( launchOptions->numArguments, sizeof( jboolean ) ) ;
-
-  if ( launcheeParamBeginIndex && !isLauncheeOption ) goto end ;
+  
+  // TODO: partition into three parts: 
+  //       - classify parameters
+  //         
+  //       - start jvm
+  //         - initialize main String[] parameter (and the contained strings)
+  //         - free resources that are no longer necessary (dyn allocated mem to hold jvm startup stuff)
+  //       - call main method
+  //       - clean up (shut down jvm etc)
   
   
-  // find out the argument index after which all the params are launchee (prg being launched) params 
+  launcheeParamBeginIndex = jst_findFirstLauncheeParamIndex( launchOptions->arguments, launchOptions->numArguments, launchOptions->terminatingSuffixes, launchOptions->paramInfos ) ;  
 
-  launcheeParamBeginIndex = jst_findFirstLauncheeParamIndex( launchOptions->arguments, launchOptions->numArguments, launchOptions->terminatingSuffixes, launchOptions->paramInfos ) ;
-
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
-  // classify the arguments as jvm or launchee params. Some are passed to neither as they are handled in this func.
-  // An example is the -client / -server option that selects the type of jvm
-  for ( i = 0 ; i < launcheeParamBeginIndex ; i++ ) {
-    char* argument = launchOptions->arguments[ i ] ;
-    len = strlen( argument ) ;
-
-    if ( strcmp("-cp",         argument ) == 0 
-      || strcmp("-classpath",  argument ) == 0
-      || strcmp("--classpath", argument ) == 0
-      ) {
-      if(i == (launchOptions->numArguments - 1)) { // check that this is not the last param as it requires additional info
-        fprintf(stderr, "erroneous use of %s\n", argument);
-        goto end;
-      }
-      if((launchOptions->classpathHandling) & JST_CP_PARAM_TO_APP) {
-        isLauncheeOption[i]     = JNI_TRUE;
-        isLauncheeOption[i + 1] = JNI_TRUE;
-      } 
-      if((launchOptions->classpathHandling) & JST_CP_PARAM_TO_JVM) userClasspath = argument;
-      i++;
-      continue;
-    }
-
-    // check the param infos for params particular to the app we are launching
-    for ( paramInfo = launchOptions->paramInfos ; paramInfo->name ; paramInfo++ ) {
-      switch ( paramInfo->type ) {
-        case JST_SINGLE_PARAM :
-          if ( strcmp( argument, paramInfo->name ) == 0 ) {
-            isLauncheeOption[ i ] = JNI_TRUE;
-            goto next_arg ;
-          }
-          break ;
-        case JST_DOUBLE_PARAM :
-          if ( strcmp( argument, paramInfo->name ) == 0 ) {
-            isLauncheeOption[i] = JNI_TRUE ;
-            if ( i == ( launchOptions->numArguments - 1 ) ) { // check that this is not the last param as it requires additional info
-              fprintf( stderr, "erroneous use of %s\n", argument ) ;
-              goto end ;
-            }
-            isLauncheeOption[ ++i ] = JNI_TRUE ;
-            goto next_arg ;
-          }
-          break ;
-        case JST_PREFIX_PARAM :
-          if ( memcmp( argument, paramInfo->name, len ) == 0 ) {
-            isLauncheeOption[i] = JNI_TRUE ;
-            goto next_arg ;            
-          }
-          break;
-      } // switch
-    } // for j
-
-    if ( strcmp( "-server", argument) == 0 ) { // jvm client or server
-      jvmSelectStrategy = JST_TRY_SERVER_ONLY ;
-      continue ;
-    } else if ( strcmp("-client", argument) == 0 ) {
-      jvmSelectStrategy = JST_TRY_CLIENT_ONLY ;
-      continue ;
-    } else if( ((launchOptions->javahomeHandling) & JST_ALLOW_JH_PARAMETER) &&  
-               ( (strcmp("-jh", argument) == 0)
-              || (strcmp("--javahome", argument) == 0) 
-               )
-              ) {
-        if(i == (launchOptions->numArguments - 1)) { // check that this is not the last param as it requires additional info
-          fprintf(stderr, "erroneous use of %s\n", argument);
-          goto end;
-        }
-        javaHome = launchOptions->arguments[++i];
-    } else { // jvm option
-      // add these to a separate array and add these last. This way the ones given by the user on command line override
-      // the ones set programmatically or from JAVA_OPTS
-
-      if ( ! ( userJvmOptions = appendJvmOption( userJvmOptions, 
-                                                 userJvmOptionsCount++, 
-                                                 &userJvmOptionsSize, 
-                                                 argument, 
-                                                 NULL ) ) ) goto end ;
-    }
-// this label is needed to be able to break out of nested for and switch (by jumping here w/ goto)
-next_arg: 
-   ;  // at least w/ ms compiler, the tag needs a statement after it before the closing brace. Thus, an empty statement here.
-  } 
-
-  // print debug if necessary
-  if ( _jst_debug ) { 
-    if ( launchOptions->numArguments != 0 ) {
-      fprintf( stderr, "DEBUG: param classication\n" ) ;
-      for ( i = 0 ; i < launchOptions->numArguments ; i++ ) {
-        fprintf( stderr, "  %s\t: %s\n", launchOptions->arguments[i], (isLauncheeOption[i] || i >= launcheeParamBeginIndex) ? "launcheeparam" : "non launchee param" ) ;  
-      }
-    } else {
-      fprintf( stderr, "DEBUG: no parameters\n" ) ;
-    }
-  }
+  if ( !jst_classifyParameters( launchOptions->arguments, 
+                                launchOptions->paramInfos, 
+                                launcheeParamBeginIndex, 
+                                launchOptions->numArguments, 
+                                launchOptions->classpathHandling, 
+                                launchOptions->javahomeHandling,
+                                // output
+                                &javaHome,
+                                &userClasspath,
+                                &isLauncheeOption, 
+                                &jvmSelectStrategy, 
+                                &userJvmOptions 
+                              ) 
+     ) goto end ;
   
-  // end classifying arguments
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
-
+        // jst_classifyParameters( char** parameters,        JstParamInfo* paramInfos, int numParametersToCheck, int numOfActualParameters,  int classpathHandling,             jboolean** isLauncheeOption, int* jvmSelectStrategy, JSTJVMOptionHolder* jvmOptions ) {
+  
+  
   // handle java home
   // it is null if it was not given as a param
   if ( !javaHome ) javaHome = launchOptions->javaHome ;
@@ -871,7 +935,7 @@ next_arg:
 
   // count the params going to the launchee so we can construct the right size java String[] as param to the java main being invoked
   for ( i = 0 ; i < launchOptions->numArguments ; i++ ) {
-    if ( isLauncheeOption[i] || i >= launcheeParamBeginIndex ) {
+    if ( isLauncheeOption[ i ] || i >= launcheeParamBeginIndex ) {
       isLauncheeOption[ i ] = JNI_TRUE ;
       launcheeParamCount++ ;
     }
@@ -995,13 +1059,13 @@ next_arg:
   }
     
   // jvm options given on the command line by the user
-  for ( i = 0 ; i < userJvmOptionsCount ; i++ ) {
+  for ( i = 0 ; i < userJvmOptions.optionsCount ; i++ ) {
     
     if ( !( jvmOptions = appendJvmOption( jvmOptions, 
                                           jvmOptionsCount++, 
                                           &jvmOptionsSize, 
-                                          userJvmOptions[ i ].optionString, 
-                                          userJvmOptions[ i ].extraInfo ) ) ) goto end ; 
+                                          (userJvmOptions.jvmOptions)[ i ].optionString, 
+                                          (userJvmOptions.jvmOptions)[ i ].extraInfo ) ) ) goto end ; 
   }
   
   if( _jst_debug ) {
@@ -1155,7 +1219,7 @@ end:
   if ( jvmOptions       ) free( jvmOptions ) ;
   if ( toolsJarFile     ) free( toolsJarFile ) ;
   if ( toolsJarD        ) free( toolsJarD ) ;
-  if ( userJvmOptions   ) free( userJvmOptions ) ;
+  if ( userJvmOptions.jvmOptions   ) free( userJvmOptions.jvmOptions ) ;
   if ( userJvmOptsS     ) free( userJvmOptsS ) ;
   
   return rval ;
