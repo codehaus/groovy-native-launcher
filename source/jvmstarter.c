@@ -703,35 +703,37 @@ typedef struct {
   // number of options present in the above array
   int           optionsCount ; 
   // the size of the above array (in number of JavaVMOptions that can be fit in)
-  int           optionsSize ; 
+  size_t        optionsSize ; 
   
 } JSTJVMOptionHolder ;
 
+
 // TODO: yeah, the signature of this one's ugly. It will be refactored to be prettier.
 
-/** Returns 0 on error. 
+/** Returns -1 on error, otherwise the count of launchee parameters. 
  * @param inLauncheeOption pointer to a jboolean*. Will contain classifications of params on successfull execution. 
  * @param jvmSelectStrategy output param. Value set only if param affecting this is given on the commend line
  * */
-static jboolean jst_classifyParameters( char**              parameters, 
-                                        JstParamInfo*       paramInfos, 
-                                        int                 numParametersToCheck, 
-                                        int                 numOfActualParameters, 
-                                        ClasspathHandling   classpathHandling,
-                                        JavaHomeHandling    javahomeHandling,
-                                        // output
-                                        char**              javaHome,
-                                        char**              userClasspath,
-                                        jboolean**          isLauncheeOption, 
-                                        JVMSelectStrategy*  jvmSelectStrategy, 
-                                        JSTJVMOptionHolder* jvmOptions ) {
+static int jst_classifyParameters( char**              parameters, 
+                                   JstParamInfo*       paramInfos, 
+                                   int                 numParametersToCheck, 
+                                   int                 numOfActualParameters, 
+                                   ClasspathHandling   classpathHandling,
+                                   JavaHomeHandling    javahomeHandling,
+                                   // output
+                                   char**              javaHome,
+                                   char**              cpGivenAsParam,
+                                   jboolean**          isLauncheeOption, 
+                                   JVMSelectStrategy*  jvmSelectStrategy, 
+                                   JSTJVMOptionHolder* jvmOptions ) {
 
-  int i ;
+  int i, 
+      launcheeParamCount = -1 ; // func return value
     
   // calloc effectively sets all elems to JNI_FALSE.  
-  if ( numOfActualParameters > 0 && !( *isLauncheeOption = jst_calloc( numOfActualParameters, sizeof( jboolean ) ) ) ) return JNI_FALSE ;
+  if ( numOfActualParameters > 0 && !( *isLauncheeOption = jst_calloc( numOfActualParameters, sizeof( jboolean ) ) ) ) return -1 ;
   
-  if ( numParametersToCheck == 0 ) return JNI_TRUE ;
+  if ( numParametersToCheck == 0 ) return 0 ;
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
   // classify the arguments as jvm or launchee params. Some are passed to neither as they are handled in this func.
@@ -747,13 +749,13 @@ static jboolean jst_classifyParameters( char**              parameters,
       ) {
       if ( i == ( numOfActualParameters - 1 ) ) { // check that this is not the last param as it requires additional info
         fprintf( stderr, "erroneous use of %s\n", paramStr ) ;
-        return JNI_FALSE ;
+        return -1 ;
       }
       if ( ( classpathHandling ) & JST_CP_PARAM_TO_APP ) {
         (*isLauncheeOption)[ i ]     = JNI_TRUE ;
         (*isLauncheeOption)[ i + 1 ] = JNI_TRUE ;
       } 
-      if ( classpathHandling & JST_CP_PARAM_TO_JVM ) *userClasspath = paramStr ;
+      if ( classpathHandling & JST_CP_PARAM_TO_JVM ) *cpGivenAsParam = paramStr ;
       i++ ;
       continue ;
     }
@@ -772,7 +774,7 @@ static jboolean jst_classifyParameters( char**              parameters,
             (*isLauncheeOption)[ i ] = JNI_TRUE ;
             if ( i == ( numOfActualParameters - 1 ) ) { // check that this is not the last param as it requires additional info
               fprintf( stderr, "erroneous use of %s\n", paramStr ) ;
-              return JNI_FALSE ;
+              return -1 ;
             }
             (*isLauncheeOption)[ ++i ] = JNI_TRUE ;
             goto next_arg ;
@@ -800,7 +802,7 @@ static jboolean jst_classifyParameters( char**              parameters,
               ) {
         if ( i == ( numOfActualParameters - 1 ) ) { // check that this is not the last param as it requires additional info
           fprintf( stderr, "erroneous use of %s\n", paramStr ) ;
-          return JNI_FALSE ;
+          return -1 ;
         }
         *javaHome = parameters[ ++i ] ;
     } else { // jvm option
@@ -811,13 +813,14 @@ static jboolean jst_classifyParameters( char**              parameters,
                                                          jvmOptions->optionsCount++, 
                                                          &(jvmOptions->optionsSize), 
                                                          paramStr, 
-                                                         NULL ) ) ) return JNI_FALSE ;
+                                                         NULL ) ) ) return -1 ;
     }
 // this label is needed to be able to break out of nested for and switch (by jumping here w/ goto)
 next_arg: 
    ;  // at least w/ ms compiler, the tag needs a statement after it before the closing brace. Thus, an empty statement here.
   } 
 
+  
   // print debug if necessary
   if ( _jst_debug ) { 
     if ( numOfActualParameters > 0 ) {
@@ -829,18 +832,77 @@ next_arg:
       fprintf( stderr, "DEBUG: no parameters\n" ) ;
     }
   }
+
   
-  return JNI_TRUE ;
+  // count the number of parameters passed to the launched java program (return value of this func)
+  launcheeParamCount = 0 ;
+  // count the params going to the launchee so we can construct the right size java String[] as param to the java main being invoked
+  for ( i = 0 ; i < numOfActualParameters ; i++ ) {
+    if ( (*isLauncheeOption)[ i ] || i >= numParametersToCheck ) {
+      (*isLauncheeOption)[ i ] = JNI_TRUE ;
+      launcheeParamCount++ ;
+    }
+  }
+      
+  return launcheeParamCount ;
   
 }
+
+static char* constructClasspath( ClasspathHandling classpathHandling, char* cpGivenAsParam, char** jarDirs, char** jars ) {
+  size_t    cpsize = 255 ; // just an initial guess for classpath length, will be expanded as necessary 
+  char *envCLASSPATH  = NULL,
+       *classpath     = NULL ;
+  
+  // look up CLASSPATH env var if necessary  
+  if ( !( JST_IGNORE_GLOBAL_CP & classpathHandling ) ) { // first check if CLASSPATH is ignored altogether
+    if ( JST_IGNORE_GLOBAL_CP_IF_PARAM_GIVEN & classpathHandling ) { // use CLASSPATH only if -cp not provided
+      if ( !cpGivenAsParam ) envCLASSPATH = getenv( "CLASSPATH" ) ;
+    } else {
+      envCLASSPATH = getenv( "CLASSPATH" ) ;
+    }
+  } 
+    
+  if ( !( classpath = jst_append( NULL, &cpsize, "-Djava.class.path=", NULL ) ) ) goto end ;
+
+  // add the jars from the given dirs
+  if ( jarDirs ) {
+
+    while ( *jarDirs  ) {
+      if ( appendJarsFromDir( *jarDirs++, &classpath, &cpsize ) ) goto end ; // error msg already printed
+    }
+    
+  }
+
+  if ( cpGivenAsParam && ( classpathHandling & JST_CP_PARAM_TO_JVM ) ) {
+    if ( !( classpath = appendCPEntry( classpath, &cpsize, cpGivenAsParam) ) ) goto end ;
+  }
+
+  if ( envCLASSPATH && !( classpath = appendCPEntry( classpath, &cpsize, envCLASSPATH ) ) ) goto end ;
+
+  // add the provided single jars
+  
+  if ( jars ) {
+    
+    while ( *jars ) {
+      if ( !( classpath = appendCPEntry( classpath, &cpsize, *jars++ ) ) ) goto end ;
+    }
+    
+  }
+
+  end:
+  
+  return classpath ;
+  
+}
+
 
 /** See the header file for information.
  */
 extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   int            rval    = -1 ;
   
-  JavaVM         *javavm = NULL;
-  JNIEnv         *env    = NULL;
+  JavaVM         *javavm = NULL ;
+  JNIEnv         *env    = NULL ;
   JavaDynLib     javaLib;
   jint           result ;
   JavaVMInitArgs vm_args;
@@ -864,14 +926,12 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   jmethodID    launcheeMainMethodID     = NULL;
   jobjectArray launcheeJOptions         = NULL;
   
-  char      *userClasspath = NULL, 
-            *envCLASSPATH  = NULL, 
+  char      *cpGivenAsParam = NULL, 
             *classpath     = NULL,
             *userJvmOptsS  = NULL ; 
 
-  size_t    cpsize = 255 ; // just an initial guess for classpath length, will be expanded as necessary 
   jboolean  *isLauncheeOption  = NULL;
-  jint      launcheeParamCount = 0;
+  jint      launcheeParamCount = 0 ;
   char      *javaHome     = NULL, 
             *toolsJarD    = NULL,
             *toolsJarFile = NULL ;
@@ -899,7 +959,8 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   
   launcheeParamBeginIndex = jst_findFirstLauncheeParamIndex( launchOptions->arguments, launchOptions->numArguments, launchOptions->terminatingSuffixes, launchOptions->paramInfos ) ;  
 
-  if ( !jst_classifyParameters( launchOptions->arguments, 
+  if ( ( launcheeParamCount = 
+        jst_classifyParameters( launchOptions->arguments, 
                                 launchOptions->paramInfos, 
                                 launcheeParamBeginIndex, 
                                 launchOptions->numArguments, 
@@ -907,15 +968,23 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
                                 launchOptions->javahomeHandling,
                                 // output
                                 &javaHome,
-                                &userClasspath,
+                                &cpGivenAsParam,
                                 &isLauncheeOption, 
                                 &jvmSelectStrategy, 
                                 &userJvmOptions 
-                              ) 
+                              )
+        ) == -1
      ) goto end ;
   
         // jst_classifyParameters( char** parameters,        JstParamInfo* paramInfos, int numParametersToCheck, int numOfActualParameters,  int classpathHandling,             jboolean** isLauncheeOption, int* jvmSelectStrategy, JSTJVMOptionHolder* jvmOptions ) {
+
   
+  // TODO: split finding java home so that there are separate funcs to look it up from 
+  // path
+  // given reg entries
+  // and these funcs return a pointer to a struct (or fill one up?) that has a *checked* path to 
+  // the dyn lib file of the appropriate jvm type (client/server), room for the dyn lib handle (initially NULL)
+  // jvm creator func, the jvm pointer, other?
   
   // handle java home
   // it is null if it was not given as a param
@@ -930,58 +999,11 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
     fprintf( stderr, "DEBUG: using java home: %s\n", javaHome ) ;
   }
 
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
-  
-
-  // count the params going to the launchee so we can construct the right size java String[] as param to the java main being invoked
-  for ( i = 0 ; i < launchOptions->numArguments ; i++ ) {
-    if ( isLauncheeOption[ i ] || i >= launcheeParamBeginIndex ) {
-      isLauncheeOption[ i ] = JNI_TRUE ;
-      launcheeParamCount++ ;
-    }
-  }
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
   // construct classpath for the jvm
 
-  // look up CLASSPATH env var if necessary  
-  if ( !( JST_IGNORE_GLOBAL_CP & (launchOptions->classpathHandling) ) ) { // first check if CLASSPATH is ignored altogether
-    if ( JST_IGNORE_GLOBAL_CP_IF_PARAM_GIVEN & (launchOptions->classpathHandling ) ) { // use CLASSPATH only if -cp not provided
-      if ( !userClasspath) envCLASSPATH = getenv( "CLASSPATH" ) ;
-    } else {
-      envCLASSPATH = getenv( "CLASSPATH" ) ;
-    }
-  } 
-    
-  if ( !( classpath = jst_append( NULL, &cpsize, "-Djava.class.path=", NULL ) ) ) goto end ;
-
-  // add the jars from the given dirs
-  if ( launchOptions->jarDirs ) {
-
-    char *dirName ;
-
-    for ( i = 0 ; ( dirName = launchOptions->jarDirs[ i++ ] ) ; ) {
-      if ( appendJarsFromDir( dirName, &classpath, &cpsize ) ) goto end ; // error msg already printed
-    }
-    
-  }
-
-  if ( userClasspath && ((launchOptions->classpathHandling) & JST_CP_PARAM_TO_JVM)) {
-    if ( !( classpath = appendCPEntry(classpath, &cpsize, userClasspath) ) ) goto end ;
-  }
-
-  if ( envCLASSPATH && !( classpath = appendCPEntry(classpath, &cpsize, envCLASSPATH) ) ) goto end ;
-
-  // add the provided single jars
-  
-  if ( launchOptions->jars ) {
-    char* jarName ;
-    
-    for ( i = 0 ; ( jarName = launchOptions->jars[ i++ ] ) ; ) {
-      if ( !( classpath = appendCPEntry( classpath, &cpsize, jarName ) ) ) goto end ;
-    }
-    
-  }
+  if ( !( classpath = constructClasspath( launchOptions->classpathHandling, cpGivenAsParam, launchOptions->jarDirs, launchOptions->jars ) ) ) goto end ;
 
   // tools.jar handling
   // tools.jar is not present on a jre, so in that case we omit the -Dtools.jar= option
@@ -1002,8 +1024,8 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
     }
     
     // add tools.jar to startup classpath if requested
-    if ( ( (launchOptions->toolsJarHandling ) & JST_TOOLS_JAR_TO_CLASSPATH ) 
-     && !( classpath = appendCPEntry(classpath, &cpsize, toolsJarFile) ) ) goto end;
+    //if ( ( (launchOptions->toolsJarHandling ) & JST_TOOLS_JAR_TO_CLASSPATH ) 
+    // && !( classpath = appendCPEntry(classpath, &cpsize, toolsJarFile) ) ) goto end;
   }
   
   jst_free( toolsJarFile ) ;
