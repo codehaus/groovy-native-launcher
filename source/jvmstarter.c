@@ -928,6 +928,40 @@ static jboolean handleToolsJar( const char* javaHome, ToolsJarHandling toolsJarH
   
   end:
   return rval ;
+  
+}
+
+/** returns 0 on error */
+static jboolean handleJVMOptsFromEnvVar( const char* javaOptsEnvVar, JavaVMOption** jvmOptions, int* jvmOptionsCount, size_t* jvmOptionsSize,
+                                         // output
+                                         char** userJvmOptsS ) {
+  
+  if ( !javaOptsEnvVar ) return JNI_TRUE ; 
+
+  {
+    char *userOpts = getenv( javaOptsEnvVar ) ; 
+    
+    if ( userOpts && userOpts[ 0 ] ) {
+      char* s ;
+      jboolean firstTime = JNI_TRUE ;
+//      int userJvmOptCount = 0 ;
+//      userJvmOptCount = 1 ;
+//      for ( i = 0 ; userOpts[ i ] ; i++ ) if ( userOpts[ i ] == ' ' ) userJvmOptCount++ ;
+  
+      if ( !( *userJvmOptsS = jst_strdup( userOpts ) ) ) return JNI_FALSE ;        
+  
+      while ( ( s = strtok( firstTime ? *userJvmOptsS : NULL, " " ) ) ) {
+        firstTime = JNI_FALSE ;
+        if ( ! ( *jvmOptions = appendJvmOption( *jvmOptions, 
+                                                (*jvmOptionsCount)++, 
+                                                jvmOptionsSize, 
+                                                s, 
+                                                NULL ) ) ) return JNI_FALSE ;
+      }
+      
+    }
+  }
+  return JNI_TRUE ;
 }
 
 
@@ -1060,31 +1094,12 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
                                           launchOptions->jvmOptions[ i ].extraInfo ) ) ) goto end ; 
   }
 
-  // handle jvm options in env var JAVA_OPTS or similar  
-  if ( launchOptions->javaOptsEnvVar ) {
-    int userJvmOptCount = 0 ;
-    char* userOpts = getenv( launchOptions->javaOptsEnvVar ), *s ;
-    jboolean firstTime = JNI_TRUE ;
-    
-    if ( userOpts && userOpts[ 0 ] ) {
-      userJvmOptCount = 1 ;
-      for ( i = 0 ; userOpts[ i ] ; i++ ) if ( userOpts[ i ] == ' ' ) userJvmOptCount++ ;
+  // handle jvm options in env var JAVA_OPTS or similar
+  if ( !handleJVMOptsFromEnvVar( launchOptions->javaOptsEnvVar, &jvmOptions, &jvmOptionsCount, &jvmOptionsSize,
+                                 // output
+                                 &userJvmOptsS ) ) goto end ;
 
-      if ( !( userJvmOptsS = jst_strdup( userOpts ) ) ) goto end ;        
-
-      while ( ( s = strtok( firstTime ? userJvmOptsS : NULL, " " ) ) ) {
-        firstTime = JNI_FALSE ;
-        if ( ! ( jvmOptions = appendJvmOption( jvmOptions, 
-                                               jvmOptionsCount++, 
-                                               &jvmOptionsSize, 
-                                               s, 
-                                               NULL ) ) ) goto end ;
-      }
-      
-    }
-
-  }
-    
+  
   // jvm options given on the command line by the user
   for ( i = 0 ; i < userJvmOptions.optionsCount ; i++ ) {
     
