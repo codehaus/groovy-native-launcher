@@ -129,8 +129,8 @@ jboolean _jst_debug = JNI_FALSE ;
 typedef jint (JNICALL *JVMCreatorFunc)(JavaVM**,void**,void*);
 
 typedef struct {
-  JVMCreatorFunc creatorFunc;
-  DLHandle       dynLibHandle;
+  JVMCreatorFunc creatorFunc  ;
+  DLHandle       dynLibHandle ;
 } JavaDynLib;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -740,8 +740,8 @@ static int jst_classifyParameters( char**              parameters,
   // An example is the -client / -server option that selects the type of jvm
   for ( i = 0 ; i < numParametersToCheck ; i++ ) {
     JstParamInfo   *paramInfo ;
-    char* paramStr = parameters[ i ] ;
-    size_t len = strlen( paramStr ) ;
+    char           *paramStr = parameters[ i ] ;
+    size_t         len       = strlen( paramStr ) ;
 
     if ( strcmp( "-cp",         paramStr ) == 0 
       || strcmp( "-classpath",  paramStr ) == 0
@@ -964,6 +964,70 @@ static jboolean handleJVMOptsFromEnvVar( const char* javaOptsEnvVar, JavaVMOptio
   return JNI_TRUE ;
 }
 
+/** returns 0 on error */
+static jboolean jst_startJvm( jint vmversion, JavaVMOption *jvmOptions, jint jvmOptionsCount, jboolean ignoreUnrecognizedJvmParams, char* javaHome, JVMSelectStrategy jvmSelectStrategy, 
+                    // output
+                    JavaDynLib* javaLib, JavaVM** javavm, JNIEnv** env, int* errorCode ) {
+  JavaVMInitArgs vm_args ;
+  int result ;
+  JavaDynLib javaLibTmp ;
+  // ( JNI_VERSION_1_4, jvmOptions, jvmOptionsCount, JNI_FALSE, javaHome, jvmSelectStrategy, &javaLib, &javavm, &env, &rval
+
+  vm_args.version            = vmversion       ;
+  vm_args.options            = jvmOptions      ;
+  vm_args.nOptions           = jvmOptionsCount ;
+  vm_args.ignoreUnrecognized = ignoreUnrecognizedJvmParams ;
+
+
+  // fetch the pointer to jvm creator func and invoke it
+  javaLibTmp = findJVMDynamicLibrary( javaHome, jvmSelectStrategy ) ;
+  if ( !( javaLibTmp.creatorFunc ) ) { // error message already printed
+    *errorCode = -1 ;
+    return JNI_FALSE ;
+  }
+
+  javaLib->creatorFunc  = javaLibTmp.creatorFunc  ;
+  javaLib->dynLibHandle = javaLibTmp.dynLibHandle ;
+  
+  // start the jvm.  
+  // the cast to void* before void** serves to remove a gcc warning
+  // "dereferencing type-punned pointer will break strict-aliasing rules"
+  // Found the fix from
+  // http://mail.opensolaris.org/pipermail/tools-gcc/2005-August/000048.html
+  result = (javaLib->creatorFunc)( javavm, (void**)(void*)env, &vm_args ) ;
+
+  if ( result ) {
+    char* errMsg ;
+    switch ( result ) {
+      case JNI_ERR        : //  (-1)  unknown error 
+        errMsg = "unknown error" ;
+        break ;
+      case JNI_EDETACHED  : //  (-2)  thread detached from the VM 
+        errMsg = "thread detachment" ;
+        break ;
+      case JNI_EVERSION   : //  (-3)  JNI version error 
+        errMsg = "JNI version problems" ;
+        break ;
+      case JNI_ENOMEM     : //  (-4)  not enough memory 
+        errMsg = "not enough memory" ;
+        break ;
+      case JNI_EEXIST     : //  (-5)  VM already created 
+        errMsg = "jvm already created" ;
+        break ;
+      case JNI_EINVAL     : //  (-6)  invalid arguments
+        errMsg = "invalid arguments to jvm creation" ;
+        break ;
+      default             : // should not happen
+        errMsg = "unknown exit code" ;
+        break ;
+    }
+    fprintf( stderr, "error: jvm creation failed with code %d: %s\n", (int)result, errMsg ) ;
+    *errorCode = result ;
+    return JNI_FALSE ;
+  }
+  
+  return JNI_TRUE ;
+}
 
 /** See the header file for information.
  */
@@ -972,9 +1036,8 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   
   JavaVM         *javavm = NULL ;
   JNIEnv         *env    = NULL ;
-  JavaDynLib     javaLib;
+  JavaDynLib     javaLib ;
   jint           result ;
-  JavaVMInitArgs vm_args;
   // TODO: put this inside a JSTJVMOptionHolder 
   JavaVMOption   *jvmOptions = NULL ;
   // the options assigned by the user on cmdline are given last as that way they override the ones set previously. 
@@ -1096,7 +1159,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
 
   // handle jvm options in env var JAVA_OPTS or similar
   if ( !handleJVMOptsFromEnvVar( launchOptions->javaOptsEnvVar, &jvmOptions, &jvmOptionsCount, &jvmOptionsSize,
-                                 // output
+                                 // output, needs to be freed
                                  &userJvmOptsS ) ) goto end ;
 
   
@@ -1111,58 +1174,16 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   }
   
   if( _jst_debug ) {
-    fprintf(stderr, "DUBUG: Starting jvm with the following %d options:\n", jvmOptionsCount ) ;
-    for( i = 0 ; i < jvmOptionsCount ; i++ ) {
+    fprintf( stderr, "DUBUG: Starting jvm with the following %d options:\n", jvmOptionsCount ) ;
+    for ( i = 0 ; i < jvmOptionsCount ; i++ ) {
       fprintf( stderr, "  %s\n", jvmOptions[ i ].optionString ) ;
     }
   }
 
-  vm_args.version            = JNI_VERSION_1_4 ;
-  vm_args.options            = jvmOptions      ;
-  vm_args.nOptions           = jvmOptionsCount ;
-  vm_args.ignoreUnrecognized = JNI_FALSE       ;
-
+  if ( !jst_startJvm( JNI_VERSION_1_4, jvmOptions, jvmOptionsCount, JNI_FALSE, javaHome, jvmSelectStrategy,
+                      // output
+                      &javaLib, &javavm, &env, &rval ) ) goto end ;
   
-  // fetch the pointer to jvm creator func and invoke it
-  javaLib = findJVMDynamicLibrary( javaHome, jvmSelectStrategy ) ;
-  if(!javaLib.creatorFunc) goto end; // error message already printed
-  
-  // start the jvm.  
-  // the cast to void* before void** serves to remove a gcc warning
-  // "dereferencing type-punned pointer will break strict-aliasing rules"
-  // Found the fix from
-  // http://mail.opensolaris.org/pipermail/tools-gcc/2005-August/000048.html
-  result = (javaLib.creatorFunc)( &javavm, (void**)(void*)&env, &vm_args ) ;
-
-  if ( result ) {
-    char* errMsg ;
-    switch(result) {
-      case JNI_ERR        : //  (-1)  unknown error 
-        errMsg = "unknown error" ;
-        break ;
-      case JNI_EDETACHED  : //  (-2)  thread detached from the VM 
-        errMsg = "thread detachment" ;
-        break ;
-      case JNI_EVERSION   : //  (-3)  JNI version error 
-        errMsg = "JNI version problems" ;
-        break ;
-      case JNI_ENOMEM     : //  (-4)  not enough memory 
-        errMsg = "not enough memory" ;
-        break ;
-      case JNI_EEXIST     : //  (-5)  VM already created 
-        errMsg = "jvm already created" ;
-        break ;
-      case JNI_EINVAL     : //  (-6)  invalid arguments
-        errMsg = "invalid arguments to jvm creation" ;
-        break ;
-      default             : // should not happen
-        errMsg = "unknown exit code" ;
-        break ;
-    }
-    fprintf( stderr, "error: jvm creation failed with code %d: %s\n", (int)result, errMsg ) ;
-    rval = result ;
-    goto end ;
-  } 
 
   jst_free( toolsJarD  ) ;
   jst_free( jvmOptions ) ;
@@ -1172,7 +1193,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   // find the application main class
   // find the startup method and call it
 
-  if(launchOptions->extraProgramOptions) {
+  if ( launchOptions->extraProgramOptions ) {
     i = 0 ;
     while ( launchOptions->extraProgramOptions[ i ] ) i++ ;
     launcheeParamCount += i ;

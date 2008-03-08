@@ -112,6 +112,7 @@ typedef enum {
   // JST_TOOLS_JAR_TO_CLASSPATH = 1,
   JST_TOOLS_JAR_TO_SYSPROP   = 2
 } ToolsJarHandling ;
+
  /** Note that if you tell that -cp / --classpath and/or -jh / --javahome params are handled automatically. 
   * If you do not want the user to be able to affect 
   * javahome, specify these two as double params and their processing is up to you. 
