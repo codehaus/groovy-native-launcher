@@ -895,6 +895,41 @@ static char* constructClasspath( ClasspathHandling classpathHandling, char* cpGi
   
 }
 
+/** returns 0 on error */
+static jboolean handleToolsJar( const char* javaHome, ToolsJarHandling toolsJarHandling, 
+                                JavaVMOption** jvmOptions, int* jvmOptionsCount, size_t* jvmOptionsSize, char** toolsJarD ) {
+
+  jboolean rval = JNI_FALSE ;
+  // tools.jar is not present on a jre, so in that case we omit the -Dtools.jar= option
+  const char* toolsJarFile = jst_append( NULL, NULL, javaHome, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR "tools.jar", NULL ) ;
+  
+  if ( !toolsJarFile ) goto end ;
+
+  if ( jst_fileExists( toolsJarFile ) ) {
+    // add as java env property if requested
+    if ( toolsJarHandling & JST_TOOLS_JAR_TO_SYSPROP ) {
+      *toolsJarD = jst_append( NULL, NULL, "-Dtools.jar=", toolsJarFile, NULL ) ;
+      if ( !toolsJarD ) goto end ;
+
+      if ( !( *jvmOptions = appendJvmOption( *jvmOptions, 
+                                             (*jvmOptionsCount)++, 
+                                             jvmOptionsSize, 
+                                             *toolsJarD, 
+                                             NULL ) ) ) goto end ; 
+    }
+    
+    // add tools.jar to startup classpath if requested
+    //if ( ( (launchOptions->toolsJarHandling ) & JST_TOOLS_JAR_TO_CLASSPATH ) 
+    // && !( classpath = appendCPEntry(classpath, &cpsize, toolsJarFile) ) ) goto end;
+  }
+
+  free( (void*)toolsJarFile ) ;
+  rval = JNI_TRUE ;
+  
+  end:
+  return rval ;
+}
+
 
 /** See the header file for information.
  */
@@ -986,7 +1021,6 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   // the dyn lib file of the appropriate jvm type (client/server), room for the dyn lib handle (initially NULL)
   // jvm creator func, the jvm pointer, other?
   
-  // handle java home
   // it is null if it was not given as a param
   if ( !javaHome ) javaHome = launchOptions->javaHome ;
   if ( !javaHome ) javaHome = findJavaHome( launchOptions->javahomeHandling ) ; 
@@ -1000,46 +1034,17 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   }
 
 
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
-  // construct classpath for the jvm
-
   if ( !( classpath = constructClasspath( launchOptions->classpathHandling, cpGivenAsParam, launchOptions->jarDirs, launchOptions->jars ) ) ) goto end ;
-
-  // tools.jar handling
-  // tools.jar is not present on a jre, so in that case we omit the -Dtools.jar= option
-  toolsJarFile = jst_append( NULL, NULL, javaHome, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR "tools.jar", NULL ) ;  
-  if ( !toolsJarFile ) goto end ;
-
-  if ( jst_fileExists( toolsJarFile ) ) {
-    // add as java env property if requested
-    if ( ( launchOptions->toolsJarHandling ) & JST_TOOLS_JAR_TO_SYSPROP ) {
-      toolsJarD = jst_append( NULL, NULL, "-Dtools.jar=", toolsJarFile, NULL ) ;
-      if ( !toolsJarD ) goto end ;
-
-      if ( !( jvmOptions = appendJvmOption( jvmOptions, 
-                                            jvmOptionsCount++, 
-                                            &jvmOptionsSize, 
-                                            toolsJarD, 
-                                            NULL ) ) ) goto end ; 
-    }
-    
-    // add tools.jar to startup classpath if requested
-    //if ( ( (launchOptions->toolsJarHandling ) & JST_TOOLS_JAR_TO_CLASSPATH ) 
-    // && !( classpath = appendCPEntry(classpath, &cpsize, toolsJarFile) ) ) goto end;
-  }
-  
-  jst_free( toolsJarFile ) ;
-  
-  
   if ( !( jvmOptions = appendJvmOption( jvmOptions, 
                                         jvmOptionsCount++, 
                                         &jvmOptionsSize, 
                                         classpath, 
                                         NULL ) ) ) goto end ; 
 
-  // end constructing classpath
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
-
+  // groovy specific, will be refactored out of here
+  if ( !handleToolsJar( javaHome, launchOptions->toolsJarHandling, &jvmOptions, &jvmOptionsCount, &jvmOptionsSize, &toolsJarD ) ) goto end ;
+  
+  
   // the jvm options order handling is significant: if the same option is given more than once, the last one is the one
   // that stands. That's why we here set first the jvm opts set programmatically, then the ones from user env var
   // and then the ones from the command line. Thus the user can override the ones he wants on the next level
