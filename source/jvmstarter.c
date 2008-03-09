@@ -1090,6 +1090,31 @@ static jobjectArray createJMainParams( JNIEnv* env, char** parameters, int numPa
 
 }
 
+static jclass findMainClassAndMethod( JNIEnv* env, char* mainClassName, char* mainMethodName, jmethodID* launcheeMainMethodID ) {
+
+  jclass launcheeMainClassHandle = (*env)->FindClass( env, mainClassName ) ;
+  
+  if ( !launcheeMainClassHandle ) {
+    clearException( env ) ;
+    fprintf( stderr, "error: could not find startup class %s\n", mainClassName ) ;
+    goto end ;
+  }
+  
+  if ( !mainMethodName ) mainMethodName = "main" ;
+  
+  *launcheeMainMethodID = (*env)->GetStaticMethodID( env, launcheeMainClassHandle, 
+                                                          mainMethodName, 
+                                                          "([Ljava/lang/String;)V" ) ;
+  if ( !*launcheeMainMethodID ) {
+    clearException( env ) ;
+    fprintf( stderr, "error: could not find startup method \"%s\" in class %s\n", mainMethodName, mainClassName ) ;
+    launcheeMainClassHandle = NULL ;
+  }
+
+  end:
+  return launcheeMainClassHandle ;
+}
+
 /** See the header file for information.
  */
 extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
@@ -1263,24 +1288,9 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
 
   jst_free( isLauncheeOption ) ;
 
+  if ( !( launcheeMainClassHandle = findMainClassAndMethod( env, launchOptions->mainClassName, launchOptions->mainMethodName, &launcheeMainMethodID ) ) ) goto end ; 
 
-  launcheeMainClassHandle = (*env)->FindClass( env, launchOptions->mainClassName ) ;
-  if ( !launcheeMainClassHandle ) {
-    clearException( env ) ;
-    fprintf( stderr, "error: could not find startup class %s\n", launchOptions->mainClassName ) ;
-    goto end ;
-  }
   
-  launcheeMainMethodID = (*env)->GetStaticMethodID( env, launcheeMainClassHandle, 
-                                                         launchOptions->mainMethodName ? launchOptions->mainMethodName : "main", 
-                                                         "([Ljava/lang/String;)V" ) ;
-  if ( !launcheeMainMethodID ) {
-    clearException( env ) ;
-    fprintf( stderr, "error: could not find startup method \"%s\" in class %s\n", 
-                    launchOptions->mainMethodName, launchOptions->mainClassName ) ;
-    goto end ;
-  }
-
   // finally: launch the java application!
   (*env)->CallStaticVoidMethod( env, launcheeMainClassHandle, launcheeMainMethodID, launcheeJOptions ) ;
 
