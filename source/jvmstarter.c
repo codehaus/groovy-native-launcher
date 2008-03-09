@@ -629,24 +629,27 @@ static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetS
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-/** Returns true on error. */
+/** Returns false on error. */
 static jboolean addStringToJStringArray( JNIEnv* env, char *strToAdd, jobjectArray jstrArr, jint ind ) {
   jboolean rval = JNI_FALSE ;
   jstring  arg  = (*env)->NewStringUTF( env, strToAdd ) ;
 
-  if(!arg) {
-    fprintf(stderr, "error: could not convert %s to java string\n", strToAdd);
-    clearException(env);
-    return JNI_TRUE;        
+  if ( !arg ) {
+    fprintf( stderr, "error: could not convert %s to java string\n", strToAdd ) ;
+    clearException( env ) ;
+    goto end ;        
   }
 
-  (*env)->SetObjectArrayElement(env, jstrArr, ind, arg);
-  if((*env)->ExceptionCheck(env)) {
-    fprintf(stderr, "error: error when writing %dth element %s to Java String[]\n", (int)ind, strToAdd);
-    clearException(env);
-    rval = JNI_TRUE;
+  (*env)->SetObjectArrayElement( env, jstrArr, ind, arg ) ;
+  if ( (*env)->ExceptionCheck( env ) ) {
+    fprintf( stderr, "error: error when writing %dth element %s to Java String[]\n", (int)ind, strToAdd ) ;
+    clearException( env ) ;
+    goto end ;
   }
-  (*env)->DeleteLocalRef(env, arg);
+  (*env)->DeleteLocalRef( env, arg ) ;
+  rval = JNI_TRUE ; 
+  
+  end:
   return rval;
 }
 
@@ -1029,6 +1032,64 @@ static jboolean jst_startJvm( jint vmversion, JavaVMOption *jvmOptions, jint jvm
   return JNI_TRUE ;
 }
 
+static jobjectArray createJMainParams( JNIEnv* env, char** parameters, int numParams, int launcheeParamCount, char** extraProgramOptions, jboolean* isLauncheeOption, int* rval ) {
+
+  jobjectArray launcheeJOptions = NULL ;
+  jclass strClass ;
+  int i, 
+      index = 0 ; // index in java String[] (args to main) 
+  jint result ;
+
+  
+  if ( ( result = (*env)->EnsureLocalCapacity( env, launcheeParamCount + 1 ) ) ) { // + 1 for the String[] to hold the params
+    clearException( env ) ;
+    fprintf( stderr, "error: could not allocate memory to hold references for program parameters (how many params did you give, dude?)\n" ) ;
+    *rval = result ;
+    goto end ;
+  }
+  
+  if ( !( strClass = (*env)->FindClass(env, "java/lang/String") ) ) {
+    clearException( env ) ;
+    fprintf( stderr, "error: could not find java.lang.String class\n" ) ;
+    goto end ;
+  }
+  
+  
+  launcheeJOptions = (*env)->NewObjectArray( env, launcheeParamCount, strClass, NULL ) ;
+  if ( !launcheeJOptions ) {
+    clearException( env ) ;
+    fprintf( stderr, "error: could not allocate memory for java String array to hold program parameters (how many params did you give, dude?)\n" ) ;
+    goto end ;
+  }
+  
+  index = 0 ; 
+  if ( extraProgramOptions ) {
+    char *carg ;
+
+    while ( ( carg = *extraProgramOptions++ ) ) {
+      if ( !addStringToJStringArray( env, carg, launcheeJOptions, index++ ) ) {
+        (*env)->DeleteLocalRef( env, launcheeJOptions ) ;
+        launcheeJOptions = NULL ;
+        goto end ;
+      }
+    }
+  }
+  
+  for ( i = 0 ; i < numParams ; i++ ) {
+    if ( isLauncheeOption[ i ]
+         && !addStringToJStringArray( env, parameters[ i ], launcheeJOptions, index++ )
+       ) {
+      (*env)->DeleteLocalRef( env, launcheeJOptions ) ;
+      launcheeJOptions = NULL ;
+      goto end ;      
+    }
+  }
+  
+  end:
+  return launcheeJOptions ;
+
+}
+
 /** See the header file for information.
  */
 extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
@@ -1037,7 +1098,6 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   JavaVM         *javavm = NULL ;
   JNIEnv         *env    = NULL ;
   JavaDynLib     javaLib ;
-  jint           result ;
   // TODO: put this inside a JSTJVMOptionHolder 
   JavaVMOption   *jvmOptions = NULL ;
   // the options assigned by the user on cmdline are given last as that way they override the ones set previously. 
@@ -1048,13 +1108,12 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
                  // userJvmOptionsSize  = 5, // initial size
                  // all jvm options combined
   size_t         jvmOptionsSize = 5 ;
-  int            i, j, 
+  int            i,
                  launcheeParamBeginIndex = launchOptions->numArguments,
                  //userJvmOptionsCount  = 0,
                  jvmOptionsCount      = 0 ;
 
   jclass       launcheeMainClassHandle  = NULL;
-  jclass       strClass                 = NULL;
   jmethodID    launcheeMainMethodID     = NULL;
   jobjectArray launcheeJOptions         = NULL;
   
@@ -1182,7 +1241,8 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
 
   if ( !jst_startJvm( JNI_VERSION_1_4, jvmOptions, jvmOptionsCount, JNI_FALSE, javaHome, jvmSelectStrategy,
                       // output
-                      &javaLib, &javavm, &env, &rval ) ) goto end ;
+                      &javaLib, &javavm, &env, &rval ) 
+     ) goto end ;
   
 
   jst_free( toolsJarD  ) ;
@@ -1195,47 +1255,12 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
 
   if ( launchOptions->extraProgramOptions ) {
     i = 0 ;
-    while ( launchOptions->extraProgramOptions[ i ] ) i++ ;
-    launcheeParamCount += i ;
-  }
-   
-  if ( ( result = (*env)->EnsureLocalCapacity( env, launcheeParamCount + 1 ) ) ) { // + 1 for the String[] to hold the params
-    clearException( env ) ;
-    fprintf( stderr, "error: could not allocate memory to hold references for program parameters (how many params did you give, dude?)\n" ) ;
-    rval = result ;
-    goto end ;
+    while ( launchOptions->extraProgramOptions[ i++ ] ) launcheeParamCount++ ;
   }
 
-  if ( !( strClass = (*env)->FindClass(env, "java/lang/String") ) ) {
-    clearException( env ) ;
-    fprintf( stderr, "error: could not find java.lang.String class\n" ) ;
-    goto end ;
-  }
+  if ( !( launcheeJOptions = createJMainParams( env, launchOptions->arguments, launchOptions->numArguments, launcheeParamCount, launchOptions->extraProgramOptions, isLauncheeOption, &rval ) ) ) goto end ;
+                                        
 
-
-  launcheeJOptions = (*env)->NewObjectArray( env, launcheeParamCount, strClass, NULL ) ;
-  if ( !launcheeJOptions ) {
-    clearException( env ) ;
-    fprintf( stderr, "error: could not allocate memory for java String array to hold program parameters (how many params did you give, dude?)\n" ) ;
-    goto end ;
-  }
-
-  j = 0 ; // index in java String[] (args to main)
-  if ( launchOptions->extraProgramOptions ) {
-    char *carg ;
-    i = 0 ;
-    while ( ( carg = launchOptions->extraProgramOptions[ i++ ] ) ) {
-      if ( addStringToJStringArray( env, carg, launcheeJOptions, j++ ) ) goto end ; // error msg already printed
-    }
-  }
-
-  for ( i = 0 ; i < launchOptions->numArguments ; i++ ) {
-    if ( isLauncheeOption[ i ]
-         && addStringToJStringArray( env, launchOptions->arguments[ i ], launcheeJOptions, j++ )
-       ) goto end; // error msg already printed
-  }
-
-  // TODO: use this all over the place, remove the explicit setting to NULL
   jst_free( isLauncheeOption ) ;
 
 
