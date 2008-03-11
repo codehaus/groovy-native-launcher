@@ -41,7 +41,7 @@
 #  define PATHS_TO_SERVER_JVM "bin\\server\\jvm.dll", "bin\\jrockit\\jvm.dll" 
 #  define PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
 
-#  include "Windows.h"
+#  include <Windows.h>
 
    typedef HINSTANCE DLHandle ;
 #  define dlopen( path, mode ) LoadLibrary( path )
@@ -49,9 +49,11 @@
 #  define dlclose( handle ) FreeLibrary( handle )
 
 // PATH_MAX is defined when compiling w/ e.g. msys gcc, but not w/ ms cl compiler (the visual studio c compiler)
-#if !defined( PATH_MAX )
-#  define PATH_MAX MAX_PATH
-#endif
+#  if !defined( PATH_MAX )
+#    define PATH_MAX MAX_PATH
+#  endif
+
+#  include "jst_winreg.h"   
    
 #else
 
@@ -160,228 +162,133 @@ extern void jst_printWinError( unsigned long errcode ) {
 #endif
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-/** Tries to find Java home by looking where java command is located on PATH. */
-extern char* jst_findJavaHomeFromPath() {
+/** Tries to find Java home by looking where java command is located on PATH. 
+ * Returns != 0 on error. */
+extern int jst_findJavaHomeFromPath( char** javaHomeOut ) {
   static char* _javaHome = NULL ;
-  char *path = NULL, *p, *javahome = NULL ;
-  size_t jhlen = 100 ;
-  jboolean firstTime = JNI_TRUE ;
-  
-  p = getenv( "PATH" ) ;
-  if ( !p ) goto end ;
-  
-  if ( !( path = jst_strdup( p ) ) ) goto end ;
-  
-  for ( ; ( p = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
-    size_t len = strlen( p ) ;
-    if ( len == 0 ) continue ;
+  int error = 0 ;
+
+  if ( !_javaHome ) {
+    char     *path = NULL, 
+             *p, 
+             *javahome = NULL ;
+    size_t   jhlen     = 100  ;
+    jboolean firstTime = JNI_TRUE ;
+
+    p = getenv( "PATH" ) ;
+    if ( !p ) goto end ; // PATH not defined. Should never happen, but is not really an error if it does.
     
-    if ( javahome ) javahome[ 0 ] = '\0' ;
+    if ( !( path = jst_strdup( p ) ) ) { error = -1 ; goto end ; }
     
-    if ( !( javahome = jst_append( javahome, &jhlen, p, NULL ) ) ) goto end ;
-    
-    javahome = jst_append( javahome, &jhlen, ( javahome[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) ? JST_FILE_SEPARATOR : "", 
-                                             "java" 
+    for ( ; ( p = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
+      size_t len = strlen( p ) ;
+      if ( len == 0 ) continue ;
+      
+      if ( javahome ) javahome[ 0 ] = '\0' ;
+      
+      if ( !( javahome = jst_append( javahome, &jhlen, p, NULL ) ) ) { error = -1 ; goto end ; }
+      
+      javahome = jst_append( javahome, &jhlen, ( javahome[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) ? JST_FILE_SEPARATOR : "", 
+                                               "java" 
 #if defined( _WIN32 )
-                                             ".exe"
+                                               ".exe"
 #endif
                                              , NULL ) ;
-    if ( !javahome ) goto end ;
+      if ( !javahome ) { error = -1 ; goto end ; }
     
-    if ( jst_fileExists( javahome ) ) {
+      if ( jst_fileExists( javahome ) ) {
 #if !defined( _WIN32 )
-      char realFile[ PATH_MAX + 1 ] ;
-      if ( !realpath( javahome, realFile ) ) {
-        fprintf( stderr, strerror( errno ) ) ;
-        goto end ;
-      }
-      javahome[ 0 ] = '\0' ;
-      javahome = jst_append( javahome, &jhlen, realFile, NULL ) ;
-      if ( !javahome ) goto end ;
+        // if not on windows (which does not have symlinks), resolve the real location of the java executable
+        char realFile[ PATH_MAX + 1 ] ;
+        if ( !realpath( javahome, realFile ) ) {
+          fprintf( stderr, strerror( errno ) ) ;
+          error = errno ;
+          goto end ;
+        }
+        javahome[ 0 ] = '\0' ;
+        javahome = jst_append( javahome, &jhlen, realFile, NULL ) ;
+        if ( !javahome ) { error = -1 ; goto end ; }
 #endif
-      *( strrchr( javahome, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;
-      len = strlen( javahome ) ;
-      if ( len < 4 ) goto end ; // we are checking whether the executable is in "bin" dir, /bin is the shortest possibility (4 chars)
-      // see if we are in the bin dir of java home
-      if ( memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
-        javahome[ len -= 4 ] = '\0' ;
-        assert( len == strlen( javahome ) ) ;
-        _javaHome = jst_strdup( javahome ) ;
-        if ( !_javaHome ) goto end ; 
+        *( strrchr( javahome, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;
+        len = strlen( javahome ) ;
+        if ( len < 4 ) goto end ; // we are checking whether the executable is in "bin" dir, /bin is the shortest possibility (4 chars)
+        // see if we are in the bin dir of java home
+        if ( memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
+          javahome[ len -= 4 ] = '\0' ;
+          assert( len == strlen( javahome ) ) ;
+          _javaHome = jst_strdup( javahome ) ;
+          if ( !_javaHome ) { error = -1 ; goto end ; } 
+        }
+        break ;
       }
-      break ;
+      // check if this is a valid java home (how?)
     }
-    // check if this is a valid java home (how?)
-  }
-  
-  end:
-  if ( path     ) free( path     ) ;
-  if ( javahome ) free( javahome ) ;
-  if ( _jst_debug ) {
-    if ( _javaHome ) {
-      fprintf( stderr, "debug: java home found on PATH: %s\n", _javaHome ) ;      
-    } else {
-      fprintf( stderr, "debug: java home not found on PATH\n" ) ;
-    }
-  }
-  return _javaHome ;
-}
-
-#if defined( _WIN32 )
-
-/** Opens reg key for read only access. */
-static DWORD openRegistryKey( HKEY parent, char* subkeyName, HKEY* key_out ) {
-  return RegOpenKeyEx( 
-                       parent, 
-                       subkeyName,
-                       0,  // reserved, must be zero
-                       KEY_READ,
-                       key_out
-                     ) ;  
-}
-
-static DWORD queryRegistryValue( HKEY key, char* valueName, char* valueBuffer, DWORD* valueBufferSize ) {
-  DWORD valueType, status ;
-  status = RegQueryValueEx( key, valueName, NULL, &valueType, (BYTE*)valueBuffer, valueBufferSize ) ;
-  return status ;
-}
-
-#define JAVA_VERSION_NAME_MAX_SIZE 30
-
-static char* findJavaHomeFromWinRegistry() {
-  static char* _javaHome = NULL ;
-  
-  // all these are under key HKEY_LOCAL_MACHINE
-  static char* registryEntriesToCheck[] = { "SOFTWARE\\JavaSoft\\Java Development Kit", 
-                                            "SOFTWARE\\JRockit\\Java Development Kit",
-                                            "SOFTWARE\\JavaSoft\\Java Runtime Environment", 
-                                            "SOFTWARE\\JRockit\\Java Runtime Environment",
-                                            NULL 
-                                          } ;
-  
-  if ( _javaHome ) return _javaHome ;
-  
-  {
-    LONG     status             = ERROR_SUCCESS ;
-    int      javaTypeCounter    = 0 ;
-    jboolean irrecoverableError = JNI_FALSE ;
-    DWORD    javaHomeSize       = MAX_PATH ; 
     
-    char     javaHome[ MAX_PATH + 1 ] ;
-    char*    jdkOrJreKeyName ;
-    
-    while ( ( jdkOrJreKeyName = registryEntriesToCheck[ javaTypeCounter++ ] ) ) {
-    
-      HKEY key    = 0, 
-           subkey = 0 ;
-      char currentJavaVersionName[ JAVA_VERSION_NAME_MAX_SIZE + 1 ] ;
-      
-      javaHome[ 0 ] = '\0' ;
-      SetLastError( ERROR_SUCCESS ) ;
-
-      status = openRegistryKey( HKEY_LOCAL_MACHINE, jdkOrJreKeyName, &key ) ;
-          
-      if ( status != ERROR_SUCCESS ) {
-        if ( status != ERROR_FILE_NOT_FOUND ) {
-          jst_printWinError( GetLastError() ) ;
-        }
-        continue ;
+    end:
+    if ( path     ) free( path     ) ;
+    if ( javahome ) free( javahome ) ;
+    if ( _jst_debug ) {
+      if ( _javaHome ) {
+        fprintf( stderr, "debug: java home found on PATH: %s\n", _javaHome ) ;      
+      } else {
+        fprintf( stderr, "debug: java home not found on PATH\n" ) ;
       }
-       
-      {
-        DWORD currentVersionNameSize = JAVA_VERSION_NAME_MAX_SIZE ;
-
-        status = queryRegistryValue( key, "CurrentVersion", currentJavaVersionName, &currentVersionNameSize ) ;
-        
-        // we COULD recover and just loop through the existing subkeys, but not having CurrentVersion should not happen 
-        // so it does not seem useful to prepare for it
-        if ( status != ERROR_SUCCESS ) {
-          if ( status != ERROR_FILE_NOT_FOUND ) {
-            jst_printWinError( status ) ;
-          }
-          goto endofloop ;
-        }        
-
-        status = openRegistryKey( key, currentJavaVersionName, &subkey ) ;
-        if ( status != ERROR_SUCCESS ) goto endofloop ;
-  
-        status = queryRegistryValue( subkey, "JavaHome", javaHome, &javaHomeSize ) ;
-
-        if ( status != ERROR_SUCCESS ) {
-          if ( status != ERROR_FILE_NOT_FOUND ) {
-            jst_printWinError( status ) ;
-          }
-          goto endofloop ;
-        }
-        
-        if ( *javaHome ) {
-          if ( !( _javaHome = jst_strdup( javaHome ) ) ) {
-            irrecoverableError = JNI_TRUE ;
-          } 
-          goto endofloop ;          
-        }
-        
-      }
-      
-      
-      endofloop:
-      if ( key ) {
-        status = RegCloseKey( key ) ;
-        if ( status != ERROR_SUCCESS ) jst_printWinError( status ) ;
-      }
-      if ( subkey ) {
-        status = RegCloseKey( subkey ) ;
-        if ( status != ERROR_SUCCESS ) jst_printWinError( status ) ;    
-      }
-      
-      if ( _javaHome || irrecoverableError ) break ;
-
-    }   
-  }
-
-  if ( _jst_debug ) {
-    if ( _javaHome ) {
-      fprintf( stderr, "debug: java home found from windows registry: %s\n", _javaHome ) ;
-    } else {
-      fprintf( stderr, "debug: java home not found from windows registry\n" ) ;      
     }
   }
   
-  return _javaHome ;
+  *javaHomeOut = _javaHome ;
+  return error ;
 }
-#endif
 
 /** First sees if JAVA_HOME is set and points to an existing location (the validity is not checked).
- * Next, windows registry is checked (if on windows). Last, java is looked up from the PATH. */
-static char* findJavaHome( JavaHomeHandling javaHomeHandling ) {
+ * Next, windows registry is checked (if on windows) or if on os-x the standard location 
+ * /System/Library/Frameworks/JavaVM.framework is checked for existence. 
+ * Last, java is looked up from the PATH. 
+ * @return != 0 on error. */
+static int jst_findJavaHome( char** javaHomeOut, JavaHomeHandling javaHomeHandling ) {
   static char* _javaHome = NULL ;
-  char* javahome ;
+
+  int error = 0 ;
   
-  if ( _javaHome ) return _javaHome ;
+  if ( !_javaHome ) {
+    char* javahome ;
   
-  if ( javaHomeHandling & JST_ALLOW_JH_ENV_VAR_LOOKUP ) {
-    javahome = getenv( "JAVA_HOME" ) ;
-    if ( javahome ) {
-      if ( jst_fileExists( javahome ) ) 
-        return _javaHome = javahome ;
-      else
-        fprintf( stderr, "warning: JAVA_HOME points to a nonexistent location\n" ) ;
+    if ( javaHomeHandling & JST_ALLOW_JH_ENV_VAR_LOOKUP ) {
+      javahome = getenv( "JAVA_HOME" ) ;
+      if ( javahome ) {
+        if ( jst_fileExists( javahome ) ) { 
+          _javaHome = javahome ;
+        } else {
+          fprintf( stderr, "warning: JAVA_HOME points to a nonexistent location\n" ) ;
+        }
+      }
     }
+    
+    if ( !_javaHome && ( javaHomeHandling & JST_ALLOW_PATH_LOOKUP     ) && jst_findJavaHomeFromPath( &_javaHome        ) ) return -1 ;
+
+    // os specific lookup mechanisms
+#if defined( _WIN32 )
+    if ( !_javaHome && ( javaHomeHandling & JST_ALLOW_REGISTRY_LOOKUP ) && jst_findJavaHomeFromWinRegistry( &_javaHome ) ) return -1 ; 
+#elif defined ( __APPLE__ )
+    if ( !_javaHome || !_javaHome[ 0 ] ) {
+      javahome = "/System/Library/Frameworks/JavaVM.framework" ;
+      if ( jst_fileExists( javahome ) ) {
+        _javaHome = javahome ;
+      } else {
+        fprintf( stderr, "warning: java home not found in standard location %s\n", javahome ) ;
+      }
+    }
+#endif
+  
+    if ( !_javaHome ) {
+      error = -2 ;
+      fprintf( stderr, "error: could not locate java home\n" ) ;
+    }
+    
   }
   
-  if ( (javaHomeHandling & JST_ALLOW_PATH_LOOKUP)     && ( _javaHome = jst_findJavaHomeFromPath()    ) ) return _javaHome ;
-  
-#if defined( _WIN32 )
-  if ( (javaHomeHandling & JST_ALLOW_REGISTRY_LOOKUP) && ( _javaHome = findJavaHomeFromWinRegistry() ) ) return _javaHome ; 
-#endif
-
-#if defined ( __APPLE__ )
-  if ( !_javaHome || !_javaHome[ 0 ] ) _javaHome = "/System/Library/Frameworks/JavaVM.framework" ;
-#endif
-
-  
-  if ( !_javaHome ) fprintf( stderr, "error: could not locate java home\n" ) ;
-  return _javaHome ;
+  *javaHomeOut = _javaHome ;
+  return error ;
   
 }
 
@@ -390,6 +297,7 @@ static char* findJavaHome( JavaHomeHandling javaHomeHandling ) {
 extern int jst_contains( char** args, int* numargs, const char* option, const jboolean removeIfFound ) {
   int i       = 0, 
       foundAt = -1 ;
+  
   for ( ; i < *numargs ; i++ ) {
     if ( strcmp( option, args[ i ] ) == 0 ) {
       foundAt = i ;
@@ -1204,7 +1112,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   
   // it is null if it was not given as a param
   if ( !javaHome ) javaHome = launchOptions->javaHome ;
-  if ( !javaHome ) javaHome = findJavaHome( launchOptions->javahomeHandling ) ; 
+  if ( !javaHome && jst_findJavaHome( &javaHome, launchOptions->javahomeHandling ) ) goto end ; 
 
   if ( !javaHome || !javaHome[ 0 ] ) { // not found or an empty string
     fprintf( stderr, ( ( launchOptions->javahomeHandling ) & JST_ALLOW_JH_ENV_VAR_LOOKUP ) ? "error: JAVA_HOME not set\n" : 
@@ -1290,7 +1198,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
 
   if ( !( launcheeMainClassHandle = findMainClassAndMethod( env, launchOptions->mainClassName, launchOptions->mainMethodName, &launcheeMainMethodID ) ) ) goto end ; 
 
-  
+
   // finally: launch the java application!
   (*env)->CallStaticVoidMethod( env, launcheeMainClassHandle, launcheeMainMethodID, launcheeJOptions ) ;
 
@@ -1317,7 +1225,7 @@ end:
   if ( jvmOptions       ) free( jvmOptions ) ;
   if ( toolsJarFile     ) free( toolsJarFile ) ;
   if ( toolsJarD        ) free( toolsJarD ) ;
-  if ( userJvmOptions.jvmOptions   ) free( userJvmOptions.jvmOptions ) ;
+  if ( userJvmOptions.jvmOptions ) free( userJvmOptions.jvmOptions ) ;
   if ( userJvmOptsS     ) free( userJvmOptsS ) ;
   
   return rval ;
