@@ -940,12 +940,14 @@ static jboolean jst_startJvm( jint vmversion, JavaVMOption *jvmOptions, jint jvm
   return JNI_TRUE ;
 }
 
+/** Returns NULL on error, and sets rval output param accordingly. 
+ * On successfull execution rval is not touched. */
 static jobjectArray createJMainParams( JNIEnv* env, char** parameters, int numParams, int launcheeParamCount, char** extraProgramOptions, jboolean* isLauncheeOption, int* rval ) {
 
   jobjectArray launcheeJOptions = NULL ;
   jclass strClass ;
   int i, 
-      index = 0 ; // index in java String[] (args to main) 
+      indx = 0 ; // index in java String[] (args to main) 
   jint result ;
 
   
@@ -959,6 +961,7 @@ static jobjectArray createJMainParams( JNIEnv* env, char** parameters, int numPa
   if ( !( strClass = (*env)->FindClass(env, "java/lang/String") ) ) {
     clearException( env ) ;
     fprintf( stderr, "error: could not find java.lang.String class\n" ) ;
+    *rval = -1 ;
     goto end ;
   }
   
@@ -967,17 +970,19 @@ static jobjectArray createJMainParams( JNIEnv* env, char** parameters, int numPa
   if ( !launcheeJOptions ) {
     clearException( env ) ;
     fprintf( stderr, "error: could not allocate memory for java String array to hold program parameters (how many params did you give, dude?)\n" ) ;
+    *rval = -1 ;
     goto end ;
   }
   
-  index = 0 ; 
+  indx = 0 ; 
   if ( extraProgramOptions ) {
     char *carg ;
 
     while ( ( carg = *extraProgramOptions++ ) ) {
-      if ( !addStringToJStringArray( env, carg, launcheeJOptions, index++ ) ) {
+      if ( !addStringToJStringArray( env, carg, launcheeJOptions, indx++ ) ) {
         (*env)->DeleteLocalRef( env, launcheeJOptions ) ;
         launcheeJOptions = NULL ;
+        *rval = -1 ;
         goto end ;
       }
     }
@@ -985,10 +990,11 @@ static jobjectArray createJMainParams( JNIEnv* env, char** parameters, int numPa
   
   for ( i = 0 ; i < numParams ; i++ ) {
     if ( isLauncheeOption[ i ]
-         && !addStringToJStringArray( env, parameters[ i ], launcheeJOptions, index++ )
+         && !addStringToJStringArray( env, parameters[ i ], launcheeJOptions, indx++ )
        ) {
       (*env)->DeleteLocalRef( env, launcheeJOptions ) ;
       launcheeJOptions = NULL ;
+      *rval = -1 ;
       goto end ;      
     }
   }

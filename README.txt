@@ -26,6 +26,10 @@ The launcher has been built in such a way that only groovy.c has groovy dependen
 It is simple to use the other source files to build a native laucher for any
 java program.
 
+Great care has been taken to avoid possibility of buffer overflows. The common c-convention
+of using "big enough" buffer is not used - instead memory is allocated dynamically after
+calculating how much is needed. The only exception to this rule is places where the posix or 
+os specific API used must be called w/ a preallocated buffer, e.g. realpath function.
 
 Licencing
 ---------

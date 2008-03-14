@@ -16,7 +16,23 @@
 
 #if defined( _WIN32 )
 
+#  if !defined( _JST_WINREG_H_ )
+#    define _JST_WINREG_H_
+
+#    if defined( __cplusplus )
+       extern "C" {
+#    endif
+
+
 /** returns != 0 on error. Note that not finding java home from registry is not considered an error. */
 int jst_findJavaHomeFromWinRegistry( char** javaHomeOut ) ;
 
+#    if defined( __cplusplus )
+       }
+#    endif
+
+
+#  endif
+  
 #endif
+
