@@ -294,87 +294,6 @@ static int jst_findJavaHome( char** javaHomeOut, JavaHomeHandling javaHomeHandli
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-extern int jst_contains( char** args, int* numargs, const char* option, const jboolean removeIfFound ) {
-  int i       = 0, 
-      foundAt = -1 ;
-  
-  for ( ; i < *numargs ; i++ ) {
-    if ( strcmp( option, args[ i ] ) == 0 ) {
-      foundAt = i ;
-      break ;
-    }
-  }
-  if ( foundAt != -1 ) return -1 ;
-  if ( removeIfFound ) {
-    (*numargs)-- ;
-    for ( ; i < *numargs ; i++ ) {
-      args[ i ] = args[ i + i ] ;
-    }
-  }
-  return foundAt ;
-}
-
-extern int jst_indexOfParam( char** args, int numargs, char* paramToSearch ) {
-  int i = 0 ;
-  for ( ; i < numargs; i++ ) {
-    if ( strcmp( paramToSearch, args[i] ) == 0 ) return i ;
-  }
-  return -1 ;  
-}
-
-extern char* jst_valueOfParam( char** args, int* numargs, int* checkUpto, const char* option, const JstParamClass paramType, const jboolean removeIfFound, jboolean* error ) {
-  int i    = 0, 
-      step = 1;
-  size_t len;
-  char* retVal = NULL;
-
-  switch(paramType) {
-    case JST_SINGLE_PARAM :
-      for ( ; i < *checkUpto ; i++ ) {
-        if ( strcmp( option, args[ i ] ) == 0 ) {
-          retVal = args[ i ] ;
-          break ;
-        }
-      }
-      break ;
-    case JST_DOUBLE_PARAM :
-      step = 2 ;
-      for ( ; i < *checkUpto ; i++ ) {
-        if ( strcmp( option, args[ i ] ) == 0 ) {
-          if ( i == ( *numargs - 1 ) ) {
-            *error = JNI_TRUE ;
-            fprintf( stderr, "error: %s must have a value\n", option ) ;
-            return NULL ;
-          }
-          retVal = args[ i + 1 ] ;
-          break ;
-        }
-      }
-      break ;
-    case JST_PREFIX_PARAM :
-      len = strlen( option ) ;
-      for ( ; i < *checkUpto; i++ ) {
-        if ( memcmp( option, args[ i ], len ) == 0 ) {
-          retVal = args[ i ] + len ;
-          break ;
-        }
-      }
-      break ;
-  }
-  
-  if ( retVal && removeIfFound ) {
-    for ( ; i < ( *numargs - step ) ; i++ ) {
-      args[ i ] = args[ i + step ] ;
-    }
-    *numargs   -= step ;
-    *checkUpto -= step ;
-  }
-  
-  return retVal ;  
-  
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 /** In case there are errors, the returned struct contains only NULLs. */
 static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSelectStrategy ) {
@@ -575,7 +494,7 @@ extern int jst_findFirstLauncheeParamIndex( char** args, int numArgs, char** ter
     char* arg = args[ i ] ;
     
     if ( ( arg[ 0 ] == 0 ) || ( arg[ 0 ] != '-' ) || // empty strs and ones not beginning w/ - are considered to be terminating args to the launchee
-         arrayContainsString( terminatingSuffixes, arg, SUFFIX_SEARCH ) ) {
+         jst_arrayContainsString( terminatingSuffixes, arg, SUFFIX_SEARCH ) ) {
       return i ;
     }
 
@@ -599,7 +518,7 @@ extern int jst_findFirstLauncheeParamIndex( char** args, int numArgs, char** ter
         }
     } // for j
     // if we have one of the builtin double params, skip the value of the param
-    if(arrayContainsString(_builtinDoubleParams, arg, EXACT_SEARCH)) i++;
+    if ( jst_arrayContainsString( _builtinDoubleParams, arg, EXACT_SEARCH ) ) i++ ;
   } // for i
   // not found - none of the params are launchee params
   return numArgs;

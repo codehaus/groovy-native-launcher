@@ -238,98 +238,98 @@ static CygPadding *g_pad ;
 // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
 // are handled separately below
 static const JstParamInfo groovyParameters[] = {
-  { "-D",          JST_DOUBLE_PARAM, 0 }, 
-  { "--define",    JST_DOUBLE_PARAM, 0 }, 
-  { "-c",          JST_DOUBLE_PARAM, 0 }, 
-  { "--encoding",  JST_DOUBLE_PARAM, 0 },
-  { "-h",          JST_SINGLE_PARAM, 1 },
-  { "--help",      JST_SINGLE_PARAM, 1 },
-  { "-d",          JST_SINGLE_PARAM, 0 },
-  { "--debug",     JST_SINGLE_PARAM, 0 },
-  { "-e",          JST_DOUBLE_PARAM, 1 },
-  { "-i",          JST_DOUBLE_PARAM, 0 },
-  { "-l",          JST_DOUBLE_PARAM, 0 },
-  { "-n",          JST_SINGLE_PARAM, 0 },
-  { "-p",          JST_SINGLE_PARAM, 0 },
-  { "-v",          JST_SINGLE_PARAM, 0 },
-  { "--version",   JST_SINGLE_PARAM, 0 },
-  { NULL,          0,                0 }
+  { "-D",          JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE }, 
+  { "--define",    JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE }, 
+  { "-c",          JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE }, 
+  { "--encoding",  JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-h",          JST_SINGLE_PARAM, 1, JST_TO_LAUNCHEE },
+  { "--help",      JST_SINGLE_PARAM, 1, JST_TO_LAUNCHEE },
+  { "-d",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--debug",     JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-e",          JST_DOUBLE_PARAM, 1, JST_TO_LAUNCHEE },
+  { "-i",          JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-l",          JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-n",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-p",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-v",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--version",   JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { NULL,          0,                0, 0 }
 } ;
 
 static const JstParamInfo groovycParameters[] = {
-  { "--encoding",  JST_DOUBLE_PARAM, 0 },
-  { "-F",          JST_DOUBLE_PARAM, 0 }, 
-  { "-J",          JST_DOUBLE_PARAM, 0 }, 
-  { "-d",          JST_DOUBLE_PARAM, 0 }, 
-  { "-e",          JST_SINGLE_PARAM, 0 },
-  { "--exception", JST_SINGLE_PARAM, 0 },
-  { "--version",   JST_SINGLE_PARAM, 0 },
-  { "-h",          JST_SINGLE_PARAM, 1 },
-  { "--help",      JST_SINGLE_PARAM, 1 },
-  { "-j",          JST_SINGLE_PARAM, 0 },
-  { "--jointCompilation", JST_SINGLE_PARAM, 0 },
-  { "-v",          JST_SINGLE_PARAM, 0 },
-  { "--version",   JST_SINGLE_PARAM, 0 },
-  { NULL,          0,                0 }
+  { "--encoding",  JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-F",          JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE }, 
+  { "-J",          JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE }, 
+  { "-d",          JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE }, 
+  { "-e",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--exception", JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--version",   JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-h",          JST_SINGLE_PARAM, 1, JST_TO_LAUNCHEE },
+  { "--help",      JST_SINGLE_PARAM, 1, JST_TO_LAUNCHEE },
+  { "-j",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--jointCompilation", JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-v",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--version",   JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { NULL,          0,                0, 0 }
 } ;
 
 static const JstParamInfo gantParameters[] = {
-  { "-c",          JST_SINGLE_PARAM, 0 },
-  { "--usecache",  JST_SINGLE_PARAM, 0 },
-  { "-n",          JST_SINGLE_PARAM, 0 },
-  { "--dry-run",   JST_SINGLE_PARAM, 0 },
-  { "-D",          JST_DOUBLE_PARAM, 0 }, 
-  { "-P",          JST_DOUBLE_PARAM, 0 },
-  { "-T",          JST_DOUBLE_PARAM, 0 },
-  { "--targets",   JST_DOUBLE_PARAM, 0 },
-  { "-V",          JST_SINGLE_PARAM, 0 },
-  { "--version",   JST_SINGLE_PARAM, 0 },
-  { "-d",          JST_SINGLE_PARAM, 0 },
-  { "--cachedir",  JST_DOUBLE_PARAM, 0 },
-  { "-f",          JST_SINGLE_PARAM, 0 },
-  { "--gantfile",  JST_DOUBLE_PARAM, 0 },
-  { "-h",          JST_SINGLE_PARAM, 1 },
-  { "--help",      JST_SINGLE_PARAM, 1 },
-  { "-l",          JST_DOUBLE_PARAM, 0 },
-  { "--gantlib",   JST_DOUBLE_PARAM, 0 },
-  { "-p",          JST_SINGLE_PARAM, 0 },
-  { "--projecthelp", JST_SINGLE_PARAM, 0 },
-  { "-q",          JST_SINGLE_PARAM, 0 },
-  { "--quiet",     JST_SINGLE_PARAM, 0 },
-  { "-s",          JST_SINGLE_PARAM, 0 },
-  { "--silent",    JST_SINGLE_PARAM, 0 },  
-  { "-v",          JST_SINGLE_PARAM, 0 },
-  { "--verbose",   JST_SINGLE_PARAM, 0 },
-  { NULL,          0,                0 }
+  { "-c",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--usecache",  JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-n",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--dry-run",   JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-D",          JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE }, 
+  { "-P",          JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-T",          JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--targets",   JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-V",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--version",   JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-d",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--cachedir",  JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-f",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--gantfile",  JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-h",          JST_SINGLE_PARAM, 1, JST_TO_LAUNCHEE },
+  { "--help",      JST_SINGLE_PARAM, 1, JST_TO_LAUNCHEE },
+  { "-l",          JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--gantlib",   JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-p",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--projecthelp", JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-q",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--quiet",     JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-s",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--silent",    JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },  
+  { "-v",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--verbose",   JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { NULL,          0,                0, 0 }
 } ;
 
 static const JstParamInfo groovyshParameters[] = {
-  { "-C",          JST_PREFIX_PARAM, 0 },
-  { "--color",     JST_PREFIX_PARAM, 0 },
-  { "-D",          JST_DOUBLE_PARAM, 0 }, 
-  { "--define",    JST_DOUBLE_PARAM, 0 }, 
-  { "-T",          JST_PREFIX_PARAM, 0 }, 
-  { "--terminal",  JST_PREFIX_PARAM, 0 }, 
-  { "-V",          JST_SINGLE_PARAM, 0 }, 
-  { "--version",   JST_SINGLE_PARAM, 0 }, 
-  { "-d",          JST_SINGLE_PARAM, 0 },
-  { "--debug",     JST_SINGLE_PARAM, 0 },
-  { "-h",          JST_SINGLE_PARAM, 1 },
-  { "--help",      JST_SINGLE_PARAM, 1 },
-  { "-q",          JST_SINGLE_PARAM, 0 },
-  { "--quiet",     JST_SINGLE_PARAM, 0 },
-  { "-v",          JST_SINGLE_PARAM, 0 },
-  { "--verbose",   JST_SINGLE_PARAM, 0 },
-  { NULL,          0,                0 }
+  { "-C",          JST_PREFIX_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--color",     JST_PREFIX_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-D",          JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE }, 
+  { "--define",    JST_DOUBLE_PARAM, 0, JST_TO_LAUNCHEE }, 
+  { "-T",          JST_PREFIX_PARAM, 0, JST_TO_LAUNCHEE }, 
+  { "--terminal",  JST_PREFIX_PARAM, 0, JST_TO_LAUNCHEE }, 
+  { "-V",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE }, 
+  { "--version",   JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE }, 
+  { "-d",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--debug",     JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-h",          JST_SINGLE_PARAM, 1, JST_TO_LAUNCHEE },
+  { "--help",      JST_SINGLE_PARAM, 1, JST_TO_LAUNCHEE },
+  { "-q",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--quiet",     JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "-v",          JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { "--verbose",   JST_SINGLE_PARAM, 0, JST_TO_LAUNCHEE },
+  { NULL,          0,                0, 0 }
 } ;
 
 static const JstParamInfo java2groovyParameters[] = {
-  { "-h",          JST_SINGLE_PARAM, 1 },
-  { NULL,          0,                0 }
+  { "-h",          JST_SINGLE_PARAM, 1, JST_TO_LAUNCHEE },
+  { NULL,          0,                0, 0 }
 } ;
 
 static const JstParamInfo noParameters[] = {
-  { NULL,          0,                0 }    
+  { NULL,          0,                0, 0 }    
 } ;
 
 int main( int argc, char** argv ) {
@@ -443,7 +443,7 @@ int rest_of_main( int argc, char** argv ) {
                                     ( strcmp( argv[ 1 ], "-h"     ) == 0 ) || 
                                     ( strcmp( argv[ 1 ], "--help" ) == 0 )
                                   ) ? JNI_TRUE : JNI_FALSE ; 
-
+  JstActualParam *processedActualParams = NULL ;
   // _jst_debug is a global debug flag
   if ( getenv( "__JLAUNCHER_DEBUG" ) ) _jst_debug = JNI_TRUE ;
 
@@ -477,10 +477,9 @@ int rest_of_main( int argc, char** argv ) {
 // cygwin compatibility end
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
-
-  //_groovy_launcher_debug = ( getenv( "__JLAUNCHER_DEBUG" ) ? JNI_TRUE : JNI_FALSE ) ;
-  
+    
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   { // deduce which class name to pass as --main param. In other words, this here supports all different groovy executables. 
     // The execubale acts as a different groovy executable when it's renamed / symlinked to. 
     char *execName = jst_strdup( argv[ 0 ] ),
@@ -549,6 +548,9 @@ int rest_of_main( int argc, char** argv ) {
   }
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   
+//  processedActualParams = jst_processInputParameters( argv + 1, argc - 1, parameterInfos, terminatingSuffixes ) ;
+//  if ( ! processedActualParams ) goto end ;
+
   
   if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
                            args = jst_calloc( argc, sizeof( char* ) ) ) ) goto end ;

@@ -49,16 +49,42 @@ typedef enum {
   JST_DOUBLE_PARAM,
   /** a parameter that its value attached, e.g. param name "-D", that could be given on command line as -Dfoo */
   JST_PREFIX_PARAM
-} JstParamClass;
+} JstParamClass ;
+
+typedef enum {
+  JST_IGNORE       = 0,
+  // both of the next two may be set at the same time, use & operator to find out
+  JST_TO_JVM       = 1,
+  JST_TO_LAUNCHEE  = 2, 
+  JST_UNRECOGNIZED = 4
+} JstInputParamHandling ;
 
 typedef struct {
   char          *name ;
   JstParamClass type ;
   /** If != 0, the actual parameters followed by this one are passed on to the launchee. */
-  int           terminating ;
-  
+  unsigned char terminating ;
+  JstInputParamHandling handling ;
 } JstParamInfo ;
 
+// this is to be taken into use after some other refactorings
+typedef struct {
+  char *param ;
+
+  // for twin (double) parameters, only the first will contain a pointer to the corresponding param info
+  JstParamInfo* paramDefinition ;
+  // char *paramName ;
+  
+  // this is needed so that the cygwin conversions need to be performed only once
+  // This is the actual value passed in to the jvm or launchee program. E.g. the two (connected) parameters
+  // --classpath /usr/local:/home/antti might have values "--classpath" and "C:\programs\cygwin\usr\local;C:\programs\cygwin\home\antti"
+  // respectively
+  char *value ;
+  JstInputParamHandling handling ; 
+    
+} JstActualParam ; 
+
+// TODO: remove this completely - there should be a char* to append stuff to classpath
 typedef enum {
 // classpath handling constants
 /** if neiyher of these first two is given, CLASSPATH value is always appended to jvm classpath */
@@ -80,7 +106,7 @@ typedef enum {
  * If you're just passing this as a param, you need not worry about the bitwise meaning, it's just an implementation detail. */
 typedef enum { 
   JST_CLIENT_FIRST     = 7,
-  JST_SERVER_FIRST     = 6,
+  JST_SERVER_FIRST     = 3,
   JST_TRY_CLIENT_ONLY  = 1,
   JST_TRY_SERVER_ONLY  = 2
 } JVMSelectStrategy ;
@@ -106,6 +132,7 @@ typedef enum {
   JST_ALLOW_PATH_LOOKUP     = 8
 } JavaHomeHandling ;
 
+// FIXME - delete this, (almost) groovy specific
 // these can be or:d together w/ |
 typedef enum {
   JST_IGNORE_TOOLS_JAR       = 0,
@@ -122,6 +149,7 @@ typedef struct {
   char* javaHome ;
   /** what kind of jvm to use. */
   JVMSelectStrategy jvmSelectStrategy ;
+  // TODO: ditch this, the called may preprocess them. Provide a func to transform a space separated string into jvm options
   /** The name of the env var where to take extra jvm params from. May be NULL. */
   char* javaOptsEnvVar ;
   /** what to do about tools.jar */
@@ -131,11 +159,11 @@ typedef struct {
   /** See the constants above. */
   ClasspathHandling classpathHandling ; 
   /** The arguments the user gave. Usually just give argv + 1 */
-  char** arguments; 
+  char** arguments ; 
   /** The arguments the user gave. Usually just give argv - 1 */
-  int numArguments;
+  int numArguments ;
   /** extra params to the jvm (in addition to those extracted from arguments above). */
-  JavaVMOption* jvmOptions;
+  JavaVMOption* jvmOptions ;
   int numJvmOptions; 
   /** parameters to the java class' main method. These are put first before the command line args. */
   char** extraProgramOptions ;
@@ -160,7 +188,6 @@ typedef struct {
 // to have type DWORD in the func signature below we need this header
 //#include "Windows.h"
 // DWORD is defined as unsigned long, so we'll just use that
-// TODO: add jst_ prefix
 /** Prints an error message for the given windows error code. */
 void jst_printWinError( unsigned long errcode ) ;
 
@@ -209,6 +236,10 @@ int jst_contains(char** args, int* numargs, const char* option, const jboolean r
  * @param the terminating JstParamInfo has NULL for name. */
 int jst_findFirstLauncheeParamIndex( char** argv, int argc, char** terminatingSuffixes, JstParamInfo* paramInfos ) ;
 
+/** returns an array of JstActualParam, the last one of which contains NULL for field param. 
+ * All the memory allocated can be freed by freeing the returned pointer.
+ * Return NULL on error. */
+JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes ) ;
 
 /** returns null if not found. For prefix params, returns the value w/out the prefix.
  * paramType is double or prefix.
@@ -259,7 +290,7 @@ char** jst_packStringArray( char** nullTerminatedStringArray ) ;
 typedef enum { PREFIX_SEARCH, SUFFIX_SEARCH, EXACT_SEARCH } SearchMode;
 
 /** The first param may be NULL, it is considered an empty array. */
-jboolean arrayContainsString( char** nullTerminatedArray, const char* searchString, SearchMode mode ) ; 
+jboolean jst_arrayContainsString( char** nullTerminatedArray, const char* searchString, SearchMode mode ) ; 
 
 /** These wrap the corresponding memory allocation routines. The only difference is that these print an error message if
  * the call fails. */

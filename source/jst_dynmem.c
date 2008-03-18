@@ -245,7 +245,7 @@ extern char* jst_concatenateStrArray( char** nullTerminatedStringArray ) {
   return rval ;
 }
 
-extern jboolean arrayContainsString( char** nullTerminatedArray, const char* searchString, SearchMode mode ) {
+extern jboolean jst_arrayContainsString( char** nullTerminatedArray, const char* searchString, SearchMode mode ) {
   int    i = 0 ;
   size_t sslen, len ;
   char   *str ;
