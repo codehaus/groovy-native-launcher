@@ -282,3 +282,19 @@ extern int jst_pointerArrayLen( void** nullTerminatedPointerArray ) {
   while ( nullTerminatedPointerArray[ count ] ) count++ ;
   return count ;
 }
+
+/** Returns the size of any array whose end is marked by the first element has as its first
+ * part a NULL pointer. 
+ * @param array may not be NULL */
+extern int jst_nullTerminatedArrayLen( void* array, size_t elementSizeInBytes ) {
+  int len = 0 ;
+  unsigned char* ptr = array ;
+  
+  while ( ptr ) {
+    len++ ;
+    ptr += elementSizeInBytes ;
+  }
+  
+  return len ;
+  
+}

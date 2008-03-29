@@ -44,58 +44,56 @@ jboolean _jst_debug ;
     
 typedef enum { 
   /** a standalone parameter, such as -v */
-  JST_SINGLE_PARAM,
+  JST_SINGLE_PARAM = 1,
   /** a parameter followed by some additional info, e.g. --endcoding UTF8 */
-  JST_DOUBLE_PARAM,
+  JST_DOUBLE_PARAM = 2,
   /** a parameter that its value attached, e.g. param name "-D", that could be given on command line as -Dfoo */
-  JST_PREFIX_PARAM
+  JST_PREFIX_PARAM = 4
 } JstParamClass ;
 
 typedef enum {
-  JST_IGNORE       = 0,
+  JST_IGNORE       = 1,
   // both of the next two may be set at the same time, use & operator to find out
-  JST_TO_JVM       = 1,
-  JST_TO_LAUNCHEE  = 2, 
-  JST_UNRECOGNIZED = 4
+  JST_TO_JVM       = 2,
+  JST_TO_LAUNCHEE  = 4,
+  JST_TERMINATING  = 8,
+  JST_CYGWIN_CONVERT = 0x10, 
+  
+  // the following can't be set as value to ParamInfo.handling (it doesn't make sense)
+  
+  JST_UNRECOGNIZED = 0x20,
+  // this bit will be set on the parameter after which all the parameters are launchee params (and all following params)
+  JST_TERMINATING_OR_AFTER = JST_TERMINATING
 } JstInputParamHandling ;
 
 typedef struct {
+  
   char          *name ;
   JstParamClass type ;
   /** If != 0, the actual parameters followed by this one are passed on to the launchee. */
-  unsigned char terminating ;
+//  unsigned char terminating ;
   JstInputParamHandling handling ;
+  
 } JstParamInfo ;
 
 // this is to be taken into use after some other refactorings
 typedef struct {
+  
   char *param ;
 
   // for twin (double) parameters, only the first will contain a pointer to the corresponding param info
   JstParamInfo* paramDefinition ;
-  // char *paramName ;
   
   // this is needed so that the cygwin conversions need to be performed only once
   // This is the actual value passed in to the jvm or launchee program. E.g. the two (connected) parameters
   // --classpath /usr/local:/home/antti might have values "--classpath" and "C:\programs\cygwin\usr\local;C:\programs\cygwin\home\antti"
-  // respectively
+  // respectively. For sinle params this is "" (as they have no real separate value except for being present). 
+  // For prefix params this contains the prefix. Use jst_getParameterValue to fetch the value w/out the prefix. 
   char *value ;
   JstInputParamHandling handling ; 
     
 } JstActualParam ; 
 
-// TODO: remove this completely - there should be a char* to append stuff to classpath
-typedef enum {
-// classpath handling constants
-/** if neiyher of these first two is given, CLASSPATH value is always appended to jvm classpath */
-  JST_IGNORE_GLOBAL_CP = 1,
-/** global CLASSPATH is appended to jvm startup classpath only if -cp / --classpath is not given */
-  JST_IGNORE_GLOBAL_CP_IF_PARAM_GIVEN = 2,
-/** this can be given w/ the following */
-  JST_CP_PARAM_TO_APP = 4,
-/** pass the given cp param to jvm startup classpath */
-  JST_CP_PARAM_TO_JVM = 8
-} ClasspathHandling ;
 
 /** The strategy to use when selecting between using client and server jvm *if* no explicit -client/-server param. If explicit param
  * is given, then that type of jvm is used, period.
@@ -140,6 +138,13 @@ typedef enum {
   JST_TOOLS_JAR_TO_SYSPROP   = 2
 } ToolsJarHandling ;
 
+/** These may be or:d together. */
+typedef enum {
+  JST_IGNORE_UNRECOGNIZED = 0,
+  JST_UNRECOGNIZED_TO_JVM = 1,
+  JST_UNRECOGNIZED_TO_APP = 2
+} JstUnrecognizedParamStrategy ;
+
  /** Note that if you tell that -cp / --classpath and/or -jh / --javahome params are handled automatically. 
   * If you do not want the user to be able to affect 
   * javahome, specify these two as double params and their processing is up to you. 
@@ -152,16 +157,15 @@ typedef struct {
   // TODO: ditch this, the called may preprocess them. Provide a func to transform a space separated string into jvm options
   /** The name of the env var where to take extra jvm params from. May be NULL. */
   char* javaOptsEnvVar ;
+  JstUnrecognizedParamStrategy unrecognizedParamStrategy ;
   /** what to do about tools.jar */
   ToolsJarHandling toolsJarHandling ;
   /** See the constants above. */
-  JavaHomeHandling javahomeHandling ; 
-  /** See the constants above. */
-  ClasspathHandling classpathHandling ; 
-  /** The arguments the user gave. Usually just give argv + 1 */
-  char** arguments ; 
-  /** The arguments the user gave. Usually just give argv - 1 */
-  int numArguments ;
+  JavaHomeHandling javahomeHandling ;
+  /** Give any cp entries you want appended to the beginning of classpath here. May be NULL */
+  char* initialClasspath ;
+  /** Processed actual parameters. May not be NULL. Use jst_processInputParameters function to obtain this value. */
+  JstActualParam* parameters ;
   /** extra params to the jvm (in addition to those extracted from arguments above). */
   JavaVMOption* jvmOptions ;
   int numJvmOptions; 
@@ -229,25 +233,23 @@ char* jst_getExecutableHome() ;
 
 /** Returns the index of the given str in the given str array, -1 if not found.  
  * Modifies args, numargs and checkUpto if removeIfFound == true */
-int jst_contains(char** args, int* numargs, const char* option, const jboolean removeIfFound);
-
-/** may return argc if none of the presented params are "terminating", i.e. indicate that it and all the rest of the params
- * go to the launchee. 
- * @param the terminating JstParamInfo has NULL for name. */
-int jst_findFirstLauncheeParamIndex( char** argv, int argc, char** terminatingSuffixes, JstParamInfo* paramInfos ) ;
+int jst_contains( char** args, int* numargs, const char* option, const jboolean removeIfFound ) ;
 
 /** returns an array of JstActualParam, the last one of which contains NULL for field param. 
  * All the memory allocated can be freed by freeing the returned pointer.
- * Return NULL on error. */
-JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes ) ;
+ * Return NULL on error. 
+ * @param cygwinConvertParamsAfterTermination if true (and cygwin compatibility is set in the build & cygwin1.dll is found and loaded), 
+ *                                            the terminating param (the param which w/ all the following params is passed to launchee)
+ *                                            and all the following params are cygwin path converted. */
+JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes, jboolean cygwinConvertParamsAfterTermination ) ;
 
-/** returns null if not found. For prefix params, returns the value w/out the prefix.
- * paramType is double or prefix.
- * In case of double param w/ no value, error out param is set to true. */
-char* jst_valueOfParam(char** args, int* numargs, int* checkUpto, const char* option, const JstParamClass paramType, const jboolean removeIfFound, jboolean* error);
+/** For single params, returns "" if the param is present, NULL otherwise. */
+char* jst_getParameterValue( const JstActualParam* processedParams, const char* paramName ) ;
 
-/** returns -1 if not found */
-int jst_indexOfParam( char** args, int numargs, char* paramToSearch) ;
+char* jst_getParameterAfterTermination( const JstActualParam* processedParams, int indx ) ;
+
+/** returns 0 iff the answer is no. */
+int jst_isToBePassedToLaunchee( const JstActualParam* processedParam, JstUnrecognizedParamStrategy unrecognizedParamStrategy ) ;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // dynamic memory handling

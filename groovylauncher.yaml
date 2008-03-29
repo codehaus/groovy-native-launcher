@@ -187,9 +187,9 @@ xgroovy :
       # Design note: it was considered whether one parameter could be given on 
       # a single line such as
       # --main groovy.ui.GroovyMain
-      # but that was abandoned as it is impossible to tell whether it is desired
+      # but that was abandoned as it is hard to tell whether it is desired
       # that this is passed in as a single string or two separate strings separated
-      # at the whitespace.
+      # at the whitespace. Of course, the whitespace could be escaped w/ a \?
   
       # if no value can be given the parameter is not passed to the java program.
     - name  : --main
@@ -293,7 +293,7 @@ xgroovy :
       #       e.g. in the case of sun / jrockit jvm the registry key of current
       #       version is stored as a value of registry entry.
     # defaults to all, possible values: sun, bea (later on ibm and friends)
-    # NO SUPPORT FOR THIS YET
+    # NO SUPPORT FOR THIS YET - is this really needed?
     # a comma separated list (or a yaml list)
     allowed vendors :
     # Defaults to any jvm version.
@@ -318,6 +318,10 @@ xgroovy :
     # NOTE: as all parameters are handled separately, having a part that can't be evaluated
     #       (e.g. ref to env var) only affects that single parameter.
     default jvm parameters : "${JAVA_OPTS} -Dgroovy.home=${apphome} -Dgroovy.conf=${var:conf}"
+    # this can be useful if you want to e.g. make the launcher pass on all -X params to 
+    # both the jvm and the launched app, some of which affect the jvm and some of which are
+    # processed by the app
+    jvm ignores unrecognized parameters : false
       
 #groovyc :
 #  program parameters and system properties :

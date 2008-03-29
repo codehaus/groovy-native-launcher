@@ -17,8 +17,10 @@
 #if defined( _WIN32 )
 
 #include <Windows.h>
-#include <jni.h>
 #include <assert.h>
+#include <stdlib.h>
+
+#include <jni.h>
 
 #include "jst_winreg.h"
 #include "jvmstarter.h"
