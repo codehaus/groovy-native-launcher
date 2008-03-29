@@ -79,7 +79,7 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
           if ( memcmp( paramInfos[ j ].name, arg, len ) == 0 ) {
             found = JNI_TRUE ;
             processedParams[ i ].param = arg ;
-            if ( ( usedSize + len + 1 ) > (int)actualSize ) {
+            if ( (int)( usedSize + len + 1 ) > (int)actualSize ) {
               processedParams = jst_realloc( processedParams, actualSize += ( 100 + len ) ) ;
               if ( !processedParams ) return NULL ;
             }
