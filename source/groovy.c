@@ -229,6 +229,8 @@ static const JstParamInfo groovyParameters[] = {
   { "-classpath",  JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_CONVERT },
   { "--classpath", JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_CONVERT },
   { "--conf",      JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_CONVERT },
+  { "-client",     JST_SINGLE_PARAM, JST_IGNORE },
+  { "-server",     JST_SINGLE_PARAM, JST_IGNORE },
   { NULL,          0,                0 }
 } ;
 
@@ -404,6 +406,8 @@ int rest_of_main( int argc, char** argv ) {
          
   int    rval = -1 ; 
 
+  JVMSelectStrategy jvmSelectStrategy ;
+  
   // this flag is used to tell us whether we reserved the memory for the conf file location string
   // or whether it was obtained from cmdline or environment var. That way we don't try to free memory
   // we did not allocate.
@@ -603,13 +607,19 @@ int rest_of_main( int argc, char** argv ) {
   javaHome = jst_getParameterValue( processedActualParams, "-jh" ) ;
   if ( !javaHome ) javaHome = jst_getParameterValue( processedActualParams, "--javahome" ) ;
   
+  jvmSelectStrategy = jst_getParameterValue( processedActualParams, "-client" ) ? JST_TRY_CLIENT_ONLY :
+                      jst_getParameterValue( processedActualParams, "-server" ) ? JST_TRY_SERVER_ONLY :
+                      // by default, mimic java launcher, which also prefers client vm due to its 
+                      // faster startup (despite it running much slower)
+                      JST_CLIENT_FIRST ;
+  
   // populate the startup parameters
   // first, set the memory to 0. This is just a precaution, as NULL (0) is a sensible default value for many options.
   // TODO: remove this, it gives false sense of safety...
   // memset( &options, 0, sizeof( JavaLauncherOptions ) ) ;
   
   options.javaHome            = javaHome ; 
-  options.jvmSelectStrategy   = JST_CLIENT_FIRST ; // mimic java launcher, which also prefers client vm due to its faster startup (despite it running much slower)
+  options.jvmSelectStrategy   = jvmSelectStrategy ; 
   options.javaOptsEnvVar      = "JAVA_OPTS" ;
   // refactor so that the target sys prop can be defined
   options.toolsJarHandling    = JST_TOOLS_JAR_TO_SYSPROP ;
