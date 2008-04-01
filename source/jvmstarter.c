@@ -751,12 +751,14 @@ static jobjectArray createJMainParams( JNIEnv* env, JstActualParam* parameters, 
           failed = !addStringToJStringArray( env, parameters[ i ].param,   launcheeJOptions, indx++ ) ||
                    !addStringToJStringArray( env, parameters[ i++ ].value, launcheeJOptions, indx++ ) ;
           break ;
+        // TODO: put this and default: together (?)
         case JST_PREFIX_PARAM :
           failed = !addStringToJStringArray( env, parameters[ i ].value, launcheeJOptions, indx++ ) ;
           break ;
-        default : // should never happen
-          fprintf( stderr, "bug: unknown parameter type %d\n", parameters[ i ].paramDefinition->type ) ;
-          failed = JNI_TRUE ;
+        default : // all params after termination
+          assert( paramHandling & JST_TERMINATING_OR_AFTER ) ;
+          failed = !addStringToJStringArray( env, parameters[ i ].value, launcheeJOptions, indx++ ) ;
+          break ;
       }
       if ( failed ) {
         (*env)->DeleteLocalRef( env, launcheeJOptions ) ;

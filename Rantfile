@@ -21,43 +21,16 @@
 
 import 'clean'
 
-#  Use the name of the architecture specific directory in ${JAVA_HOME}/include as representation.
-
-LINUX = 'linux'
-SOLARIS = 'solaris'
-MAC_OS_X = 'darwin'
-CYGWIN = 'cygwin'
-MSYS = 'msys'
-WINDOWS = 'windows'
+require 'osarch'
 
 Environment = { }
 
-def unknownArchitecture ( ) raise "Unrecognized architecture -- #{Architecture}" end
+Environment[ 'Architecture' ] = get_architecture()
 
-begin
-  Environment[ 'Architecture' ] = case `uname -s`
-                                  when /Linux/ then LINUX
-                                  when /SunOS/ then SOLARIS
-                                  when /Darwin/ then MAC_OS_X   
-                                  when /CYGWIN/ then CYGWIN
-                                  when /MINGW32/ then MSYS  
-                                  else
-                                    unknownArchitecture
-                                  end
-rescue
-  if ENV[ 'WINDIR' ]
-    Environment[ 'Architecture' ] = WINDOWS
-  else
-    unknownArchitecture
-  end
-end
 
 Environment[ 'Name' ] = 'groovy'
-begin
-  Environment[ 'BuildDirectory' ] = "build_rant_#{Environment[ 'Architecture' ]}_#{`uname -m`.strip( )}"
-rescue
-  Environment[ 'BuildDirectory' ] = "build_rant_#{Environment[ 'Architecture' ]}"
-end
+
+Environment[ 'BuildDirectory' ] = get_builddir()
 
 desc 'Clean everything.'
 gen Clean , :clean
@@ -73,6 +46,8 @@ task :debug   => 'source/debug'
 
 task :default => :compile
 
-# TODO: 
-# task :test =>
+task :test do
+  # for some reason "require"ing launcher_test.rb here does not run the unit tests
+  puts `ruby launcher_test.rb #{Environment[ 'BuildDirectory' ]}`
+end
  

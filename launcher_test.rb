@@ -17,10 +17,13 @@ require "test/unit"
 require 'pathname'
 require 'rbconfig'
 require 'English'
+require 'fileutils'
 
-$dir_containing_executable ||= ARGV.size > 0 && ARGV[ 0 ]
 
-raise "dir containing the executable to test must be given as a parameter" unless $dir_containing_executable
+require 'osarch'
+
+$dir_containing_executable ||= ( ARGV.size > 0 && ARGV[ 0 ] ) || get_builddir()
+
 
 exe_name = 'groovy' + ( Config::CONFIG[ 'host_os' ] =~ /win/ ? '.exe' : '' )
 
@@ -29,18 +32,36 @@ EXE_FILE = ( Pathname.new( $dir_containing_executable ) + exe_name ).to_s
 raise "#{EXE_FILE} does not exist" unless File.exist?( EXE_FILE )
 
 class LauncherTest < Test::Unit::TestCase
+
+  def excecution_succeeded?( output, expected_output_pattern )
+    assert $CHILD_STATUS.exitstatus == 0
+    assert( output =~ expected_output_pattern )    
+  end
   
   def test_version
-    output = `#{EXE_FILE} -v`
-    assert( output =~ /groovy/i )
+    excecution_succeeded?( `#{EXE_FILE} -v`, /groovy/i ) 
   end
 
-# build_rant_linux_i686/groovy -server -e "println System.getProperty('java.vm.name')"
-# -> must contain "server" (ignore case)
-# w/out -server => must contain client
+  def test_server_or_client_jvm
+    excecution_succeeded?( `#{EXE_FILE} -server -e "println System.getProperty('java.vm.name')"`, /server/i )
+    excecution_succeeded?( `#{EXE_FILE} -e "println System.getProperty('java.vm.name')"`,         /client/i ) 
+  end
 
-# pass -Xmx300m and check that it takes effect
+  def test_passing_jvm_parameter
+    excecution_succeeded?( `#{EXE_FILE} -Xmx300m -e "println Runtime.runtime.maxMemory()"`, /\A3\d{8}\Z/ )
+  end
 
-# generate a groovy source file, run that and check the output
+  def test_launching_script
+    tempfile = 'justatest.groovy'
+    File.open( tempfile, 'w' ) { |f|
+      f << "println 'hello ' + args[ 0 ]\n"
+    }
+    begin
+      excecution_succeeded?( `#{EXE_FILE} #{tempfile} world`, /hello world/ )       
+    ensure
+      FileUtils.rm tempfile
+    end
+    
+  end
   
 end
