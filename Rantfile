@@ -75,9 +75,4 @@ task :default => :compile
 
 # TODO: 
 # task :test =>
-# build_rant_linux_i686/groovy -server -e "println System.getProperty('java.vm.name')"
-# -> must contain "server" (ignore case)
-# w/out -server => must contain client
-# pass -Xmx300m and check that it takes effect
-# generate a groovy source file, run that and check the output
  

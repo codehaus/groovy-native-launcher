@@ -1,7 +1,7 @@
 $Revision$
 $Date$
 
-Author:  Antti Karanta (Antti dot Karanta (at) iki dot fi) 
+Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
 
 
 What it is

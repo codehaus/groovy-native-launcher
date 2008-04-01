@@ -1,6 +1,6 @@
 //  Groovy -- A native launcher for Groovy
 //
-//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) iki dot fi) 
+//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
 //
 //  Licensed under the Apache License, Version 2.0 (the "License") ; you may not use this file except in
 //  compliance with the License. You may obtain a copy of the License at
@@ -12,7 +12,7 @@
 //  implied. See the License for the specific language governing permissions and limitations under the
 //  License.
 //
-//  Author:  Antti Karanta (Antti dot Karanta (at) iki dot fi) 
+//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
 //  $Revision$
 //  $Date$
 
@@ -95,12 +95,11 @@ static int isValidGroovyHome( const char* dir ) {
   int  rval = -1 ;
 
   gconfFile = jst_createFileName( dir, "conf", GROOVY_CONF, NULL ) ; 
-  if ( !gconfFile ) goto end ;
- 
-  rval = jst_fileExists( gconfFile ) ? 1 : 0 ;
+  if ( gconfFile ) {
+    rval = jst_fileExists( gconfFile ) ? 1 : 0 ;
+    free( gconfFile ) ;
+  }
 
-  end :
-  if ( gconfFile ) free( gconfFile ) ;
   return rval ;
 }
 
@@ -125,6 +124,9 @@ char* getGroovyHome() {
     if ( validGroovyHome == -1 ) goto end ;
     if ( validGroovyHome ) {
       if ( !( _ghome = jst_strdup( appHome ) ) ) goto end ;
+      if ( _jst_debug ) {
+          fprintf( stderr, "debug: groovy home located based on executable location: %s\n", _ghome ) ;
+      }
     }
   }
   
@@ -145,13 +147,11 @@ char* getGroovyHome() {
     } else {
       fprintf( stderr, "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n" ) ;
     }
-  } else if ( _jst_debug ) {
-    fprintf( stderr, "debug: groovy home located based on executable location: %s\n", _ghome ) ;
-  }
+  } 
 
   end : 
   
-  if ( appHome ) free( appHome   ) ;
+  if ( appHome ) free( appHome ) ;
   return _ghome ;
 }
 

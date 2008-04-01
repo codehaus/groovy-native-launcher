@@ -1,6 +1,6 @@
 //  A library for easy creation of a native launcher for Java applications.
 //
-//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) iki dot fi) 
+//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
 //
 //  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
 //  compliance with the License. You may obtain a copy of the License at
@@ -12,7 +12,7 @@
 //  implied. See the License for the specific language governing permissions and limitations under the
 //  License.
 //
-//  Author:  Antti Karanta (Antti dot Karanta (at) iki dot fi) 
+//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
 //  $Revision$
 //  $Date$
 
@@ -107,100 +107,98 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
   }
 
   {
-
+  
 #  if defined( _WIN32 )
-    // windows does not have dirent.h, it does things different from other os'es
-    {
-      jboolean        dirNameEndsWithSeparator = jst_dirNameEndsWithSeparator( dirName ) ;
-      HANDLE          fileHandle               = INVALID_HANDLE_VALUE ;
-      WIN32_FIND_DATA fdata ;
-      DWORD           lastError ;
-      char*           fileSpecifier = jst_append( NULL, NULL, dirName, 
-                                                              dirNameEndsWithSeparator ? "" : JST_FILE_SEPARATOR, 
-                                                              fileNamePrefix ? fileNamePrefix : "", 
-                                                              "*",
-                                                              fileNameSuffix ? fileNameSuffix : ".*",
-                                                              NULL ) ;
-      if ( !fileSpecifier ) {
-        errorOccurred = JNI_TRUE ;
-        goto end ;
-      }
-      
-      SetLastError( 0 ) ;
-      fileHandle = FindFirstFile( fileSpecifier, &fdata ) ;
-  
-      if ( fileHandle == INVALID_HANDLE_VALUE ) {
-        lastError = GetLastError() ;
-        fprintf( stderr, "error: opening directory %s failed\n", dirName ) ;
-        jst_printWinError( lastError ) ;
-        errorOccurred = JNI_TRUE ;
-        goto end ;
-      }
-  
-      if ( !( lastError = GetLastError() ) ) {
-      
-        do {
-          char* temp = jst_strdup( fdata.cFileName ) ;
-          if ( !temp || 
-               !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
-            errorOccurred = JNI_TRUE ;
-            goto end ;
-          }
-        } while ( FindNextFile( fileHandle, &fdata ) ) ;
-        
-      }
-        
-      if ( !lastError ) lastError = GetLastError() ;
-      if ( lastError != ERROR_NO_MORE_FILES ) {
-        fprintf( stderr, "error: error occurred when finding jars from %s\n", dirName ) ;
-        jst_printWinError( lastError ) ;
-        errorOccurred = JNI_TRUE ;
-      }
-  
-      end:
-      
-      if ( fileHandle != INVALID_HANDLE_VALUE ) FindClose( fileHandle ) ;
-      if ( fileSpecifier ) free( fileSpecifier ) ;
+  // windows does not have dirent.h, it does things different from other os'es
+
+    jboolean        dirNameEndsWithSeparator = jst_dirNameEndsWithSeparator( dirName ) ;
+    HANDLE          fileHandle               = INVALID_HANDLE_VALUE ;
+    WIN32_FIND_DATA fdata ;
+    DWORD           lastError ;
+    char*           fileSpecifier = jst_append( NULL, NULL, dirName, 
+                                                            dirNameEndsWithSeparator ? "" : JST_FILE_SEPARATOR, 
+                                                            fileNamePrefix ? fileNamePrefix : "", 
+                                                            "*",
+                                                            fileNameSuffix ? fileNameSuffix : ".*",
+                                                            NULL ) ;
+    if ( !fileSpecifier ) {
+      errorOccurred = JNI_TRUE ;
+      goto end ;
+    }
+    
+    SetLastError( 0 ) ;
+    fileHandle = FindFirstFile( fileSpecifier, &fdata ) ;
+
+    if ( fileHandle == INVALID_HANDLE_VALUE ) {
+      lastError = GetLastError() ;
+      fprintf( stderr, "error: opening directory %s failed\n", dirName ) ;
+      jst_printWinError( lastError ) ;
+      errorOccurred = JNI_TRUE ;
+      goto end ;
+    }
+
+    if ( !( lastError = GetLastError() ) ) {
+    
+      do {
+        char* temp = jst_strdup( fdata.cFileName ) ;
+        if ( !temp || 
+             !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
+          errorOccurred = JNI_TRUE ;
+          goto end ;
+        }
+      } while ( FindNextFile( fileHandle, &fdata ) ) ;
       
     }
-#  else
-    {
-      DIR           *dir ;
-      struct dirent *entry ;
-      size_t        prefixlen = fileNamePrefix ? strlen( fileNamePrefix ) : 0,
-                    suffixlen = fileNameSuffix ? strlen( fileNameSuffix ) : 0 ;
       
-      dir = opendir( dirName ) ;
-      if ( !dir ) {
-        fprintf( stderr, "error: could not read directory %s to append jar files from\n%s", dirName, strerror( errno ) ) ;
-        errorOccurred = JNI_TRUE ;
-        goto end ;
-      }
+    if ( !lastError ) lastError = GetLastError() ;
+    if ( lastError != ERROR_NO_MORE_FILES ) {
+      fprintf( stderr, "error: error occurred when finding jars from %s\n", dirName ) ;
+      jst_printWinError( lastError ) ;
+      errorOccurred = JNI_TRUE ;
+    }
 
-      while( ( entry = readdir( dir ) ) ) {
-        char   *fileName = entry->d_name ;
-        size_t len       = strlen( fileName ) ;
+    end:
+    
+    if ( fileHandle != INVALID_HANDLE_VALUE ) FindClose( fileHandle ) ;
+    if ( fileSpecifier ) free( fileSpecifier ) ;
+    
+#  else
 
-        if ( len < prefixlen || len < suffixlen ||
-             ( strcmp( ".", fileName ) == 0 ) || ( strcmp( "..", fileName ) == 0 ) ) continue ;
-        
-        if ( ( !fileNamePrefix || memcmp( fileNamePrefix, fileName, prefixlen ) == 0 ) &&
-             ( !fileNameSuffix || memcmp( fileNameSuffix, fileName + len - suffixlen, suffixlen ) == 0 ) ) {
-          char* temp = jst_strdup( fileName ) ;
-          if ( !temp || 
-               !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
-            errorOccurred = JNI_TRUE ;
-            goto end ;
-          }
+    DIR           *dir ;
+    struct dirent *entry ;
+    size_t        prefixlen = fileNamePrefix ? strlen( fileNamePrefix ) : 0,
+                  suffixlen = fileNameSuffix ? strlen( fileNameSuffix ) : 0 ;
+    
+    dir = opendir( dirName ) ;
+    if ( !dir ) {
+      fprintf( stderr, "error: could not read directory %s to append jar files from\n%s", dirName, strerror( errno ) ) ;
+      errorOccurred = JNI_TRUE ;
+      goto end ;
+    }
+
+    while( ( entry = readdir( dir ) ) ) {
+      char   *fileName = entry->d_name ;
+      size_t len       = strlen( fileName ) ;
+
+      if ( len < prefixlen || len < suffixlen ||
+           ( strcmp( ".", fileName ) == 0 ) || ( strcmp( "..", fileName ) == 0 ) ) continue ;
+      
+      if ( ( !fileNamePrefix || memcmp( fileNamePrefix, fileName, prefixlen ) == 0 ) &&
+           ( !fileNameSuffix || memcmp( fileNameSuffix, fileName + len - suffixlen, suffixlen ) == 0 ) ) {
+        char* temp = jst_strdup( fileName ) ;
+        if ( !temp || 
+             !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
+          errorOccurred = JNI_TRUE ;
+          goto end ;
         }
       }
-      
-
-      end:
-
-      if ( dir ) closedir( dir ) ;
-      
     }
+    
+
+    end:
+
+    if ( dir ) closedir( dir ) ;
+    
 #  endif
   }
   

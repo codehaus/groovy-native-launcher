@@ -1,6 +1,6 @@
 //  A simple library for creating a native launcher for a java app
 //
-//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) iki dot fi) 
+//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
 //
 //  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
 //  compliance with the License. You may obtain a copy of the License at
@@ -12,7 +12,7 @@
 //  implied. See the License for the specific language governing permissions and limitations under the
 //  License.
 //
-//  Author:  Antti Karanta (Antti dot Karanta (at) iki dot fi) 
+//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
 //  $Revision$
 //  $Date$
 
