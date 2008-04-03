@@ -104,8 +104,6 @@
    // for getpid()
 #  include <unistd.h>
 
-#  include <dirent.h>
-
 // stuff for loading a dynamic library
 #  include <dlfcn.h>
    
@@ -862,15 +860,15 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
                                         classpath, 
                                         NULL ) ) ) goto end ; 
 
-  // groovy specific, will be refactored out of here
+  // TODO: groovy specific, will be refactored out of here
   if ( !handleToolsJar( javaHome, launchOptions->toolsJarHandling, &jvmOptions, &jvmOptionsCount, &jvmOptionsSize, &toolsJarD ) ) goto end ;
   
   
   // the jvm options order handling is significant: if the same option is given more than once, the last one is the one
   // that stands. That's why we here set first the jvm opts set programmatically, then the ones from user env var
-  // and then the ones from the command line. Thus the user can override the ones he wants on the next level
-  // ones on the right override those on the left
-  // autoset by the caller of this func -> ones from env var (e.g. JAVA_OPTS) -> ones from command line 
+  // and then the ones from the command line. Thus the user can override the ones he wants on the next level, 
+  // i.e. the precedence is: 
+  // set on command line - env var - programmatically set (from most significant to least)
   
   // jvm options given as parameters to this func  
   for ( i = 0 ; i < launchOptions->numJvmOptions ; i++ ) {

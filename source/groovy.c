@@ -155,55 +155,6 @@ char* getGroovyHome() {
   return _ghome ;
 }
 
-// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
-//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
-// cygwin compatibility code begin
-
-#if defined ( _WIN32 ) && defined ( _cwcompat )
-// - - - - - - - - - - - - -
-// cygwin compatibility
-// - - - - - - - - - - - - -
-static int rest_of_main( int argc, char** argv ) ;
-static int mainRval ;
-// 2**15
-#define PAD_SIZE 32768
-typedef struct {
-  void* backup ;
-  void* stackbase ;
-  void* end ;
-  byte padding[ PAD_SIZE ] ; 
-} CygPadding ;
-
-static CygPadding *g_pad ;
-
-#endif
-
-
-// cygwin compatibility end
-//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
-// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
-
-// testing, testing...
-
-typedef struct {
-  const char** x ;
-  int y ;
-} Foo ;
-
-// this (compound literals) works w/ c99 compatible compilers (like gcc), but not e.g. ms cl...
-//static const Foo myfoos1[] = {
-//    { (char*[]){ "hello", NULL }, 12 },
-//    { NULL, 0 }
-//} ;
-
-static const char* fooArray0[] = {
-    "hello", "world", NULL };
-static const char* fooArray1[] = {
-    "there", "is", "no", "Cabal", NULL };
-static const Foo myfoos[] = {
-    { fooArray0, 12 },
-    { fooArray1, 42 },
-    { NULL, 0 } };
 
 // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
 // are handled separately below
@@ -310,6 +261,75 @@ static const JstParamInfo noParameters[] = {
   { NULL,          0,                0 }    
 } ;
 
+ 
+// deduce which class name to pass as --main param. In other words, this here supports all different groovy executables.
+static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** parameterInfosOut, jboolean* displayHelpOut ) {  
+  // The execubale acts as a different groovy executable when it's renamed / symlinked to. 
+  char *execName = jst_strdup( cmd ),
+       *eName,
+       *execNameTmp,
+       *mainClassName = NULL ;
+  
+  if ( !( execNameTmp = execName ) ) return NULL ;
+#if defined( _WIN32 )
+  {
+    size_t len = strlen( execName ) ;
+    if ( ( len > 4 ) && 
+         ( memcmp( execName + len - 4, ".exe", 4 ) == 0 ) ) {
+      execName[ len -= 4 ] = '\0' ;
+    }
+    if ( len > 0 && 
+         ( execName[ len - 1 ] == 'w' || execName[ len - 1 ] == 'W' ) ) {
+      execName[ len - 1 ] = '\0' ;
+    }
+  }
+#endif
+  eName = strrchr( execName, JST_FILE_SEPARATOR[ 0 ] ) ;
+  if ( eName ) execName = eName + 1 ;
+
+  if ( strcmp( execName, "groovy" ) == 0 ) {
+    mainClassName = "groovy.ui.GroovyMain" ;
+    *parameterInfosOut = (JstParamInfo*)groovyParameters ;
+  } else if ( strcmp( execName, "groovyc" ) == 0 ) {
+    mainClassName = "org.codehaus.groovy.tools.FileSystemCompiler" ;
+    *parameterInfosOut = (JstParamInfo*)groovycParameters ;
+  } else {
+    
+    if ( numArgs == 0 ) *displayHelpOut = JNI_FALSE ;
+    
+    if ( strcmp( execName, "gant" ) == 0 ) {
+      mainClassName = "gant.Gant" ; 
+      *parameterInfosOut = (JstParamInfo*)gantParameters ;
+    } else if ( strcmp( execName, "groovysh" ) == 0 ) {
+      mainClassName = getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ;
+      *parameterInfosOut = (JstParamInfo*)groovyshParameters ;
+    } else if ( strcmp( execName, "java2groovy" ) == 0 ) {
+      *displayHelpOut = JNI_FALSE ;
+      mainClassName = "org.codehaus.groovy.antlr.java.Java2GroovyMain" ; 
+      *parameterInfosOut = (JstParamInfo*)java2groovyParameters ;
+    } else if ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) {
+      *displayHelpOut = JNI_FALSE ;
+      *parameterInfosOut = (JstParamInfo*)noParameters ;
+      mainClassName = "groovy.ui.Console" ;
+    } else if ( ( strcmp( execName, "graphicsPad"   ) == 0 ) || strcmp( execName, "graphicspad" ) == 0 ) {
+      *displayHelpOut = JNI_FALSE ;
+      *parameterInfosOut = (JstParamInfo*)noParameters ;
+      mainClassName = "groovy.swing.j2d.GraphicsPad" ;
+    } else { // default to being "groovy"
+      if ( numArgs == 0 ) *displayHelpOut = JNI_TRUE ;
+      mainClassName = "groovy.ui.GroovyMain" ;
+      *parameterInfosOut = (JstParamInfo*)groovyParameters ;
+    }
+    
+  }
+    
+  jst_free( execNameTmp ) ;
+  
+  return mainClassName ;
+  
+}
+
+
 int main( int argc, char** argv ) {
 
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
@@ -317,6 +337,22 @@ int main( int argc, char** argv ) {
 // cygwin compatibility code begin
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
+// - - - - - - - - - - - - -
+// cygwin compatibility
+// - - - - - - - - - - - - -
+static int rest_of_main( int argc, char** argv ) ;
+static int mainRval ;
+// 2**15
+#define PAD_SIZE 32768
+typedef struct {
+  void* backup ;
+  void* stackbase ;
+  void* end ;
+  byte padding[ PAD_SIZE ] ; 
+} CygPadding ;
+
+static CygPadding *g_pad ;
+
 
   // NOTE: this DOES NOT WORK. This code is experimental and is not compiled into the executable by default.
   //       You need to either add -D_cwcompat to the gcc opts when compiling on cygwin (into the Rantfile) or 
@@ -404,7 +440,7 @@ int rest_of_main( int argc, char** argv ) {
 
   int  numArgs = argc - 1 ;
          
-  int    rval = -1 ; 
+  int  rval = -1 ; 
 
   JVMSelectStrategy jvmSelectStrategy ;
   
@@ -415,6 +451,7 @@ int rest_of_main( int argc, char** argv ) {
                                     ( strcmp( argv[ 1 ], "-h"     ) == 0 ) || 
                                     ( strcmp( argv[ 1 ], "--help" ) == 0 )
                                   ) ? JNI_TRUE : JNI_FALSE ; 
+  
   JstActualParam *processedActualParams = NULL ;
   
   // _jst_debug is a global debug flag
@@ -424,76 +461,10 @@ int rest_of_main( int argc, char** argv ) {
   jst_initCygwin() ;
 #endif
 
+  extraProgramOptions[ 1 ] = jst_figureOutMainClass( argv[ 0 ], numArgs, &parameterInfos, &displayHelp ) ;
+  if ( !( extraProgramOptions[ 1 ] ) ) goto end ;
   
-  { // deduce which class name to pass as --main param. In other words, this here supports all different groovy executables. 
-    // The execubale acts as a different groovy executable when it's renamed / symlinked to. 
-    char *execName = jst_strdup( argv[ 0 ] ),
-         *eName,
-         *execNameTmp ;
-    
-    if ( !( execNameTmp = execName ) ) goto end ;
-#if defined( _WIN32 )
-    {
-      size_t len = strlen( execName ) ;
-      if ( ( len > 4 ) && 
-           ( memcmp( execName + len - 4, ".exe", 4 ) == 0 ) ) {
-        execName[ len -= 4 ] = '\0' ;
-      }
-      if ( len > 0 && 
-           ( execName[ len - 1 ] == 'w' || execName[ len - 1 ] == 'W' ) ) {
-        execName[ len - 1 ] = '\0' ;
-      }
-    }
-#endif
-    eName = strrchr( execName, JST_FILE_SEPARATOR[ 0 ] ) ;
-    if ( eName ) execName = eName + 1 ;
-
-    if ( strcmp( execName, "groovy" ) == 0 ) {
-      extraProgramOptions[ 1 ] = "groovy.ui.GroovyMain" ;
-      parameterInfos = (JstParamInfo*)groovyParameters ;
-    } else if ( strcmp( execName, "groovyc" ) == 0 ) {
-      extraProgramOptions[ 1 ] = "org.codehaus.groovy.tools.FileSystemCompiler" ;
-      parameterInfos = (JstParamInfo*)groovycParameters ;
-    } else {
-      
-      if ( numArgs == 0 ) displayHelp = JNI_FALSE ;
-      
-      if ( strcmp( execName, "gant" ) == 0 ) {
-        extraProgramOptions[ 1 ] = "gant.Gant" ; 
-        parameterInfos = (JstParamInfo*)gantParameters ;
-      } else if ( strcmp( execName, "groovysh" ) == 0 ) {
-        extraProgramOptions[ 1 ] = getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ;
-        parameterInfos = (JstParamInfo*)groovyshParameters ;
-      } else if ( strcmp( execName, "java2groovy" ) == 0 ) {
-        displayHelp = JNI_FALSE ;
-        extraProgramOptions[ 1 ] = "org.codehaus.groovy.antlr.java.Java2GroovyMain" ; 
-        parameterInfos = (JstParamInfo*)java2groovyParameters ;
-      } else if ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) {
-        displayHelp = JNI_FALSE ;
-        parameterInfos = (JstParamInfo*)noParameters ;
-        extraProgramOptions[ 1 ] = "groovy.ui.Console" ;
-      } else if ( ( strcmp( execName, "graphicsPad"   ) == 0 ) || strcmp( execName, "graphicspad" ) == 0 ) {
-        displayHelp = JNI_FALSE ;
-        parameterInfos = (JstParamInfo*)noParameters ;
-        extraProgramOptions[ 1 ] = "groovy.swing.j2d.GraphicsPad" ;
-      } else { // default to being "groovy"
-        if ( numArgs == 0 ) displayHelp = JNI_TRUE ;
-        extraProgramOptions[ 1 ] = "groovy.ui.GroovyMain" ;
-        parameterInfos = (JstParamInfo*)groovyParameters ;        
-      }
-    }
-      
-    jst_free( execNameTmp ) ;
-    
-    if ( !extraProgramOptions[ 1 ] ) {
-      fprintf( stderr, "error: could not deduce the program to launch from exec name. You should not rename this executable / symlink.\n" ) ;
-      goto end ;
-    }
-    
-  }
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  
-  processedActualParams = jst_processInputParameters( argv + 1, argc - 1, parameterInfos, terminatingSuffixes, JNI_TRUE ) ;
+  processedActualParams = jst_processInputParameters( argv + 1, argc - 1, parameterInfos, terminatingSuffixes ) ;
   if ( !processedActualParams ) goto end ;
 
   

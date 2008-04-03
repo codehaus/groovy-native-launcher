@@ -231,9 +231,7 @@ char* jst_createFileName( const char* root, ... ) ;
  * Returns NULL on error. */
 char* jst_getExecutableHome() ;
 
-/** Returns the index of the given str in the given str array, -1 if not found.  
- * Modifies args, numargs and checkUpto if removeIfFound == true */
-int jst_contains( char** args, int* numargs, const char* option, const jboolean removeIfFound ) ;
+
 
 /** returns an array of JstActualParam, the last one of which contains NULL for field param. 
  * All the memory allocated can be freed by freeing the returned pointer.
@@ -241,7 +239,7 @@ int jst_contains( char** args, int* numargs, const char* option, const jboolean 
  * @param cygwinConvertParamsAfterTermination if true (and cygwin compatibility is set in the build & cygwin1.dll is found and loaded), 
  *                                            the terminating param (the param which w/ all the following params is passed to launchee)
  *                                            and all the following params are cygwin path converted. */
-JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes, jboolean cygwinConvertParamsAfterTermination ) ;
+JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes ) ;
 
 /** For single params, returns "" if the param is present, NULL otherwise. */
 char* jst_getParameterValue( const JstActualParam* processedParams, const char* paramName ) ;

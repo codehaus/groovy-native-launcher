@@ -23,11 +23,14 @@
 
 // TODO: presorting param infos would improve performance as then the param definition would not need to 
 //       be sought w/ exhaustive search
+//       The performance is atm O(n*m) where n = number of actual params, m = number of param definitions.
+//       Thenagain, this should only be optimized if profiling says it must (for a real case), 
+//       as n and m are both likely to be very small.
 
-extern JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes, jboolean cygwinConvertParamsAfterTermination ) {
+extern JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes ) {
 
-  // TODO: cygwin conversions of param values when requested
-  //       + for all input params after termination (again, if requested)
+  // TODO: cygwin conversions of param values 
+  //       + for all input params after termination 
   
   int    i, j ;
   size_t usedSize   = ( numArgs + 1 ) * sizeof( JstActualParam ),
@@ -91,8 +94,16 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
       } // switch
       
       if ( found ) {
-        // TODO: cygwin conversion
-        // TODO: do not transform the prefix in PREFIX param
+#if defined ( _WIN32 ) && defined ( _cwcompat )
+        if ( CYGWIN_LOADED ) {
+          char convertedValue[ PATH_MAX + 1] ;
+          if ( !cygwin_posix2win_path( value, convertedValue ) ) {
+            free( processedParams ) ;
+            return NULL ;
+          }
+          // TODO
+        }
+#endif
         processedParams[ i ].value = value ;
         if ( paramClass == JST_DOUBLE_PARAM ) {
           processedParams[ i - 1 ].value = value ;
@@ -124,6 +135,8 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
     processedParams[ i ].param = value = args[ i ] ;
     processedParams[ i ].handling = ( JST_TO_LAUNCHEE | JST_TERMINATING_OR_AFTER ) ;
     processedParams[ i ].paramDefinition = NULL ;
+#if defined ( _WIN32 ) && defined ( _cwcompat )
+#endif
     // TODO: cygwin conversion of value if required
     processedParams[ i ].value = value ;
   }
@@ -187,84 +200,4 @@ extern char* jst_getParameterAfterTermination( const JstActualParam* processedPa
   
 }
 
-
-extern int jst_contains( char** args, int* numargs, const char* option, const jboolean removeIfFound ) {
-  int i       = 0, 
-      foundAt = -1 ;
-  
-  for ( ; i < *numargs ; i++ ) {
-    if ( strcmp( option, args[ i ] ) == 0 ) {
-      foundAt = i ;
-      break ;
-    }
-  }
-  if ( foundAt != -1 ) return -1 ;
-  if ( removeIfFound ) {
-    (*numargs)-- ;
-    for ( ; i < *numargs ; i++ ) {
-      args[ i ] = args[ i + i ] ;
-    }
-  }
-  return foundAt ;
-}
-
-extern int jst_indexOfParam( char** args, int numargs, char* paramToSearch ) {
-  int i = 0 ;
-  for ( ; i < numargs; i++ ) {
-    if ( strcmp( paramToSearch, args[i] ) == 0 ) return i ;
-  }
-  return -1 ;  
-}
-
-extern char* jst_valueOfParam( char** args, int* numargs, int* checkUpto, const char* option, const JstParamClass paramType, const jboolean removeIfFound, jboolean* error ) {
-  int i    = 0, 
-      step = 1;
-  size_t len;
-  char* retVal = NULL;
-
-  switch(paramType) {
-    case JST_SINGLE_PARAM :
-      for ( ; i < *checkUpto ; i++ ) {
-        if ( strcmp( option, args[ i ] ) == 0 ) {
-          retVal = args[ i ] ;
-          break ;
-        }
-      }
-      break ;
-    case JST_DOUBLE_PARAM :
-      step = 2 ;
-      for ( ; i < *checkUpto ; i++ ) {
-        if ( strcmp( option, args[ i ] ) == 0 ) {
-          if ( i == ( *numargs - 1 ) ) {
-            *error = JNI_TRUE ;
-            fprintf( stderr, "error: %s must have a value\n", option ) ;
-            return NULL ;
-          }
-          retVal = args[ i + 1 ] ;
-          break ;
-        }
-      }
-      break ;
-    case JST_PREFIX_PARAM :
-      len = strlen( option ) ;
-      for ( ; i < *checkUpto; i++ ) {
-        if ( memcmp( option, args[ i ], len ) == 0 ) {
-          retVal = args[ i ] + len ;
-          break ;
-        }
-      }
-      break ;
-  }
-  
-  if ( retVal && removeIfFound ) {
-    for ( ; i < ( *numargs - step ) ; i++ ) {
-      args[ i ] = args[ i + step ] ;
-    }
-    *numargs   -= step ;
-    *checkUpto -= step ;
-  }
-  
-  return retVal ;  
-  
-}
 

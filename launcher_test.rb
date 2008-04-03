@@ -19,17 +19,20 @@ require 'rbconfig'
 require 'English'
 require 'fileutils'
 
-
 require 'osarch'
 
-$dir_containing_executable ||= ( ARGV.size > 0 && ARGV[ 0 ] ) || get_builddir()
+
+$dir_containing_executable ||= ARGV[ 0 ] || get_builddir()
+
+raise "GROOVY_HOME must be defined to be able to run the tests" unless ENV[ 'GROOVY_HOME' ]
 
 
 exe_name = 'groovy' + ( Config::CONFIG[ 'host_os' ] =~ /win/ ? '.exe' : '' )
-
 EXE_FILE = ( Pathname.new( $dir_containing_executable ) + exe_name ).to_s
 
 raise "#{EXE_FILE} does not exist" unless File.exist?( EXE_FILE )
+
+puts "testing #{EXE_FILE}"
 
 class LauncherTest < Test::Unit::TestCase
 
@@ -64,4 +67,9 @@ class LauncherTest < Test::Unit::TestCase
     
   end
   
+  def test_exit_status
+    `#{EXE_FILE} -Xmx300m -e "System.exit( 123 )"`
+    assert_equal 123, $CHILD_STATUS.exitstatus
+  end
+    
 end

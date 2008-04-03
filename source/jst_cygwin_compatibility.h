@@ -27,6 +27,9 @@
   extern cygwin_conversionfunc_type cygwin_posix2win_path      ;
   extern cygwin_conversionfunc_type cygwin_posix2win_path_list ;
 
+// if cygwin is loaded, the above pointers are != NULL, otherwise they are NULL
+#define CYGWIN_LOADED cygwin_posix2win_path
+  
   /** returns > 0 iff cygwin could be loaded. Note that it's not usually an error to be unable to load
    * cygwin1.dll - that just means the code is not executing in cygwin shell and can proceed w/out doing any
    * conversions. Returns 0 if cygwin1.dll could not be loaded. Returns < 0 on error. */
@@ -37,3 +40,4 @@
 #  endif
 
 #endif
+
