@@ -28,10 +28,30 @@
 #if defined ( __APPLE__ )
 #  include <TargetConditionals.h>
 #elif defined ( _WIN32 )
+
 #  include <Windows.h>
+
 #  if !defined( PATH_MAX )
 #    define PATH_MAX MAX_PATH
 #  endif
+
+#  if defined ( _cwcompat )
+#    include "jst_cygwin_compatibility.h"
+static int rest_of_main( int argc, char** argv ) ;
+static int mainRval ;
+// 2**15
+#define PAD_SIZE 32768
+typedef struct {
+  void* backup ;
+  void* stackbase ;
+  void* end ;
+  byte padding[ PAD_SIZE ] ; 
+} CygPadding ;
+
+static CygPadding *g_pad ;
+
+#  endif
+
 #endif
 
 
@@ -337,26 +357,10 @@ int main( int argc, char** argv ) {
 // cygwin compatibility code begin
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
-// - - - - - - - - - - - - -
-// cygwin compatibility
-// - - - - - - - - - - - - -
-static int rest_of_main( int argc, char** argv ) ;
-static int mainRval ;
-// 2**15
-#define PAD_SIZE 32768
-typedef struct {
-  void* backup ;
-  void* stackbase ;
-  void* end ;
-  byte padding[ PAD_SIZE ] ; 
-} CygPadding ;
-
-static CygPadding *g_pad ;
 
 
   // NOTE: this DOES NOT WORK. This code is experimental and is not compiled into the executable by default.
-  //       You need to either add -D_cwcompat to the gcc opts when compiling on cygwin (into the Rantfile) or 
-  //       remove the occurrences of "&& defined ( _cwcompat )" from this file.
+  //       You need to add -D_cwcompat to the compiler opts when compiling (into the Rantfile) 
 
   
   // Dynamically loading the cygwin dll is a lot more complicated than the loading of an ordinary dll. Please see
@@ -387,12 +391,15 @@ static CygPadding *g_pad ;
   #endif
   g_pad->stackbase = sbase ;
   
+  assert( sizeof( size_t ) == 4 * sizeof( byte ) ) ;
+  
   if ( (*(size_t*)(g_pad->stackbase)) - (*(size_t*)(g_pad->end)) ) {
     size_t delta = (*(size_t*)(g_pad->stackbase)) - (*(size_t*)(g_pad->end)) ; //g_pad->stackbase - g_pad->end ;
     g_pad->backup = jst_malloc( delta ) ;
     if ( !( g_pad->backup ) ) return -1 ;
     
-    memcpy( g_pad->backup, g_pad->end, delta ) ; 
+    // FIXME - crashes here
+    memcpy( g_pad->backup, g_pad->end, delta ) ;
   }
   
   mainRval = rest_of_main( argc, argv ) ;
@@ -458,13 +465,13 @@ int rest_of_main( int argc, char** argv ) {
   if ( getenv( "__JLAUNCHER_DEBUG" ) ) _jst_debug = JNI_TRUE ;
   
 #if defined ( _WIN32 ) && defined ( _cwcompat )
-  jst_initCygwin() ;
+  jst_cygwinInit() ;
 #endif
 
   extraProgramOptions[ 1 ] = jst_figureOutMainClass( argv[ 0 ], numArgs, &parameterInfos, &displayHelp ) ;
   if ( !( extraProgramOptions[ 1 ] ) ) goto end ;
   
-  processedActualParams = jst_processInputParameters( argv + 1, argc - 1, parameterInfos, terminatingSuffixes ) ;
+  processedActualParams = jst_processInputParameters( argv + 1, argc - 1, parameterInfos, terminatingSuffixes, JNI_TRUE ) ;
   if ( !processedActualParams ) goto end ;
 
   

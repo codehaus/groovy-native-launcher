@@ -40,7 +40,7 @@
 #endif
 
 /** set to true at startup to print debug information about what the launcher is doing to stdout */
-jboolean _jst_debug ;    
+extern jboolean _jst_debug ;    
     
 typedef enum { 
   /** a standalone parameter, such as -v */
@@ -239,7 +239,7 @@ char* jst_getExecutableHome() ;
  * @param cygwinConvertParamsAfterTermination if true (and cygwin compatibility is set in the build & cygwin1.dll is found and loaded), 
  *                                            the terminating param (the param which w/ all the following params is passed to launchee)
  *                                            and all the following params are cygwin path converted. */
-JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes ) ;
+JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes, jboolean cygwinConvertParamsAfterTermination ) ;
 
 /** For single params, returns "" if the param is present, NULL otherwise. */
 char* jst_getParameterValue( const JstActualParam* processedParams, const char* paramName ) ;

@@ -33,7 +33,9 @@
   /** returns > 0 iff cygwin could be loaded. Note that it's not usually an error to be unable to load
    * cygwin1.dll - that just means the code is not executing in cygwin shell and can proceed w/out doing any
    * conversions. Returns 0 if cygwin1.dll could not be loaded. Returns < 0 on error. */
-  extern int jst_initCygwin() ;  
+  int jst_cygwinInit() ;  
+  
+  void jst_cygwinRelease() ;
   
 #  if defined( __cplusplus )
      }

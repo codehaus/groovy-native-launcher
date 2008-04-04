@@ -20,10 +20,19 @@
 // separate library.
 
 
-#if defined ( _WIN32 ) && defined ( _cwcompat )
+#if defined( _WIN32 ) && defined( _cwcompat )
+
+# include <Windows.h>
+
+#include <assert.h>
 
 # include "jvmstarter.h"
 # include "jst_cygwin_compatibility.h"
+
+#  if !defined( PATH_MAX )
+#    define PATH_MAX MAX_PATH
+#  endif
+
 
   cygwin_initfunc_type       cygwin_initfunc            = NULL ;
   cygwin_conversionfunc_type cygwin_posix2win_path      = NULL ;
@@ -31,7 +40,7 @@
 
   static HINSTANCE g_cygwinDllHandle = NULL ;
   
-  int jst_initCygwin() {
+  int jst_cygwinInit() {
       
     char *scriptpath_dyn = NULL ;
     
@@ -57,7 +66,7 @@
 
   extern void jst_cygwinRelease() {   
     if ( g_cygwinDllHandle ) {
-      FreeLibrary( cygwinDllHandle ) ;
+      FreeLibrary( g_cygwinDllHandle ) ;
       g_cygwinDllHandle          = NULL ;
       cygwin_initfunc            = NULL ;
       cygwin_posix2win_path      = NULL ;
@@ -70,32 +79,29 @@
   /** Path conversion from cygwin format to win format. This func contains the general logic, and thus
    * requires a pointer to a cygwin conversion func. */
   static char* convertPath( cygwin_conversionfunc_type conversionFunc, char* path ) {
-    char*  temp ;
-    
-    if ( !( temp = jst_malloc( MAX_PATH * sizeof( char ) ) ) ) return NULL ; 
+    char  temp[ MAX_PATH + 1 ] ;
 
+    // FIXME
+    
     if ( conversionFunc ) {
       conversionFunc( path, temp ) ;
     } else {
       strcpy( temp, path ) ;
     }
     
-    temp = jst_realloc( temp, strlen( temp ) + 1 ) ;
-    assert( temp ) ; // we're shrinking, so this should go fine
-  
-    return temp ;
+    return jst_strdup( temp ) ;
     
   }
   
   /** returns NULL on error, does not modify the param. Result must be freed by caller. */
-  static char* jst_convertCygwin2winPath( char* path ) {
+  extern char* jst_convertCygwin2winPath( char* path ) {
     return convertPath( cygwin_posix2win_path, path ) ;  
   }
   
   
   
   /** see above */
-  static char* jst_convertCygwin2winPathList( char* path ) {
+  extern char* jst_convertCygwin2winPathList( char* path ) {
     return convertPath( cygwin_posix2win_path_list, path ) ;
   }
 

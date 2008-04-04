@@ -16,10 +16,44 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "jvmstarter.h"
 #include "jst_cygwin_compatibility.h"
 
+#if defined( _WIN32 )
+#  if !defined( PATH_MAX )
+#    define PATH_MAX MAX_PATH
+#  endif
+#endif
+
+#if defined ( _WIN32 ) && defined ( _cwcompat )
+
+/** a helper used below. Returns a pointer to the original string if no conversion was done, the converted value if conversion was done and NULL on error. */
+static char* cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( char* value, JstActualParam** processedParams, size_t* usedSize, size_t* actualSize ) {
+  char convertedValue[ PATH_MAX + 1] ; 
+  
+  cygwin_posix2win_path( value, convertedValue ) ;
+  
+  if ( strcmp( value, convertedValue ) ) {
+    size_t len = strlen( convertedValue ) + 1 ;
+    
+    if ( usedSize + len > actualSize ) {
+      *processedParams = jst_realloc( *processedParams, *actualSize += len + 200 ) ;
+      if ( !*processedParams ) return NULL ;
+    }
+    
+    value = ((char*)*processedParams) + *usedSize ;
+    strcpy( value, convertedValue ) ;
+    
+    usedSize += len ;
+    
+  }
+  
+  return value ;
+}
+
+#endif
 
 // TODO: presorting param infos would improve performance as then the param definition would not need to 
 //       be sought w/ exhaustive search
@@ -27,15 +61,18 @@
 //       Thenagain, this should only be optimized if profiling says it must (for a real case), 
 //       as n and m are both likely to be very small.
 
-extern JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes ) {
+extern JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes, jboolean cygwinConvertParamsAfterTermination ) {
 
   // TODO: cygwin conversions of param values 
-  //       + for all input params after termination 
+  //       + for all input params after termination (if requested)
   
   int    i, j ;
   size_t usedSize   = ( numArgs + 1 ) * sizeof( JstActualParam ),
-         actualSize = usedSize, // enable this once cygwin coversion is in place (takes dyn reserved memory) + 100 ; 
-         len ;
+         actualSize = usedSize
+#if defined( _WIN32 ) && defined( _cwcompat )
+         + 50 * numArgs 
+#endif
+         , len ;
   JstActualParam* processedParams = jst_calloc( actualSize, 1 ) ;
 
   if ( !processedParams ) return NULL ;
@@ -94,16 +131,16 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
       } // switch
       
       if ( found ) {
+        
 #if defined ( _WIN32 ) && defined ( _cwcompat )
-        if ( CYGWIN_LOADED ) {
-          char convertedValue[ PATH_MAX + 1] ;
-          if ( !cygwin_posix2win_path( value, convertedValue ) ) {
-            free( processedParams ) ;
-            return NULL ;
-          }
-          // TODO
+        
+        if ( CYGWIN_LOADED && ( processedParams[ i ].handling & JST_CYGWIN_CONVERT ) ) {
+          value = cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( value, &processedParams, &usedSize, &actualSize ) ;
+          if ( !value ) return NULL ;
         }
+        
 #endif
+        
         processedParams[ i ].value = value ;
         if ( paramClass == JST_DOUBLE_PARAM ) {
           processedParams[ i - 1 ].value = value ;
@@ -119,8 +156,16 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
     
     if ( !found ) {
       if ( arg[ 0 ] == '-' ) {
-        processedParams[ i ].param = processedParams[ i ].value = arg ;
+        char* value = arg ;
+        processedParams[ i ].param = value ;
         processedParams[ i ].handling = JST_UNRECOGNIZED ;
+#if defined( _WIN32 ) && defined( _cwcompat )
+        if ( CYGWIN_LOADED && cygwinConvertParamsAfterTermination ) {
+          value = cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( value, &processedParams, &usedSize, &actualSize ) ;
+          if ( !value ) return NULL ;
+        } 
+#endif
+        processedParams[ i ].value = value ;
       } else {
         goto end ;
       }
@@ -150,6 +195,7 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
   
   if ( usedSize < actualSize ) {
     processedParams = jst_realloc( processedParams, usedSize ) ;
+    assert( processedParams ) ; // shrinking the buffer, should always succeed
   }
   
   return processedParams ;
