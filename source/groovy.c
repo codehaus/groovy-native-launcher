@@ -35,23 +35,6 @@
 #    define PATH_MAX MAX_PATH
 #  endif
 
-#  if defined ( _cwcompat )
-#    include "jst_cygwin_compatibility.h"
-static int rest_of_main( int argc, char** argv ) ;
-static int mainRval ;
-// 2**15
-#define PAD_SIZE 32768
-typedef struct {
-  void* backup ;
-  void* stackbase ;
-  void* end ;
-  byte padding[ PAD_SIZE ] ; 
-} CygPadding ;
-
-static CygPadding *g_pad ;
-
-#  endif
-
 #endif
 
 
@@ -126,53 +109,40 @@ static int isValidGroovyHome( const char* dir ) {
 /** returns null on error, otherwise pointer to groovy home. 
  * First tries to see if the current executable is located in a groovy installation's bin directory. If not, groovy
  * home env var is looked up. If neither succeed, an error msg is printed.
- * Do NOT modify the returned string, make a copy. */
+ * freeing the returned pointer must be done by the caller. */
 char* getGroovyHome() {
-  static char *_ghome = NULL ;
   
-  char *appHome = NULL ;
-  int  validGroovyHome ;
-  
-  if ( _ghome ) return _ghome ;
-  
-  if ( !( appHome = jst_getExecutableHome() ) ) return NULL ;
-  // make a copy of exec home str
-  if ( !( appHome = jst_strdup( appHome ) ) ) return NULL ;
-  
-  if ( jst_pathToParentDir( appHome ) ) {
-    validGroovyHome = isValidGroovyHome( appHome ) ;
-    if ( validGroovyHome == -1 ) goto end ;
+  char *appHome = jst_getExecutableHome() ;
+      
+  if ( appHome && jst_pathToParentDir( appHome ) ) {
+    int validGroovyHome = isValidGroovyHome( appHome ) ;
+    if ( validGroovyHome == -1 ) return NULL ;
     if ( validGroovyHome ) {
-      if ( !( _ghome = jst_strdup( appHome ) ) ) goto end ;
       if ( _jst_debug ) {
-          fprintf( stderr, "debug: groovy home located based on executable location: %s\n", _ghome ) ;
-      }
-    }
-  }
-  
-  
-  if ( !_ghome ) {
-    char *ghome = getenv( "GROOVY_HOME" ) ;
-    if ( ghome ) {
-      if ( _jst_debug ) {
-        fprintf( stderr, "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME=%s\n", ghome ) ;
-      }
-      validGroovyHome = isValidGroovyHome( ghome ) ;
-      if ( validGroovyHome == -1 ) goto end ;
-      if ( validGroovyHome ) {
-        _ghome = ghome ;
-      } else {
-        fprintf( stderr, "error: binary is not in groovy installation's bin dir and GROOVY_HOME=%s does not point to a groovy installation\n", ghome ) ;
+        fprintf( stderr, "debug: groovy home located based on executable location: %s\n", appHome ) ;
       }
     } else {
-      fprintf( stderr, "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n" ) ;
-    }
-  } 
-
-  end : 
+      jst_free( appHome ) ;
+      appHome = getenv( "GROOVY_HOME" ) ;
+      if ( appHome ) {
+        if ( _jst_debug ) {
+          fprintf( stderr, "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME=%s\n", appHome ) ;
+        }
+        validGroovyHome = isValidGroovyHome( appHome ) ;
+        if ( validGroovyHome == -1 ) return NULL ;
+        if ( validGroovyHome ) {
+          appHome = jst_strdup( appHome ) ;
+        } else {
+          fprintf( stderr, "error: binary is not in groovy installation's bin dir and GROOVY_HOME=%s does not point to a groovy installation\n", appHome ) ;
+        }
+      } else {
+        fprintf( stderr, "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n" ) ;
+      }
+    } 
+  }
   
-  if ( appHome ) free( appHome ) ;
-  return _ghome ;
+  return appHome ;
+  
 }
 
 
@@ -291,6 +261,7 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
        *mainClassName = NULL ;
   
   if ( !( execNameTmp = execName ) ) return NULL ;
+  
 #if defined( _WIN32 )
   {
     size_t len = strlen( execName ) ;
@@ -304,6 +275,7 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
     }
   }
 #endif
+  
   eName = strrchr( execName, JST_FILE_SEPARATOR[ 0 ] ) ;
   if ( eName ) execName = eName + 1 ;
 
@@ -343,11 +315,30 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
     
   }
     
-  jst_free( execNameTmp ) ;
+  free( execNameTmp ) ;
   
   return mainClassName ;
   
 }
+
+#if defined( _WIN32 ) && defined ( _cwcompat )
+#  include "jst_cygwin_compatibility.h"
+
+  static int rest_of_main( int argc, char** argv ) ;
+  static int mainRval ;
+  // 2**15
+#  define PAD_SIZE 32768
+  
+  typedef struct {
+    void* backup ;
+    void* stackbase ;
+    void* end ;
+    byte padding[ PAD_SIZE ] ; 
+  } CygPadding ;
+
+  static CygPadding *g_pad ;
+
+#endif
 
 
 int main( int argc, char** argv ) {
@@ -538,7 +529,8 @@ int rest_of_main( int argc, char** argv ) {
   }
 
 
-  if ( !( groovyHome = getGroovyHome() ) ) goto end ;
+  if ( !( groovyHome = getGroovyHome() ) ||
+       !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, groovyHome ) ) goto end ;
   
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // find out the groovy conf file to use

@@ -227,7 +227,7 @@ char* jst_createFileName( const char* root, ... ) ;
 /** Returns the path to the directory where the current executable lives, excluding the last path separator, e.g.
  * c:\programs\groovy\bin or /usr/loca/groovy/bin 
  * Note that this means that if the program lives in the root dir in *nix, "" is returned.
- * Do NOT modify the returned string, make a copy. 
+ * Freeing the returned pointer is the responsibility of the caller. 
  * Returns NULL on error. */
 char* jst_getExecutableHome() ;
 

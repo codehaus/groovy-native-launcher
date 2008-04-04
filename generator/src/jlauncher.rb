@@ -1,5 +1,10 @@
 # Copyright Antti Karanta <Antti dot Karanta at iki dot fi>, all rights reserved.
 
+# TODO: rename to Jaijutsu or Jaido, mimicking http://en.wikipedia.org/wiki/Iaijutsu
+#       See also http://en.wikipedia.org/wiki/Battōjutsu and
+#       http://en.wikipedia.org/wiki/Iaidō   
+#       Jaijutsu seems more appropriate as Iaijursu is solely concerned w/ drawing the sword.
+
 require 'jlauncher_utils'
 require 'singleton'
 

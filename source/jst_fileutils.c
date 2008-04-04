@@ -221,14 +221,11 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
 }
 
 extern char* jst_getExecutableHome() {
-  static char* _execHome = NULL ;
   
   char   *execHome = NULL ;
 
   size_t len ;
-  
-  if ( _execHome ) return _execHome ;
-  
+    
 # if defined( _WIN32 )
   {
     size_t currentBufSize = 0 ;
@@ -344,7 +341,7 @@ extern char* jst_getExecutableHome() {
   len = strlen( execHome ) ;
   execHome = jst_realloc( execHome, len + 1 ) ; // should not fail as we are shrinking the buffer
   assert( execHome ) ;
-  return _execHome = execHome ;
+  return execHome ;
 
 }
 
