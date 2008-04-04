@@ -322,9 +322,12 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
 }
 
 #if defined( _WIN32 ) && defined ( _cwcompat )
+
 #  include "jst_cygwin_compatibility.h"
 
   static int rest_of_main( int argc, char** argv ) ;
+  /** This is a global as I'm not sure how stack manipulation required by cygwin
+   * will affect the stack variables */
   static int mainRval ;
   // 2**15
 #  define PAD_SIZE 32768
@@ -351,7 +354,7 @@ int main( int argc, char** argv ) {
 
 
   // NOTE: this DOES NOT WORK. This code is experimental and is not compiled into the executable by default.
-  //       You need to add -D_cwcompat to the compiler opts when compiling (into the Rantfile) 
+  //       You need to add -D_cwcompat to the compiler opts (in the Rantfile) when compiling  
 
   
   // Dynamically loading the cygwin dll is a lot more complicated than the loading of an ordinary dll. Please see
@@ -460,7 +463,7 @@ int rest_of_main( int argc, char** argv ) {
 #endif
 
   extraProgramOptions[ 1 ] = jst_figureOutMainClass( argv[ 0 ], numArgs, &parameterInfos, &displayHelp ) ;
-  if ( !( extraProgramOptions[ 1 ] ) ) goto end ;
+  if ( !extraProgramOptions[ 1 ] ) goto end ;
   
   processedActualParams = jst_processInputParameters( argv + 1, argc - 1, parameterInfos, terminatingSuffixes, JNI_TRUE ) ;
   if ( !processedActualParams ) goto end ;
@@ -470,43 +473,26 @@ int rest_of_main( int argc, char** argv ) {
                            processedActualParams ) ) goto end ;
       
   if ( numArgs > 0 ) {
-    char scriptNameOut[ PATH_MAX + 1 ] ;
-    char *scriptNameIn = jst_getParameterAfterTermination( processedActualParams, 0 ), 
-         *scriptNameDyn = NULL ;
+    char *scriptNameIn = jst_getParameterAfterTermination( processedActualParams, 0 ) ;
+
     if ( scriptNameIn ) {
-#if defined( _WIN32 )
-      char *lpFilePart = NULL ;
-      DWORD pathLen = GetFullPathName( scriptNameIn, PATH_MAX, scriptNameOut, &lpFilePart ) ;
-      
-      if ( pathLen == 0 ) {
-        fprintf( stderr, "error: failed to get full path name for script %s\n", scriptNameIn ) ;
-        jst_printWinError( GetLastError() ) ;
-        goto end ;      
-      } else if ( pathLen > PATH_MAX ) {
-        // FIXME - reserve a bigger buffer (size pathLen) and get the dir name into that
-        fprintf( stderr, "launcher bug: full path name of %s is too long to hold in the reserved buffer (%d/%d). Please report this bug.\n", scriptNameIn, (int)pathLen, PATH_MAX ) ;
-        goto end ;
-      }
-#else
-      // TODO: how to get the path name of a file that does not necessarily exist on *nix? 
-      //       realpath seems to raise an error for a nonexistent file. 
-      //       Anyhow, this behavior is inconsistent between groovy script launchers - windows
-      //       version
-      if ( !realpath( scriptNameIn, scriptNameOut ) ) {
-  //      fprintf( stderr, "error: could not get full path of %s\n%s\n", scriptNameIn, strerror( errno ) ) ;
-  //      goto end ;
-        strcpy( scriptNameOut, scriptNameIn ) ;
-      }
-#endif
   
+      char *scriptNameTmp = jst_fullPathName( scriptNameIn ), 
+           *scriptNameDyn ;
+      
+      if ( !scriptNameTmp ) goto end ;
+      
       if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                               scriptNameDyn = jst_append( NULL, NULL, "-Dscript.name=", scriptNameOut, NULL ) ) ) goto end ;
+                               scriptNameDyn = jst_append( NULL, NULL, "-Dscript.name=", scriptNameTmp, NULL ) ) ) goto end ;
       
       if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
                                                   (int)extraJvmOptionsCount++, 
                                                   &extraJvmOptionsSize, 
                                                   scriptNameDyn, 
                                                   NULL ) ) ) goto end ;
+      
+      if ( scriptNameTmp != scriptNameIn ) jst_free( scriptNameTmp ) ;
+      
     }    
   }
   

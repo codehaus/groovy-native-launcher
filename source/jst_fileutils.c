@@ -385,3 +385,43 @@ extern char* jst_createFileName( const char* root, ... ) {
   return rval ;
   
 }
+
+extern char* jst_fullPathName( const char* fileOrDirName ) {
+
+  char fullNameOut[ PATH_MAX + 1 ] ;
+  
+  if ( !fileOrDirName || !jst_fileExists( fileOrDirName ) ) return (char*)fileOrDirName ;
+  
+#if defined( _WIN32 )
+  {
+    char *lpFilePart = NULL ;
+    
+    DWORD pathLen = GetFullPathName( fileOrDirName, PATH_MAX, fullNameOut, &lpFilePart ) ;
+    
+    if ( pathLen == 0 ) {
+      fprintf( stderr, "error: failed to get full path name for %s\n", fileOrDirName ) ;
+      jst_printWinError( GetLastError() ) ;
+      return NULL ;
+    } else if ( pathLen > PATH_MAX ) {
+      // FIXME - reserve a bigger buffer (size pathLen) and get the dir name into that
+      fprintf( stderr, "launcher bug: full path name of %s is too long to hold in the reserved buffer (%d/%d). Please report this bug.\n", fileOrDirName, (int)pathLen, PATH_MAX ) ;
+      return NULL ;
+    }
+  }
+#else
+      // TODO: how to get the path name of a file that does not necessarily exist on *nix? 
+      //       realpath seems to raise an error for a nonexistent file. 
+      //       Anyhow, this behavior is inconsistent between groovy script launchers - windows
+      //       version
+      if ( !realpath( fileOrDirName, fullNameOut ) ) {
+        fprintf( stderr, "error: could not get full path of %s\n%s\n", fileOrDirName, strerror( errno ) ) ;
+        return NULL ;
+      }
+#endif
+  
+  if ( strcmp( fileOrDirName, fullNameOut ) == 0 ) return (char*)fileOrDirName ;
+  
+  return jst_strdup( fullNameOut ) ;
+  
+}
+

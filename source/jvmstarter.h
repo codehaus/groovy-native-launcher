@@ -231,6 +231,13 @@ char* jst_createFileName( const char* root, ... ) ;
  * Returns NULL on error. */
 char* jst_getExecutableHome() ;
 
+/** returns the full path to the given file or directory. If the given file or dir does not exist, the
+ * given param is returned. Also, if the full path is identical to the param, the param is returned.
+ * Freeing the returned pointer (if different from the original) must be done by the caller. 
+ * @param fileOrDirName if NULL, NULL is returned. 
+ * @return NULL on error */
+char* jst_fullPathName( const char* fileOrDirName ) ;
+
 
 
 /** returns an array of JstActualParam, the last one of which contains NULL for field param. 
