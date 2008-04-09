@@ -20,21 +20,22 @@
 #  $Date$
 
 import os
-import glob
 
 Import ( 'environment' )
 
 debug = eval ( ARGUMENTS.get ( 'debug' , 'False' ) )
-
 if debug :
     if environment['CC'] == 'cl' :
         environment.Append ( CCFLAGS = '-Zi' )
     else :
         environment.Append ( CCFLAGS = '-g' )
 
-#  The sooner the Glob functions makes it into the SCons distribution, the better :-)
-sourceDirectory = Dir ( '.' ).srcnode ( ).abspath
-sources = [ file.replace ( sourceDirectory + '/' , '' ) for file in glob.glob ( sourceDirectory + '/*.c' ) ]
+cygwinCompile = eval ( ARGUMENTS.get ( 'cygwinCompile' , 'False' ) )
+if cygwinCompile :
+    if environment['PLATFORM'] in [ 'Windows' , 'mingw' , 'cygwin' ] :
+        environment.Append ( CCFLAGS = '-D_cwcompat' )
+
+sources = Glob ( '*.c' )
 
 try :
     javaHome = os.environ['JAVA_HOME']
@@ -50,8 +51,7 @@ if javaHome == '' :
     else : raise Exception , 'JAVA_HOME not defined.'
 
 if environment['PLATFORM'] == 'cygwin' :
-    javaHome = javaHome.replace ( '\\' , '/' )
-    if javaHome.startswith ( 'C:' ) : javaHome = javaHome.replace ( 'C:' , '/cygdrive/c' )
+    javaHome = os.popen ( 'cygpath --unix "' + javaHome + '"' ).read ( ).strip ( )
     environment.Append ( CCFLAGS = ' -mno-cygwin' , LINKFLAGS = ' -s -mno-cygwin -mwindows' )
 
 if environment['PLATFORM'] == 'darwin' :

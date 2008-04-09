@@ -19,7 +19,6 @@
 #  $Revision$
 #  $Date$
 
-import glob
 import platform
 
 #  The in-built PLATFORM key does not necessarily provide proper discrimination of Posix compliant systems,
@@ -37,4 +36,4 @@ environment.SConsignFile ( '.sconsign_' + discriminator )
 
 SConscript ( 'source/SConscript' , exports = 'environment' , build_dir = buildDirectory , duplicate = 0 )
 
-Clean ( '.' , glob.glob ( '*~' ) + glob.glob ( '*/*~' ) + [ buildDirectory ] )
+Clean ( '.' , Glob ( '*~' ) + Glob ( '*/*~' ) + [ buildDirectory ] )
