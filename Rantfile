@@ -42,7 +42,7 @@ desc 'Compile and link.'
 task :compile => 'source/compile'
 
 desc 'Compile and link setting debug flags as needed.'
-task :debug   => 'source/debug'
+task :cygwinc   => 'source/cygwinc'
 
 task :default => :compile
 

@@ -53,8 +53,8 @@ $cFlags = '-O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wre
 $lFlags = ''
 $libs = '-ldl'
 
-def compileCommand( target , sources ) ; "#{$gcc} #{$debug ? '-g' : ''} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-def linkCommand( target , sources ) ; "#{$gcc} #{$debug ? '-g' : ''} #{$lFlags} -o #{target} #{sources} #{$libs}" end
+def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} #{' -D_cwcompat ' if $cygwinc}-c -o #{target} #{sources}" end
+def linkCommand( target , sources ) ; "#{$gcc} #{$lFlags} -o #{target} #{sources} #{$libs}" end
 
 case Environment[ 'Architecture' ]
 when MAC_OS_X
@@ -67,11 +67,11 @@ when CYGWIN
   # http://cygwin.com/faq/faq.programming.html#faq.programming.no-console-window
   # At least w/ ms compiler and linker, only the linker needs to know whether we are producing a gui or console app, so I would believe it's the same here.
   $libs = ''
-  $cFlags += ' -mno-cygwin' # + ' -D_cwcompat'
+  $cFlags += ' -mno-cygwin'
   $cppFlags = "-I\"#{javaHome}/include/win32\" -I\"#{javaHome}/include\""
   $lFlags += ' -s -mno-cygwin'
-  def compileCommand( target , sources ) ; "#{$gcc} #{$debug ? '-g' : ''} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
-  def linkCommand( target , sources ) ; "#{$gcc} #{$debug ? '-g' : ''} #{if target =~ /w\.exe$/ then '-mwindows' end} #{$lFlags} -o #{target} #{sources} #{$libs}" end
+#  def compileCommand( target , sources ) ; "#{$gcc} #{$cppFlags} #{$cFlags} -c -o #{target} #{sources}" end
+  def linkCommand( target , sources ) ; "#{$gcc} #{if target =~ /w\.exe$/ then '-mwindows' end} #{$lFlags} -o #{target} #{sources} #{$libs}" end
 when MSYS
   $libs = ''
   $cppFlags = "-I\"#{javaHome}\\include\\win32\" -I\"#{javaHome}\\include\""
@@ -98,11 +98,11 @@ when WINDOWS
   #$cppFlags += ' -D_cwcompat'
   $cppFlags += " -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN "
   def compileCommand( target , sources)
-    "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"
+    "#{$gcc} #{' -D_cwcompat ' if $cygwinc}-O1 -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"
   end
   def linkCommand( target , sources )
     windowsApp = ( target =~ /w\.exe$/ )    
-    "link #{'-debug ' if $debug}-nologo #{windowsApp ? '-subsystem:windows -entry:mainCRTStartup' : '-subsystem:console'} -out:#{target} advapi32.lib #{sources}"
+    "link -nologo #{windowsApp ? '-subsystem:windows -entry:mainCRTStartup' : '-subsystem:console'} -out:#{target} advapi32.lib #{sources}"
   end
 end 
 
@@ -158,7 +158,10 @@ end
 
 task :compile => defaultTasks 
 
-task :set_debug do $debug = true end
-task :debug => [ :set_debug ] + defaultTasks 
+task :set_cygwinc do 
+  $cygwinc = true
+end
+  
+task :cygwinc => [ :set_cygwinc ] + defaultTasks + [ :set_cygwinc ] 
 
 task :default => :compile

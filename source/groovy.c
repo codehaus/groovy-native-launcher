@@ -471,7 +471,8 @@ int rest_of_main( int argc, char** argv ) {
   
   if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
                            processedActualParams ) ) goto end ;
-      
+
+  // set -Dscript.name system property if applicable
   if ( numArgs > 0 ) {
     char *scriptNameIn = jst_getParameterAfterTermination( processedActualParams, 0 ) ;
 
