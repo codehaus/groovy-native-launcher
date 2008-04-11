@@ -46,8 +46,7 @@ task :cygwinc   => 'source/cygwinc'
 
 task :default => :compile
 
-task :test do
+task :test => :compile do
   # for some reason "require"ing launcher_test.rb here does not run the unit tests
   puts `ruby launcher_test.rb #{Environment[ 'BuildDirectory' ]}`
 end
- 
