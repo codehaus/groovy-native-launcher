@@ -3,7 +3,7 @@
 
 #  Groovy -- A native launcher for Groovy
 #
-#  Copyright © 2007 Russel Winder
+#  Copyright © 2007-8 Russel Winder
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
 #  compliance with the License. You may obtain a copy of the License at
@@ -20,6 +20,7 @@
 #  $Date$
 
 import platform
+import os
 
 #  The in-built PLATFORM key does not necessarily provide proper discrimination of Posix compliant systems,
 #  and does not distinguish same operating system on different architectures, so we are forced to do things
@@ -28,12 +29,22 @@ import platform
 environment = Environment ( Name = 'groovy' )
 
 unameResult = platform.uname ( )
-environment[ 'Architecture' ] = unameResult[0]
+environment['Architecture'] = unameResult[0]
 discriminator = unameResult[0] + '_' + unameResult[4]
 buildDirectory = 'build_scons_' + discriminator
 
 environment.SConsignFile ( '.sconsign_' + discriminator )
 
-SConscript ( 'source/SConscript' , exports = 'environment' , build_dir = buildDirectory , duplicate = 0 )
+executable = SConscript ( 'source/SConscript' , exports = 'environment' , build_dir = buildDirectory , duplicate = 0 )
+
+Default ( Alias ( 'compile' , executable ) )
+Command ( 'test' , executable , 'GROOVY_HOME=' + os.environ['GROOVY_HOME'] + ' ruby launcher_test.rb ' + buildDirectory )
+
+Help ( '''The targets:
+
+    compile
+    test
+
+are provided.  compile is the default.''' )
 
 Clean ( '.' , Glob ( '*~' ) + Glob ( '*/*~' ) + [ buildDirectory ] )
