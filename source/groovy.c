@@ -366,12 +366,12 @@ int main( int argc, char** argv ) {
   // See also 
   // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.cc?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
   // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.h?rev=1.2&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
-  void* sbase ;
   CygPadding pad ;
-  
+  void* sbase ;
+
   g_pad = &pad ;
   pad.end = pad.padding + PAD_SIZE ;
-    
+
   #if defined( __GNUC__ )
   __asm__ (
     "movl %%fs:4, %0"
@@ -379,32 +379,31 @@ int main( int argc, char** argv ) {
     ) ;
   #else
   __asm {
-    mov eax, fs:[ 4 ] 
-    mov sbase, eax 
+    mov eax, fs:[ 4 ]
+    mov sbase, eax
   }
   #endif
   g_pad->stackbase = sbase ;
-  
-  assert( sizeof( size_t ) == 4 * sizeof( byte ) ) ;
-  
-  if ( (*(size_t*)(g_pad->stackbase)) - (*(size_t*)(g_pad->end)) ) {
-    size_t delta = (*(size_t*)(g_pad->stackbase)) - (*(size_t*)(g_pad->end)) ; //g_pad->stackbase - g_pad->end ;
-    g_pad->backup = jst_malloc( delta ) ;
-    if ( !( g_pad->backup ) ) return -1 ;
-    
-    // FIXME - crashes here
+
+  if ( g_pad->stackbase - g_pad->end ) {
+    size_t delta = g_pad->stackbase - g_pad->end ;
+    g_pad->backup = malloc( delta ) ;
+    if( !( g_pad->backup) ) {
+      fprintf( stderr, "error: out of mem when copying stack state\n" ) ;
+      return -1 ;
+    }
     memcpy( g_pad->backup, g_pad->end, delta ) ;
   }
-  
+
   mainRval = rest_of_main( argc, argv ) ;
-  
-  // clean up the stack (is it necessary? we are exiting the program anyway...)
-  if ( (*(size_t*)(g_pad->stackbase)) - (*(size_t*)(g_pad->end)) ) {
-    size_t delta = (*(size_t*)(g_pad->stackbase)) - (*(size_t*)(g_pad->end)) ;
-    memcpy( g_pad->end, g_pad->backup, delta ) ; 
+
+  // clean up the stack (is it necessary? we are exiting the program anyway...) 
+  if ( g_pad->stackbase - g_pad->end ) {
+    size_t delta = g_pad->stackbase - g_pad->end ;
+    memcpy( g_pad->end, g_pad->backup, delta ) ;
     free( g_pad->backup ) ;
-  }  
-  
+  }
+
   return mainRval ;
   
 }

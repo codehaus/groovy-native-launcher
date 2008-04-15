@@ -29,16 +29,20 @@
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
 
+// TODO: * separate path and path_list conversions
+//       * reserve more space for buffer on stack when converting path lists, e.g. 10 * PATH_MAX. Remember to assert that the value got is smaller
+
 /** a helper used below. Returns a pointer to the original string if no conversion was done, the converted value if conversion was done and NULL on error. */
 static char* cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( char* value, JstActualParam** processedParams, size_t* usedSize, size_t* actualSize ) {
   char convertedValue[ PATH_MAX + 1] ; 
   
   cygwin_posix2win_path( value, convertedValue ) ;
-  
+
   if ( strcmp( value, convertedValue ) ) {
+    
     size_t len = strlen( convertedValue ) + 1 ;
     
-    if ( usedSize + len > actualSize ) {
+    if ( *usedSize + len > actualSize ) {
       *processedParams = jst_realloc( *processedParams, *actualSize += len + 200 ) ;
       if ( !*processedParams ) return NULL ;
     }
@@ -46,7 +50,7 @@ static char* cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOrigin
     value = ((char*)*processedParams) + *usedSize ;
     strcpy( value, convertedValue ) ;
     
-    usedSize += len ;
+    *usedSize = *usedSize + len ;
     
   }
   
@@ -180,9 +184,12 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
     processedParams[ i ].param = value = args[ i ] ;
     processedParams[ i ].handling = ( JST_TO_LAUNCHEE | JST_TERMINATING_OR_AFTER ) ;
     processedParams[ i ].paramDefinition = NULL ;
-#if defined ( _WIN32 ) && defined ( _cwcompat )
+#if defined( _WIN32 ) && defined( _cwcompat )
+    if ( CYGWIN_LOADED && cygwinConvertParamsAfterTermination ) {
+      value = cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( value, &processedParams, &usedSize, &actualSize ) ;
+      if ( !value ) return NULL ;
+    } 
 #endif
-    // TODO: cygwin conversion of value if required
     processedParams[ i ].value = value ;
   }
 
