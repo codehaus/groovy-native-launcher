@@ -26,8 +26,10 @@ $dir_containing_executable ||= ARGV[ 0 ] || get_builddir()
 
 raise "GROOVY_HOME must be defined to be able to run the tests" unless ENV[ 'GROOVY_HOME' ]
 
+HOST_OS = Config::CONFIG[ 'host_os' ]
 
-exe_name = 'groovy' + ( Config::CONFIG[ 'host_os' ] =~ /win/ ? '.exe' : '' )
+
+exe_name = 'groovy' + ( HOST_OS =~ /win/ && HOST_OS !~ /darwin/ ? '.exe' : '' )
 EXE_FILE = ( Pathname.new( $dir_containing_executable ) + exe_name ).to_s
 
 raise "#{EXE_FILE} does not exist" unless File.exist?( EXE_FILE )
@@ -75,7 +77,7 @@ class LauncherTest < Test::Unit::TestCase
     assert_equal 123, $CHILD_STATUS.exitstatus
   end
 
-  if Config::CONFIG[ 'host_os' ] =~ /cygwin/
+  if HOST_OS =~ /cygwin/
     def test_cygwin_compatibility
       # generate a groovy source file
       # get path to it in cygwin format
