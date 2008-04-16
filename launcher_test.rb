@@ -36,33 +36,36 @@ puts "testing #{EXE_FILE}"
 
 class LauncherTest < Test::Unit::TestCase
 
-  def excecution_succeeded?( output, expected_output_pattern )
-    assert $CHILD_STATUS.exitstatus == 0
-    assert( output =~ expected_output_pattern )    
+  def excecution_succeeded?( execstatement, expected_output_pattern )
+    output = `#{execstatement}`
+    assert_equal 0, $CHILD_STATUS.exitstatus
+    assert_match( expected_output_pattern, output )    
   end
   
   def test_version
-    excecution_succeeded?( `#{EXE_FILE} -v`, /groovy/i ) 
+    excecution_succeeded?( "#{EXE_FILE} -v", /groovy/i ) 
   end
 
   def test_server_or_client_jvm
-    excecution_succeeded?( `#{EXE_FILE} -server -e "println System.getProperty('java.vm.name')"`, /server/i )
-    excecution_succeeded?( `#{EXE_FILE} -e "println System.getProperty('java.vm.name')"`,         /client/i ) 
+    excecution_succeeded?( "#{EXE_FILE} -server -e \"println System.getProperty('java.vm.name')\"", /server/i )
+    excecution_succeeded?( "#{EXE_FILE} -e \"println System.getProperty('java.vm.name')\"",         /client/i ) 
   end
 
   def test_passing_jvm_parameter
-    excecution_succeeded?( `#{EXE_FILE} -Xmx300m -e "println Runtime.runtime.maxMemory()"`, /\A3\d{8}\Z/ )
+    excecution_succeeded?( "#{EXE_FILE} -Xmx300m -e \"println Runtime.runtime.maxMemory()\"", /\A3\d{8}(?:\D|\Z)/ )
   end
 
-  def test_launching_script
-    tempfile = 'justatest.groovy'
-    File.open( tempfile, 'w' ) { |f|
+  # the scriptfilename (the file passed to groovy for execution) is not the same as the file to write to disc on cygwin
+  # (as cygwin ruby wants file name to open in cygwin format)
+  def test_launching_script( scriptfile = 'justatest.groovy', filetowrite = scriptfile )
+    
+    File.open( filetowrite, 'w' ) { |f|
       f << "println 'hello ' + args[ 0 ]\n"
     }
     begin
-      excecution_succeeded?( `#{EXE_FILE} #{tempfile} world`, /hello world/ )       
+      excecution_succeeded?( "#{EXE_FILE} #{scriptfile} world", /hello world/ )       
     ensure
-      FileUtils.rm tempfile
+      FileUtils.rm filetowrite
     end
     
   end
@@ -71,5 +74,21 @@ class LauncherTest < Test::Unit::TestCase
     `#{EXE_FILE} -Xmx300m -e "System.exit( 123 )"`
     assert_equal 123, $CHILD_STATUS.exitstatus
   end
+
+  if Config::CONFIG[ 'host_os' ] =~ /cygwin/
+    def test_cygwin_compatibility
+      # generate a groovy source file
+      # get path to it in cygwin format
+      # try to execute
+      cygfilename = '/tmp/justatest.groovy'
+      test_launching_script( cygfilename )
+      
+      # try to execute the same file w/ windows style path
+      winfilename = `cygpath -w #{cygfilename}`.gsub( '\\', '/' ).strip
+      test_launching_script( winfilename, cygfilename )
+
+    end
+  end
+    
     
 end
