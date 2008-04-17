@@ -41,8 +41,12 @@
 #include <jni.h>
 
 #include "jvmstarter.h"
-  
-#define GROOVY_CONF "groovy-starter.conf"
+
+#if defined( _WIN32 ) && defined( _cwcompat )
+#  include "jst_cygwin_compatibility.h"
+#endif
+
+#define GROOVY_CONF_FILE "groovy-starter.conf"
 
 /** If groovy-starter.jar exists, returns path to that. If not, the first jar whose name starts w/ "groovy-x" (where x is a digit) is returned.
  * The previous is appropriate for groovy <= 1.0, the latter for groovy >= 1.1
@@ -97,7 +101,7 @@ static int isValidGroovyHome( const char* dir ) {
   char *gconfFile = NULL ;
   int  rval = -1 ;
 
-  gconfFile = jst_createFileName( dir, "conf", GROOVY_CONF, NULL ) ; 
+  gconfFile = jst_createFileName( dir, "conf", GROOVY_CONF_FILE, NULL ) ; 
   if ( gconfFile ) {
     rval = jst_fileExists( gconfFile ) ? 1 : 0 ;
     free( gconfFile ) ;
@@ -105,6 +109,8 @@ static int isValidGroovyHome( const char* dir ) {
 
   return rval ;
 }
+
+// FIXME - the func below is a bit too complex - refactor
 
 /** returns null on error, otherwise pointer to groovy home. 
  * First tries to see if the current executable is located in a groovy installation's bin directory. If not, groovy
@@ -123,15 +129,37 @@ char* getGroovyHome() {
       }
     } else {
       jst_free( appHome ) ;
+      // FIXME 
+      //       - something wront w/ starting a -server vm on solaris
+      //       - a minimal sample program that loads the server jvm and runs a main method
+      //         (this is needed to resolve an issue on loading the server jvm on solaris)
+      //       - once including cygwin support in vs build works, check that mingw/msys also works
+      //       - print a debug message telling whether client or server jvm was loaded
       appHome = getenv( "GROOVY_HOME" ) ;
       if ( appHome ) {
         if ( _jst_debug ) {
           fprintf( stderr, "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME=%s\n", appHome ) ;
         }
+        
+#if defined( _WIN32 ) && defined( _cwcompat )
+        if ( CYGWIN_LOADED ) {
+          char convertedPath[ PATH_MAX + 1 ] ;
+          cygwin_posix2win_path( appHome, convertedPath ) ;
+          appHome = jst_strdup( convertedPath ) ;
+        }
+#endif          
+
         validGroovyHome = isValidGroovyHome( appHome ) ;
-        if ( validGroovyHome == -1 ) return NULL ;
+        if ( validGroovyHome == -1 ) {
+#if defined( _WIN32 ) && defined( _cwcompat )
+          if ( CYGWIN_LOADED ) free( appHome ) ;
+#endif          
+          return NULL ;
+        }
         if ( validGroovyHome ) {
+#if !( defined( _WIN32 ) && defined( _cwcompat ) )          
           appHome = jst_strdup( appHome ) ;
+#endif          
         } else {
           fprintf( stderr, "error: binary is not in groovy installation's bin dir and GROOVY_HOME=%s does not point to a groovy installation\n", appHome ) ;
         }
@@ -323,14 +351,16 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
 
 #if defined( _WIN32 ) && defined ( _cwcompat )
 
-#  include "jst_cygwin_compatibility.h"
-
   static int rest_of_main( int argc, char** argv ) ;
   /** This is a global as I'm not sure how stack manipulation required by cygwin
    * will affect the stack variables */
   static int mainRval ;
   // 2**15
 #  define PAD_SIZE 32768
+  
+#if !defined( byte )
+  typedef unsigned char byte ;
+#endif
   
   typedef struct {
     void* backup ;
@@ -527,7 +557,7 @@ int rest_of_main( int argc, char** argv ) {
   
   if ( !groovyConfFile && // set the default groovy conf file if it was not given as a parameter
        !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                           groovyConfFile = jst_createFileName( groovyHome, "conf", GROOVY_CONF, NULL ) ) ) goto end ;
+                           groovyConfFile = jst_createFileName( groovyHome, "conf", GROOVY_CONF_FILE, NULL ) ) ) goto end ;
   
   
   if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
