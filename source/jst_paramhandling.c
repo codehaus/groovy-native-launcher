@@ -19,7 +19,6 @@
 #include <assert.h>
 
 #include "jvmstarter.h"
-#include "jst_cygwin_compatibility.h"
 
 #if defined( _WIN32 )
 #  if !defined( PATH_MAX )
@@ -28,6 +27,8 @@
 #endif
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
+
+#include "jst_cygwin_compatibility.h"
 
 // TODO: * separate path and path_list conversions
 //       * reserve more space for buffer on stack when converting path lists, e.g. 10 * PATH_MAX. Remember to assert that the value got is smaller
