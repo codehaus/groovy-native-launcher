@@ -47,4 +47,7 @@ Help ( '''The targets:
 
 are provided.  compile is the default.''' )
 
-Clean ( '.' , Glob ( '*~' ) + Glob ( '*/*~' ) + [ buildDirectory ] )
+#  Have take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
+#  does arise on Solaris 10.
+
+Clean ( '.' , Glob ( '*~' ) + Glob ( '*/*~' ) + Glob ( 'hs_err_pid*.log' ) + [ buildDirectory , 'core' ] )
