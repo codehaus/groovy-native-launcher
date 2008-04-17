@@ -14,7 +14,9 @@
 //
 //  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
 
-#if defined ( _WIN32 ) && defined ( _cwcompat )
+#if defined ( _WIN32 ) && defined ( _cwcompat ) && !defined( JST_CYGIN_COMPATIBILITY_H )
+
+#  define JST_CYGIN_COMPATIBILITY_H
 
 #  if defined( __cplusplus )
     extern "C" {
@@ -40,6 +42,6 @@
 #  if defined( __cplusplus )
      }
 #  endif
-
+    
 #endif
 
