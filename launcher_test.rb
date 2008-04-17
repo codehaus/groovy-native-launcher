@@ -12,6 +12,9 @@
 #  implied. See the License for the specific language governing permissions and limitations under the
 #  License.
 
+# you can give the dir containing the executable to test as a command line parameter, e.g.
+# ruby launcher_test.rb build_rant_windows
+
 
 require "test/unit"
 require 'pathname'
