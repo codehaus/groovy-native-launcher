@@ -90,7 +90,7 @@
 //  /System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Home as their JAVA_HOME since that is
 //  the more Linux/Solaris/Unix like location (the default is /System/Library/Frameworks/JavaVM.framework).
 //  The issue is that all the dynamic libraries are not in that part of the tree.  To deal with this we try
-//  one rather than two places to search.
+//  two rather than one place to search.
 
 #    define PATHS_TO_SERVER_JVM "Libraries/libserver.dylib", "../Libraries/libserver.dylib"
 #    define PATHS_TO_CLIENT_JVM "Libraries/libclient.dylib", "../Libraries/libclient.dylib"
@@ -126,7 +126,7 @@ jboolean _jst_debug = JNI_FALSE ;
 
 // The pointer to the JNI_CreateJavaVM function needs to be called w/ JNICALL calling convention. Using this typedef
 // takes care of that.
-typedef jint (JNICALL *JVMCreatorFunc)(JavaVM**,void**,void*);
+typedef jint ( JNICALL *JVMCreatorFunc )( JavaVM**, void**, void* ) ;
 
 typedef struct {
   JVMCreatorFunc creatorFunc  ;

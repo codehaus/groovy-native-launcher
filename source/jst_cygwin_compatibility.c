@@ -41,9 +41,7 @@
   static HINSTANCE g_cygwinDllHandle = NULL ;
   
   int jst_cygwinInit() {
-      
-    char *scriptpath_dyn = NULL ;
-    
+          
     g_cygwinDllHandle = LoadLibrary( "cygwin1.dll" ) ;
   
     if ( g_cygwinDllHandle ) {

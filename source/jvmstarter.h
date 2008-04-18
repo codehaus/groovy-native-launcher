@@ -52,19 +52,30 @@ typedef enum {
 } JstParamClass ;
 
 typedef enum {
+  /** Ignoring an input parameter means it is not passed to jvm nor to the launched java app. It can
+   * still be used for some logic during the launch process. An example is "-server", which can 
+   * be used to instruct the launcher to use the server jvm. */
   JST_IGNORE       = 1,
   // both of the next two may be set at the same time, use & operator to find out
   JST_TO_JVM       = 2,
   JST_TO_LAUNCHEE  = 4,
   JST_TERMINATING  = 8,
-  JST_CYGWIN_CONVERT = 0x10, 
+  JST_CYGWIN_PATH_CONVERT = 0x10, 
+  JST_CYGWIN_PATHLIST_CONVERT = 0x20, 
   
   // the following can't be set as value to ParamInfo.handling (it doesn't make sense)
   
-  JST_UNRECOGNIZED = 0x20,
+  JST_UNRECOGNIZED = 0x40,
   // this bit will be set on the parameter after which all the parameters are launchee params (and all following params)
   JST_TERMINATING_OR_AFTER = JST_TERMINATING
 } JstInputParamHandling ;
+
+typedef enum {
+  JST_CYGWIN_NO_CONVERT          = 0,
+  JST_CYGWIN_PATH_CONVERSION     = JST_CYGWIN_PATH_CONVERT, 
+  JST_CYGWIN_PATHLIST_CONVERSION = JST_CYGWIN_PATHLIST_CONVERT  
+} CygwinConversionType ;
+
 
 typedef struct {
   
@@ -243,10 +254,10 @@ char* jst_fullPathName( const char* fileOrDirName ) ;
 /** returns an array of JstActualParam, the last one of which contains NULL for field param. 
  * All the memory allocated can be freed by freeing the returned pointer.
  * Return NULL on error. 
- * @param cygwinConvertParamsAfterTermination if true (and cygwin compatibility is set in the build & cygwin1.dll is found and loaded), 
+ * @param cygwinConvertParamsAfterTermination if cygwin compatibility is set in the build & cygwin1.dll is found and loaded, 
  *                                            the terminating param (the param which w/ all the following params is passed to launchee)
- *                                            and all the following params are cygwin path converted. */
-JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes, jboolean cygwinConvertParamsAfterTermination ) ;
+ *                                            and all the following params are cygwin path converted with the given conversion type. */
+JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes, CygwinConversionType cygwinConvertParamsAfterTermination ) ;
 
 /** For single params, returns "" if the param is present, NULL otherwise. */
 char* jst_getParameterValue( const JstActualParam* processedParams, const char* paramName ) ;

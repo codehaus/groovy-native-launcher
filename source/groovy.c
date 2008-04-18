@@ -95,15 +95,20 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
    
 }
 
-/** Checks that the given dir is a valid groovy dir.
- * 0 => false, 1 => true, -1 => error */
-static int isValidGroovyHome( const char* dir ) {
-  char *gconfFile = NULL ;
-  int  rval = -1 ;
+// FIXME - make the following signal error via errno
 
+/** Checks that the given dir is a valid groovy dir.
+ * If false is returned, check errno to see if there was an error (in mem allocation) */
+// fixme 
+static jboolean isValidGroovyHome( const char* dir ) {
+  char *gconfFile = NULL ;
+  jboolean rval = JNI_FALSE ;
+
+  errno = 0 ;
+  
   gconfFile = jst_createFileName( dir, "conf", GROOVY_CONF_FILE, NULL ) ; 
   if ( gconfFile ) {
-    rval = jst_fileExists( gconfFile ) ? 1 : 0 ;
+    rval = jst_fileExists( gconfFile ) ? JNI_TRUE : JNI_FALSE ;
     free( gconfFile ) ;
   }
 
@@ -119,17 +124,17 @@ static int isValidGroovyHome( const char* dir ) {
 char* getGroovyHome() {
   
   char *appHome = jst_getExecutableHome() ;
-      
   if ( appHome && jst_pathToParentDir( appHome ) ) {
-    int validGroovyHome = isValidGroovyHome( appHome ) ;
-    if ( validGroovyHome == -1 ) return NULL ;
+    jboolean validGroovyHome = isValidGroovyHome( appHome ) ;
+    if ( errno ) return NULL ;
     if ( validGroovyHome ) {
       if ( _jst_debug ) {
         fprintf( stderr, "debug: groovy home located based on executable location: %s\n", appHome ) ;
       }
     } else {
       jst_free( appHome ) ;
-      // FIXME 
+      // FIXME
+      //       - -cp param conversion support in cygwin
       //       - something wront w/ starting a -server vm on solaris
       //       - a minimal sample program that loads the server jvm and runs a main method
       //         (this is needed to resolve an issue on loading the server jvm on solaris)
@@ -150,7 +155,7 @@ char* getGroovyHome() {
 #endif          
 
         validGroovyHome = isValidGroovyHome( appHome ) ;
-        if ( validGroovyHome == -1 ) {
+        if ( errno ) {
 #if defined( _WIN32 ) && defined( _cwcompat )
           if ( CYGWIN_LOADED ) free( appHome ) ;
 #endif          
@@ -168,7 +173,6 @@ char* getGroovyHome() {
       }
     } 
   }
-  
   return appHome ;
   
 }
@@ -192,12 +196,12 @@ static const JstParamInfo groovyParameters[] = {
   { "-p",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
   { "-v",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
   { "--version",   JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-jh",         JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_CONVERT },
-  { "--javahome",  JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_CONVERT },
-  { "-cp",         JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_CONVERT },
-  { "-classpath",  JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_CONVERT },
-  { "--classpath", JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_CONVERT },
-  { "--conf",      JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_CONVERT },
+  { "-jh",         JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATH_CONVERT },
+  { "--javahome",  JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATH_CONVERT },
+  { "-cp",         JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATHLIST_CONVERT },
+  { "-classpath",  JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATHLIST_CONVERT },
+  { "--classpath", JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATHLIST_CONVERT },
+  { "--conf",      JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATH_CONVERT },
   { "-client",     JST_SINGLE_PARAM, JST_IGNORE },
   { "-server",     JST_SINGLE_PARAM, JST_IGNORE },
   { NULL,          0,                0 }
@@ -494,7 +498,7 @@ int rest_of_main( int argc, char** argv ) {
   extraProgramOptions[ 1 ] = jst_figureOutMainClass( argv[ 0 ], numArgs, &parameterInfos, &displayHelp ) ;
   if ( !extraProgramOptions[ 1 ] ) goto end ;
   
-  processedActualParams = jst_processInputParameters( argv + 1, argc - 1, parameterInfos, terminatingSuffixes, JNI_TRUE ) ;
+  processedActualParams = jst_processInputParameters( argv + 1, argc - 1, parameterInfos, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
   if ( !processedActualParams ) goto end ;
 
   

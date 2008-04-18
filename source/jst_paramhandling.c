@@ -30,20 +30,30 @@
 
 #include "jst_cygwin_compatibility.h"
 
-// TODO: * separate path and path_list conversions
+// TODO: 
 //       * reserve more space for buffer on stack when converting path lists, e.g. 10 * PATH_MAX. Remember to assert that the value got is smaller
 
-/** a helper used below. Returns a pointer to the original string if no conversion was done, the converted value if conversion was done and NULL on error. */
-static char* cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( char* value, JstActualParam** processedParams, size_t* usedSize, size_t* actualSize ) {
-  char convertedValue[ PATH_MAX + 1] ; 
-  
-  cygwin_posix2win_path( value, convertedValue ) ;
+#define CYGWIN_CONVERTED_VALUE_BUFFER_SIZE ( 10 * PATH_MAX )
 
+/** a helper used below. Returns a pointer to the original string if no conversion was done, the converted value if conversion was done and NULL on error. */
+static char* cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( char* value, JstActualParam** processedParams, size_t* usedSize, size_t* actualSize, JstInputParamHandling paramHandling ) {
+  char convertedValue[ CYGWIN_CONVERTED_VALUE_BUFFER_SIZE ] ; 
+  
+  if ( JST_CYGWIN_PATH_CONVERT & paramHandling ) {
+    cygwin_posix2win_path( value, convertedValue ) ;
+  } else {
+    assert( JST_CYGWIN_PATHLIST_CONVERT & paramHandling ) ;
+    cygwin_posix2win_path_list( value, convertedValue ) ;
+  }
+  
+  assert( strlen( convertedValue ) < CYGWIN_CONVERTED_VALUE_BUFFER_SIZE ) ;
+  
+  
   if ( strcmp( value, convertedValue ) ) {
     
     size_t len = strlen( convertedValue ) + 1 ;
     
-    if ( *usedSize + len > actualSize ) {
+    if ( *usedSize + len > *actualSize ) {
       *processedParams = jst_realloc( *processedParams, *actualSize += len + 200 ) ;
       if ( !*processedParams ) return NULL ;
     }
@@ -66,7 +76,7 @@ static char* cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOrigin
 //       Thenagain, this should only be optimized if profiling says it must (for a real case), 
 //       as n and m are both likely to be very small.
 
-extern JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes, jboolean cygwinConvertParamsAfterTermination ) {
+extern JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes, CygwinConversionType cygwinConvertParamsAfterTermination ) {
 
   // TODO: cygwin conversions of param values 
   //       + for all input params after termination (if requested)
@@ -139,8 +149,11 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
         
 #if defined ( _WIN32 ) && defined ( _cwcompat )
         
-        if ( CYGWIN_LOADED && ( processedParams[ i ].handling & JST_CYGWIN_CONVERT ) ) {
-          value = cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( value, &processedParams, &usedSize, &actualSize ) ;
+        if ( CYGWIN_LOADED && 
+             ( processedParams[ i ].handling & ( JST_CYGWIN_PATH_CONVERT | JST_CYGWIN_PATHLIST_CONVERT ) ) ) {
+          // FIXME - pass in param value cygwin conversion strategy
+          //         fix the called func to use the appropriate cygwin conversion func
+          value = cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( value, &processedParams, &usedSize, &actualSize, processedParams[ i ].handling ) ;
           if ( !value ) return NULL ;
         }
         
@@ -166,7 +179,7 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
         processedParams[ i ].handling = JST_UNRECOGNIZED ;
 #if defined( _WIN32 ) && defined( _cwcompat )
         if ( CYGWIN_LOADED && cygwinConvertParamsAfterTermination ) {
-          value = cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( value, &processedParams, &usedSize, &actualSize ) ;
+          value = cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( value, &processedParams, &usedSize, &actualSize, cygwinConvertParamsAfterTermination ) ;
           if ( !value ) return NULL ;
         } 
 #endif
@@ -187,7 +200,7 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
     processedParams[ i ].paramDefinition = NULL ;
 #if defined( _WIN32 ) && defined( _cwcompat )
     if ( CYGWIN_LOADED && cygwinConvertParamsAfterTermination ) {
-      value = cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( value, &processedParams, &usedSize, &actualSize ) ;
+      value = cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( value, &processedParams, &usedSize, &actualSize, cygwinConvertParamsAfterTermination ) ;
       if ( !value ) return NULL ;
     } 
 #endif
