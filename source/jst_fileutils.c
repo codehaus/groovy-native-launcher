@@ -42,11 +42,18 @@
 
 #include "jvmstarter.h"
 
-/** Returns != 0 if the given file exists. */
+/** Returns != 0 if the given file exists. In case of error, errno != 0 */
 extern int jst_fileExists( const char* fileName ) {
   struct stat buf ;
+  
+  errno = 0 ;
+  
   int i = stat( fileName, &buf ) ;
 
+  assert( i != 0 || errno != ENOENT ) ; // errno == ENOENT => i != 0
+  
+  if ( errno == ENOENT ) errno = 0 ;
+  
   return ( i == 0 ) ;
 
 }
