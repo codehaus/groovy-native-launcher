@@ -43,8 +43,8 @@ class LauncherTest < Test::Unit::TestCase
 
   def excecution_succeeded?( execstatement, expected_output_pattern )
     output = `#{execstatement}`
-    assert_equal 0, $CHILD_STATUS.exitstatus
-    assert_match( expected_output_pattern, output )    
+    assert_equal 0, $CHILD_STATUS.exitstatus, execstatement + "\n" + output
+    assert_match( expected_output_pattern, output, execstatement + "\n" + output )    
   end
   
   def test_version
@@ -76,23 +76,31 @@ class LauncherTest < Test::Unit::TestCase
   end
   
   def test_exit_status
-    `#{EXE_FILE} -Xmx300m -e "System.exit( 123 )"`
-    assert_equal 123, $CHILD_STATUS.exitstatus
+    statement = "#{EXE_FILE} -Xmx300m -e \"System.exit( 123 )\"" 
+    output = `#{statement}`
+    assert_equal 123, $CHILD_STATUS.exitstatus, statement + "\n" + output
   end
 
   if HOST_OS =~ /cygwin/
-    def test_cygwin_compatibility
+    CYGFILENAME = '/tmp/justatest.groovy'
+    def test_cygwin_pathconversion
       # generate a groovy source file
       # get path to it in cygwin format
       # try to execute
-      cygfilename = '/tmp/justatest.groovy'
-      test_launching_script( cygfilename )
-      
-      # try to execute the same file w/ windows style path
-      winfilename = `cygpath -w #{cygfilename}`.gsub( '\\', '/' ).strip
-      test_launching_script( winfilename, cygfilename )
-
+      test_launching_script( CYGFILENAME )
     end
+    
+    def test_cygwin_with_windows_style_path
+      # try to execute the same file w/ windows style path
+      winfilename = `cygpath -w #{CYGFILENAME}`.gsub( '\\', '/' ).strip
+      test_launching_script( winfilename, CYGFILENAME )
+    end
+    
+    def test_cygwin_pathlist_conversion
+      #FIXME implement test - test that -cp param value is converted correctly (when givin a cygwin or windows style path list
+      
+    end
+    
   end
     
     
