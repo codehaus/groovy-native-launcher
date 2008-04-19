@@ -151,8 +151,6 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
         
         if ( CYGWIN_LOADED && 
              ( processedParams[ i ].handling & ( JST_CYGWIN_PATH_CONVERT | JST_CYGWIN_PATHLIST_CONVERT ) ) ) {
-          // FIXME - pass in param value cygwin conversion strategy
-          //         fix the called func to use the appropriate cygwin conversion func
           value = cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( value, &processedParams, &usedSize, &actualSize, processedParams[ i ].handling ) ;
           if ( !value ) return NULL ;
         }
@@ -174,16 +172,9 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
     
     if ( !found ) {
       if ( arg[ 0 ] == '-' ) {
-        char* value = arg ;
-        processedParams[ i ].param = value ;
+        processedParams[ i ].param = arg ;
         processedParams[ i ].handling = JST_UNRECOGNIZED ;
-#if defined( _WIN32 ) && defined( _cwcompat )
-        if ( CYGWIN_LOADED && cygwinConvertParamsAfterTermination ) {
-          value = cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOriginal( value, &processedParams, &usedSize, &actualSize, cygwinConvertParamsAfterTermination ) ;
-          if ( !value ) return NULL ;
-        } 
-#endif
-        processedParams[ i ].value = value ;
+        processedParams[ i ].value = arg ;
       } else {
         goto end ;
       }
