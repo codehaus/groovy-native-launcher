@@ -81,7 +81,6 @@ if environment['CC'] == 'cl' :
     # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
     #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
     # the -O1 is there just to reduce the size of the executable - it is not mandatory
-#    "#{$gcc} #{$debug ? '-Zi' : '-O1'} -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"    
     environment.Append ( CCFLAGS = ' -O1 -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820' )
 else :
     assert environment['CC'] == 'gcc'
