@@ -24,7 +24,7 @@ import os
 
 #  The in-built PLATFORM key does not necessarily provide proper discrimination of Posix compliant systems,
 #  and does not distinguish same operating system on different architectures, so we are forced to do things
-#  a bit more unamish.
+#  a bit more 'uname'ish.
 
 environment = Environment ( Name = 'groovy' )
 
