@@ -21,6 +21,7 @@
 #include "jvmstarter.h"
 
 #if defined( _WIN32 )
+#  include <Windows.h>
 #  if !defined( PATH_MAX )
 #    define PATH_MAX MAX_PATH
 #  endif
@@ -30,8 +31,6 @@
 
 #include "jst_cygwin_compatibility.h"
 
-// TODO: 
-//       * reserve more space for buffer on stack when converting path lists, e.g. 10 * PATH_MAX. Remember to assert that the value got is smaller
 
 #define CYGWIN_CONVERTED_VALUE_BUFFER_SIZE ( 10 * PATH_MAX )
 
@@ -70,11 +69,15 @@ static char* cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOrigin
 
 #endif
 
+
 // TODO: presorting param infos would improve performance as then the param definition would not need to 
 //       be sought w/ exhaustive search
 //       The performance is atm O(n*m) where n = number of actual params, m = number of param definitions.
 //       Thenagain, this should only be optimized if profiling says it must (for a real case), 
 //       as n and m are both likely to be very small.
+
+
+// FIXME: the func below is a bit too complex - refactor
 
 extern JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes, CygwinConversionType cygwinConvertParamsAfterTermination ) {
 

@@ -45,10 +45,11 @@
 /** Returns != 0 if the given file exists. In case of error, errno != 0 */
 extern int jst_fileExists( const char* fileName ) {
   struct stat buf ;
+  int i ;
   
   errno = 0 ;
   
-  int i = stat( fileName, &buf ) ;
+  i = stat( fileName, &buf ) ;
 
   assert( i != 0 || errno != ENOENT ) ; // errno == ENOENT => i != 0
   

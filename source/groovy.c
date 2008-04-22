@@ -95,11 +95,9 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
    
 }
 
-// FIXME - make the following signal error via errno
 
 /** Checks that the given dir is a valid groovy dir.
  * If false is returned, check errno to see if there was an error (in mem allocation) */
-// fixme 
 static jboolean isValidGroovyHome( const char* dir ) {
   char *gconfFile = NULL ;
   jboolean rval = JNI_FALSE ;
@@ -133,13 +131,6 @@ char* getGroovyHome() {
       }
     } else {
       jst_free( appHome ) ;
-      // FIXME
-      //       - -cp param conversion support in cygwin
-      //       - something wront w/ starting a -server vm on solaris
-      //       - a minimal sample program that loads the server jvm and runs a main method
-      //         (this is needed to resolve an issue on loading the server jvm on solaris)
-      //       - once including cygwin support in vs build works, check that mingw/msys also works
-      //       - print a debug message telling whether client or server jvm was loaded
       appHome = getenv( "GROOVY_HOME" ) ;
       if ( appHome ) {
         if ( _jst_debug ) {
@@ -387,9 +378,10 @@ int main( int argc, char** argv ) {
 #if defined ( _WIN32 ) && defined ( _cwcompat )
 
 
-  // NOTE: this DOES NOT WORK. This code is experimental and is not compiled into the executable by default.
-  //       You need to add -D_cwcompat to the compiler opts (in the Rantfile) when compiling  
-
+  // NOTE: This code is experimental and is not compiled into the executable by default.
+  //       When building w/ rant, do 
+  //       rant clean
+  //       rant cygwinc
   
   // Dynamically loading the cygwin dll is a lot more complicated than the loading of an ordinary dll. Please see
   // http://cygwin.com/faq/faq.programming.html#faq.programming.msvs-mingw
@@ -400,6 +392,7 @@ int main( int argc, char** argv ) {
   // See also 
   // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.cc?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
   // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.h?rev=1.2&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
+  size_t delta ;
   CygPadding pad ;
   void* sbase ;
 
@@ -419,8 +412,9 @@ int main( int argc, char** argv ) {
   #endif
   g_pad->stackbase = sbase ;
 
-  if ( g_pad->stackbase - g_pad->end ) {
-    size_t delta = g_pad->stackbase - g_pad->end ;
+  delta = (size_t)g_pad->stackbase - (size_t)g_pad->end ; 
+  
+  if ( delta ) {
     g_pad->backup = malloc( delta ) ;
     if( !( g_pad->backup) ) {
       fprintf( stderr, "error: out of mem when copying stack state\n" ) ;
@@ -432,8 +426,7 @@ int main( int argc, char** argv ) {
   mainRval = rest_of_main( argc, argv ) ;
 
   // clean up the stack (is it necessary? we are exiting the program anyway...) 
-  if ( g_pad->stackbase - g_pad->end ) {
-    size_t delta = g_pad->stackbase - g_pad->end ;
+  if ( delta ) {
     memcpy( g_pad->end, g_pad->backup, delta ) ;
     free( g_pad->backup ) ;
   }

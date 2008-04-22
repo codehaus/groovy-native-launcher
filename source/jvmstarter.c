@@ -370,6 +370,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
 
   if ( rval.creatorFunc ) {
     rval.dynLibHandle = jvmLib ;
+    if ( _jst_debug ) fprintf( stderr, "debug: loaded jvm dynamic library %s\n", path ) ;
   } else {
 #   if defined( _WIN32 )
     jst_printWinError( GetLastError() ) ;
