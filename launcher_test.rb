@@ -60,13 +60,18 @@ class LauncherTest < Test::Unit::TestCase
     excecution_succeeded?( "#{EXE_FILE} -Xmx300m -e \"println Runtime.runtime.maxMemory()\"", /\A3\d{8}(?:\D|\Z)/ )
   end
 
+  def create_file( filetowrite, contents )
+    File.open( filetowrite, 'w' ) { |f|
+      f << contents
+    }    
+  end
+  
   # the scriptfilename (the file passed to groovy for execution) is not the same as the file to write to disc on cygwin
   # (as cygwin ruby wants file name to open in cygwin format)
   def test_launching_script( scriptfile = 'justatest.groovy', filetowrite = scriptfile )
     
-    File.open( filetowrite, 'w' ) { |f|
-      f << "println 'hello ' + args[ 0 ]\n"
-    }
+    create_file filetowrite, "println 'hello ' + args[ 0 ]\n" 
+    
     begin
       excecution_succeeded?( "#{EXE_FILE} #{scriptfile} world", /hello world/ )       
     ensure
@@ -97,7 +102,22 @@ class LauncherTest < Test::Unit::TestCase
     end
     
     def test_cygwin_pathlist_conversion
-      #FIXME implement test - test that -cp param value is converted correctly (when givin a cygwin or windows style path list
+
+      afile = "/tmp/A.groovy"
+      bfile = "/tmp/foo/B.groovy"
+      
+      FileUtils.mkdir '/tmp/foo'
+      
+      create_file afile, "class A { def getB() { return new B(); } }\n" 
+      create_file bfile, "class B { def sayHello() { println( 'hello there' ); } }\n" 
+
+      begin
+        excecution_succeeded?( "#{EXE_FILE} -cp /tmp:/tmp/foo -e \"new A().b.sayHello()\"", /hello there/ )       
+      ensure
+        FileUtils.rm afile
+        FileUtils.rm bfile
+        FileUtils.rmdir '/tmp/foo'
+      end
       
     end
     
