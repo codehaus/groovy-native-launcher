@@ -157,8 +157,7 @@ static int jst_readJavaHomeFromRegistry( char* jdkOrJreKeyName, char** _javaHome
   return status ;
 }
 
-extern int jst_findJavaHomeFromWinRegistry( char** javaHomeOut ) {
-  static char* _javaHome = NULL ;
+extern char* jst_findJavaHomeFromWinRegistry() {
   
   // all these are under key HKEY_LOCAL_MACHINE
   static char* registryEntriesToCheck[] = { "SOFTWARE\\JavaSoft\\Java Development Kit", 
@@ -167,30 +166,33 @@ extern int jst_findJavaHomeFromWinRegistry( char** javaHomeOut ) {
                                             "SOFTWARE\\JRockit\\Java Runtime Environment",
                                             NULL 
                                           } ;
+  
+  char* javaHome = NULL ;
 
   int error = 0 ;
   
-  if ( !_javaHome ) {
-    char*    jdkOrJreKeyName ;
-    int      javaTypeCounter = 0 ;
-        
-    while ( ( jdkOrJreKeyName = registryEntriesToCheck[ javaTypeCounter++ ] ) ) {
+  char*    jdkOrJreKeyName ;
+  int      javaTypeCounter = 0 ;
 
-      if ( ( error = jst_readJavaHomeFromRegistry( jdkOrJreKeyName, &_javaHome ) ) || _javaHome ) break ;
-      
-    }   
+  errno = 0 ;
+  
+  while ( ( jdkOrJreKeyName = registryEntriesToCheck[ javaTypeCounter++ ] ) ) {
+
+    if ( ( error = jst_readJavaHomeFromRegistry( jdkOrJreKeyName, &javaHome ) ) || javaHome ) break ;
     
-    if ( _jst_debug ) {
-      if ( _javaHome ) {
-        fprintf( stderr, "debug: java home found from windows registry: %s\n", _javaHome ) ;
-      } else {
-        fprintf( stderr, "debug: java home not found from windows registry\n" ) ;      
-      }
+  }   
+  
+  if ( _jst_debug ) {
+    if ( javaHome ) {
+      fprintf( stderr, "debug: java home found from windows registry: %s\n", javaHome ) ;
+    } else {
+      fprintf( stderr, "debug: java home not found from windows registry\n" ) ;      
     }
   }
 
 
-  if ( !error ) *javaHomeOut = _javaHome ;
+
+  if ( error ) errno = error ;
   return error ;
   
 }

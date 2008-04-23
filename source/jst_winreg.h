@@ -24,8 +24,8 @@
 #    endif
 
 
-/** returns != 0 on error. Note that not finding java home from registry is not considered an error. */
-int jst_findJavaHomeFromWinRegistry( char** javaHomeOut ) ;
+/** errno != 0 on error. Note that not finding java home from registry is not considered an error. */
+char* jst_findJavaHomeFromWinRegistry() ;
 
 #    if defined( __cplusplus )
        }

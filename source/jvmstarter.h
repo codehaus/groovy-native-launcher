@@ -120,26 +120,7 @@ typedef enum {
   JST_TRY_SERVER_ONLY  = 2
 } JVMSelectStrategy ;
 
-/** javahome handling constants.
- * In order of precedence: 
- *  - programmatically given jh 
- *  - jh user parameter 
- *  - JAVA_HOME env var 
- *  - java home deduced from java executable found on path 
- *  - win registry (ms windows only) / "/System/Library/Frameworks/JavaVM.framework" (os-x only)
- */
-typedef enum {
-  JST_USE_ONLY_GIVEN_JAVA_HOME = 0,
-/** If given java_home == null, try to look it up from JAVA_HOME environment variable. */
-  JST_ALLOW_JH_ENV_VAR_LOOKUP = 1,
-/** Allow giving java home as -jh / --javahome parameter. The precedence is 
- * -jh command line parameter, java_home argument and then JAVA_HOME env var (if allowed). */
-  JST_ALLOW_JH_PARAMETER = 2,
-/** Check windows registry when looking for java home. */
-  JST_ALLOW_REGISTRY_LOOKUP = 4,
-  /** Check if java home can be found by inspecting where java executable is located on the path. */ 
-  JST_ALLOW_PATH_LOOKUP     = 8
-} JavaHomeHandling ;
+
 
 // FIXME - delete this, (almost) groovy specific
 // these can be or:d together w/ |
@@ -171,8 +152,6 @@ typedef struct {
   JstUnrecognizedParamStrategy unrecognizedParamStrategy ;
   /** what to do about tools.jar */
   ToolsJarHandling toolsJarHandling ;
-  /** See the constants above. */
-  JavaHomeHandling javahomeHandling ;
   /** Give any cp entries you want appended to the beginning of classpath here. May be NULL */
   char* initialClasspath ;
   /** Processed actual parameters. May not be NULL. Use jst_processInputParameters function to obtain this value. */
@@ -322,6 +301,13 @@ char* jst_strdup( const char* s ) ;
 
 /** Frees all the pointers in the given array, the array itself and sets the reference to NULL */
 void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) ;
+
+
+/** Tries to find Java home by looking where java command is located on PATH. Freeing the returned value
+ * is up to the caller. 
+ * errno != 0 on error. */
+char* jst_findJavaHomeFromPath() ;
+
 
 
 /** As appendArrayItem, but specifically for jvm options. 

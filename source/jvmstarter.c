@@ -160,89 +160,85 @@ extern void jst_printWinError( unsigned long errcode ) {
 #endif
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-/** Tries to find Java home by looking where java command is located on PATH. 
- * Returns != 0 on error. */
-extern int jst_findJavaHomeFromPath( char** javaHomeOut ) {
-  static char* _javaHome = NULL ;
-  int error = 0 ;
 
-  if ( !_javaHome ) {
-    char     *path = NULL, 
-             *p, 
-             *javahome = NULL ;
-    size_t   jhlen     = 100  ;
-    jboolean firstTime = JNI_TRUE ;
+extern char* jst_findJavaHomeFromPath() {
 
-    p = getenv( "PATH" ) ;
-    if ( !p ) goto end ; // PATH not defined. Should never happen, but is not really an error if it does.
+  char     *path = NULL, 
+           *p, 
+           *javahome = NULL ;
+  size_t   jhlen     = 100  ;
+  jboolean firstTime = JNI_TRUE,
+           found     = JNI_FALSE ;
+
+  errno = 0 ;
+  
+  p = getenv( "PATH" ) ;
+  if ( !p ) goto end ; // PATH not defined. Should never happen, but is not really an error if it does.
+  
+  if ( !( path = jst_strdup( p ) ) ) goto end ;
+  
+  for ( ; ( p = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
+    size_t len = strlen( p ) ;
+    if ( len == 0 ) continue ;
     
-    if ( !( path = jst_strdup( p ) ) ) { error = -1 ; goto end ; }
+    if ( javahome ) javahome[ 0 ] = '\0' ;
     
-    for ( ; ( p = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
-      size_t len = strlen( p ) ;
-      if ( len == 0 ) continue ;
-      
-      if ( javahome ) javahome[ 0 ] = '\0' ;
-      
-      if ( !( javahome = jst_append( javahome, &jhlen, p, NULL ) ) ) { error = -1 ; goto end ; }
-      
-      javahome = jst_append( javahome, &jhlen, ( javahome[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) ? JST_FILE_SEPARATOR : "", 
-                                               "java" 
+    if ( !( javahome = jst_append( javahome, &jhlen, p, NULL ) ) ) goto end ;
+    
+    javahome = jst_append( javahome, &jhlen, ( javahome[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) ? JST_FILE_SEPARATOR : "", 
+        // FIXME #define JAVA_EXECUTABLE "java" or "java.exe"
+                                             "java" 
 #if defined( _WIN32 )
-                                               ".exe"
+                                             ".exe"
 #endif
-                                             , NULL ) ;
-      if ( !javahome ) { error = -1 ; goto end ; }
-    
-      if ( jst_fileExists( javahome ) ) {
+                                           , NULL ) ;
+    if ( !javahome ) goto end ; 
+  
+    if ( jst_fileExists( javahome ) ) {
 #if !defined( _WIN32 )
-        // if not on windows (which does not have symlinks), resolve the real location of the java executable
-        char realFile[ PATH_MAX + 1 ] ;
-        if ( !realpath( javahome, realFile ) ) {
-          fprintf( stderr, strerror( errno ) ) ;
-          error = errno ;
-          goto end ;
-        }
-        javahome[ 0 ] = '\0' ;
-        javahome = jst_append( javahome, &jhlen, realFile, NULL ) ;
-        if ( !javahome ) { error = -1 ; goto end ; }
+      // if not on windows (which does not have symlinks), resolve the real location of the java executable
+      char realFile[ PATH_MAX + 1 ] ;
+      if ( !realpath( javahome, realFile ) ) {
+        fprintf( stderr, strerror( errno ) ) ;
+        goto end ;
+      }
+      javahome[ 0 ] = '\0' ;
+      javahome = jst_append( javahome, &jhlen, realFile, NULL ) ;
+      if ( !javahome ) goto end ;
 #endif
-        *( strrchr( javahome, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;
-        len = strlen( javahome ) ;
-        if ( len < 4 ) goto end ; // we are checking whether the executable is in "bin" dir, /bin is the shortest possibility (4 chars)
-        // see if we are in the bin dir of java home
-        if ( memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
-          javahome[ len -= 4 ] = '\0' ;
-          assert( len == strlen( javahome ) ) ;
-          _javaHome = jst_strdup( javahome ) ;
-          if ( !_javaHome ) { error = -1 ; goto end ; } 
-        }
-        break ;
+      *( strrchr( javahome, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;
+      len = strlen( javahome ) ;
+      if ( len < 4 ) goto end ; // we are checking whether the executable is in "bin" dir, /bin is the shortest possibility (4 chars)
+      // see if we are in the bin dir of java home
+      if ( memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
+        javahome[ len -= 4 ] = '\0' ;
+        assert( len == strlen( javahome ) ) ;
       }
-      // check if this is a valid java home (how?)
+      found = JNI_TRUE ;
+      break ;
     }
-    
-    end:
-    if ( path     ) free( path     ) ;
-    if ( javahome ) free( javahome ) ;
-    if ( _jst_debug ) {
-      if ( _javaHome ) {
-        fprintf( stderr, "debug: java home found on PATH: %s\n", _javaHome ) ;      
-      } else {
-        fprintf( stderr, "debug: java home not found on PATH\n" ) ;
-      }
-    }
+    // TODO: check if this is a valid java home (how?)
   }
   
-  *javaHomeOut = _javaHome ;
-  return error ;
+  end:
+  if ( path ) free( path ) ;
+  if ( !found || errno ) {
+    if ( javahome ) jst_free( javahome ) ;
+  }
+  if ( _jst_debug ) {
+    if ( javahome ) {
+      fprintf( stderr, "debug: java home found on PATH: %s\n", javahome ) ;      
+    } else {
+      fprintf( stderr, "debug: java home not found on PATH\n" ) ;
+    }
+  }
+    
+  return javahome ;
 }
 
-/** First sees if JAVA_HOME is set and points to an existing location (the validity is not checked).
- * Next, windows registry is checked (if on windows) or if on os-x the standard location 
- * /System/Library/Frameworks/JavaVM.framework is checked for existence. 
- * Last, java is looked up from the PATH. 
- * @return != 0 on error. */
+// FIXME - remove this
+
+/*
 static int jst_findJavaHome( char** javaHomeOut, JavaHomeHandling javaHomeHandling ) {
   static char* _javaHome = NULL ;
 
@@ -252,14 +248,6 @@ static int jst_findJavaHome( char** javaHomeOut, JavaHomeHandling javaHomeHandli
     char* javahome ;
   
     if ( javaHomeHandling & JST_ALLOW_JH_ENV_VAR_LOOKUP ) {
-      javahome = getenv( "JAVA_HOME" ) ;
-      if ( javahome ) {
-        if ( jst_fileExists( javahome ) ) { 
-          _javaHome = javahome ;
-        } else {
-          fprintf( stderr, "warning: JAVA_HOME points to a nonexistent location\n" ) ;
-        }
-      }
     }
     
     if ( !_javaHome && ( javaHomeHandling & JST_ALLOW_PATH_LOOKUP     ) && jst_findJavaHomeFromPath( &_javaHome        ) ) return -1 ;
@@ -289,6 +277,7 @@ static int jst_findJavaHome( char** javaHomeOut, JavaHomeHandling javaHomeHandli
   return error ;
   
 }
+*/
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -823,8 +812,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   jboolean  unrecognizedParamsToJvm = ( launchOptions->unrecognizedParamStrategy & JST_UNRECOGNIZED_TO_JVM ) ? JNI_TRUE : JNI_FALSE ;
   
   jint      launcheeParamCount = 0 ;
-  char      *javaHome     = NULL, 
-            *toolsJarD    = NULL,
+  char      *toolsJarD    = NULL,
             *toolsJarFile = NULL ;
 
   JVMSelectStrategy jvmSelectStrategy = launchOptions->jvmSelectStrategy ;
@@ -841,17 +829,6 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   // the dyn lib file of the appropriate jvm type (client/server), room for the dyn lib handle (initially NULL)
   // jvm creator func, the jvm pointer, other?
   
-  // it is null if it was not given as a param
-  if ( !javaHome ) javaHome = launchOptions->javaHome ;
-  if ( !javaHome && jst_findJavaHome( &javaHome, launchOptions->javahomeHandling ) ) goto end ; 
-
-  if ( !javaHome || !javaHome[ 0 ] ) { // not found or an empty string
-    fprintf( stderr, ( ( launchOptions->javahomeHandling ) & JST_ALLOW_JH_ENV_VAR_LOOKUP ) ? "error: JAVA_HOME not set\n" : 
-                                                                                             "error: java home not provided\n");
-    goto end ;
-  } else if ( _jst_debug ) {
-    fprintf( stderr, "DEBUG: using java home: %s\n", javaHome ) ;
-  }
 
 
   if ( !( classpath = constructClasspath( launchOptions->initialClasspath, launchOptions->jarDirs, launchOptions->jars ) ) ) goto end ;
@@ -862,7 +839,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
                                         NULL ) ) ) goto end ; 
 
   // TODO: groovy specific, will be refactored out of here
-  if ( !handleToolsJar( javaHome, launchOptions->toolsJarHandling, &jvmOptions, &jvmOptionsCount, &jvmOptionsSize, &toolsJarD ) ) goto end ;
+  if ( !handleToolsJar( launchOptions->javaHome, launchOptions->toolsJarHandling, &jvmOptions, &jvmOptionsCount, &jvmOptionsSize, &toolsJarD ) ) goto end ;
   
   
   // the jvm options order handling is significant: if the same option is given more than once, the last one is the one
@@ -906,7 +883,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
     }
   }
 
-  if ( !jst_startJvm( JNI_VERSION_1_4, jvmOptions, jvmOptionsCount, JNI_FALSE, javaHome, jvmSelectStrategy,
+  if ( !jst_startJvm( JNI_VERSION_1_4, jvmOptions, jvmOptionsCount, JNI_FALSE, launchOptions->javaHome, jvmSelectStrategy,
                       // output
                       &javaLib, &javavm, &env, &rval ) 
      ) goto end ;
