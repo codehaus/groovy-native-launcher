@@ -121,15 +121,6 @@ typedef enum {
 } JVMSelectStrategy ;
 
 
-
-// FIXME - delete this, (almost) groovy specific
-// these can be or:d together w/ |
-typedef enum {
-  JST_IGNORE_TOOLS_JAR       = 0,
-  // JST_TOOLS_JAR_TO_CLASSPATH = 1,
-  JST_TOOLS_JAR_TO_SYSPROP   = 2
-} ToolsJarHandling ;
-
 /** These may be or:d together. */
 typedef enum {
   JST_IGNORE_UNRECOGNIZED = 0,
@@ -150,8 +141,6 @@ typedef struct {
   /** The name of the env var where to take extra jvm params from. May be NULL. */
   char* javaOptsEnvVar ;
   JstUnrecognizedParamStrategy unrecognizedParamStrategy ;
-  /** what to do about tools.jar */
-  ToolsJarHandling toolsJarHandling ;
   /** Give any cp entries you want appended to the beginning of classpath here. May be NULL */
   char* initialClasspath ;
   /** Processed actual parameters. May not be NULL. Use jst_processInputParameters function to obtain this value. */

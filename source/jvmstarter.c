@@ -48,6 +48,8 @@
 #  define dlsym( libraryhandle, funcname ) GetProcAddress( libraryhandle, funcname )
 #  define dlclose( handle ) FreeLibrary( handle )
 
+#define JAVA_EXECUTABLE "java.exe"
+   
 // PATH_MAX is defined when compiling w/ e.g. msys gcc, but not w/ ms cl compiler (the visual studio c compiler)
 #  if !defined( PATH_MAX )
 #    define PATH_MAX MAX_PATH
@@ -57,6 +59,8 @@
    
 #else
 
+#define JAVA_EXECUTABLE "java"
+   
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  if defined( __linux__ )
 #    if defined( __i386__ )
@@ -185,13 +189,10 @@ extern char* jst_findJavaHomeFromPath() {
     
     if ( !( javahome = jst_append( javahome, &jhlen, p, NULL ) ) ) goto end ;
     
-    javahome = jst_append( javahome, &jhlen, ( javahome[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) ? JST_FILE_SEPARATOR : "", 
-        // FIXME #define JAVA_EXECUTABLE "java" or "java.exe"
-                                             "java" 
-#if defined( _WIN32 )
-                                             ".exe"
-#endif
-                                           , NULL ) ;
+    javahome = jst_append( javahome, &jhlen, 
+                           ( javahome[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) ? JST_FILE_SEPARATOR : "",
+                           JAVA_EXECUTABLE, NULL ) ;
+
     if ( !javahome ) goto end ; 
   
     if ( jst_fileExists( javahome ) ) {
@@ -236,48 +237,6 @@ extern char* jst_findJavaHomeFromPath() {
   return javahome ;
 }
 
-// FIXME - remove this
-
-/*
-static int jst_findJavaHome( char** javaHomeOut, JavaHomeHandling javaHomeHandling ) {
-  static char* _javaHome = NULL ;
-
-  int error = 0 ;
-  
-  if ( !_javaHome ) {
-    char* javahome ;
-  
-    if ( javaHomeHandling & JST_ALLOW_JH_ENV_VAR_LOOKUP ) {
-    }
-    
-    if ( !_javaHome && ( javaHomeHandling & JST_ALLOW_PATH_LOOKUP     ) && jst_findJavaHomeFromPath( &_javaHome        ) ) return -1 ;
-
-    // os specific lookup mechanisms
-#if defined( _WIN32 )
-    if ( !_javaHome && ( javaHomeHandling & JST_ALLOW_REGISTRY_LOOKUP ) && jst_findJavaHomeFromWinRegistry( &_javaHome ) ) return -1 ; 
-#elif defined ( __APPLE__ )
-    if ( !_javaHome || !_javaHome[ 0 ] ) {
-      javahome = "/System/Library/Frameworks/JavaVM.framework" ;
-      if ( jst_fileExists( javahome ) ) {
-        _javaHome = javahome ;
-      } else {
-        fprintf( stderr, "warning: java home not found in standard location %s\n", javahome ) ;
-      }
-    }
-#endif
-  
-    if ( !_javaHome ) {
-      error = -2 ;
-      fprintf( stderr, "error: could not locate java home\n" ) ;
-    }
-    
-  }
-  
-  *javaHomeOut = _javaHome ;
-  return error ;
-  
-}
-*/
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -482,8 +441,8 @@ typedef struct {
 
 /** @param initialCP may be NULL */
 static char* constructClasspath( char* initialCP, char** jarDirs, char** jars ) {
-  size_t    cpsize = 255 ; // just an initial guess for classpath length, will be expanded as necessary 
-  char *classpath     = NULL ;
+  size_t cpsize    = 255 ; // just an initial guess for classpath length, will be expanded as necessary 
+  char*  classpath = NULL ;
   
   if ( !( classpath = jst_append( NULL, &cpsize, "-Djava.class.path=", NULL ) ) ) goto end ;
 
@@ -516,41 +475,6 @@ static char* constructClasspath( char* initialCP, char** jarDirs, char** jars ) 
   
 }
 
-/** returns 0 on error */
-static jboolean handleToolsJar( const char* javaHome, ToolsJarHandling toolsJarHandling, 
-                                JavaVMOption** jvmOptions, int* jvmOptionsCount, size_t* jvmOptionsSize, char** toolsJarD ) {
-
-  jboolean rval = JNI_FALSE ;
-  // tools.jar is not present on a jre, so in that case we omit the -Dtools.jar= option
-  const char* toolsJarFile = jst_append( NULL, NULL, javaHome, JST_FILE_SEPARATOR "lib" JST_FILE_SEPARATOR "tools.jar", NULL ) ;
-  
-  if ( !toolsJarFile ) goto end ;
-
-  if ( jst_fileExists( toolsJarFile ) ) {
-    // add as java env property if requested
-    if ( toolsJarHandling & JST_TOOLS_JAR_TO_SYSPROP ) {
-      *toolsJarD = jst_append( NULL, NULL, "-Dtools.jar=", toolsJarFile, NULL ) ;
-      if ( !toolsJarD ) goto end ;
-
-      if ( !( *jvmOptions = appendJvmOption( *jvmOptions, 
-                                             (*jvmOptionsCount)++, 
-                                             jvmOptionsSize, 
-                                             *toolsJarD, 
-                                             NULL ) ) ) goto end ; 
-    }
-    
-    // add tools.jar to startup classpath if requested
-    //if ( ( (launchOptions->toolsJarHandling ) & JST_TOOLS_JAR_TO_CLASSPATH ) 
-    // && !( classpath = appendCPEntry(classpath, &cpsize, toolsJarFile) ) ) goto end;
-  }
-
-  free( (void*)toolsJarFile ) ;
-  rval = JNI_TRUE ;
-  
-  end:
-  return rval ;
-  
-}
 
 /** returns 0 on error */
 static jboolean handleJVMOptsFromEnvVar( const char* javaOptsEnvVar, JavaVMOption** jvmOptions, int* jvmOptionsCount, size_t* jvmOptionsSize,
@@ -565,9 +489,6 @@ static jboolean handleJVMOptsFromEnvVar( const char* javaOptsEnvVar, JavaVMOptio
     if ( userOpts && userOpts[ 0 ] ) {
       char* s ;
       jboolean firstTime = JNI_TRUE ;
-//      int userJvmOptCount = 0 ;
-//      userJvmOptCount = 1 ;
-//      for ( i = 0 ; userOpts[ i ] ; i++ ) if ( userOpts[ i ] == ' ' ) userJvmOptCount++ ;
   
       if ( !( *userJvmOptsS = jst_strdup( userOpts ) ) ) return JNI_FALSE ;        
   
@@ -811,9 +732,8 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
 
   jboolean  unrecognizedParamsToJvm = ( launchOptions->unrecognizedParamStrategy & JST_UNRECOGNIZED_TO_JVM ) ? JNI_TRUE : JNI_FALSE ;
   
+  // FIXME - apparently this isn't actually used anymore - check and remove
   jint      launcheeParamCount = 0 ;
-  char      *toolsJarD    = NULL,
-            *toolsJarFile = NULL ;
 
   JVMSelectStrategy jvmSelectStrategy = launchOptions->jvmSelectStrategy ;
   
@@ -837,9 +757,6 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
                                         &jvmOptionsSize, 
                                         classpath, 
                                         NULL ) ) ) goto end ; 
-
-  // TODO: groovy specific, will be refactored out of here
-  if ( !handleToolsJar( launchOptions->javaHome, launchOptions->toolsJarHandling, &jvmOptions, &jvmOptionsCount, &jvmOptionsSize, &toolsJarD ) ) goto end ;
   
   
   // the jvm options order handling is significant: if the same option is given more than once, the last one is the one
@@ -889,7 +806,6 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
      ) goto end ;
   
 
-  jst_free( toolsJarD  ) ;
   jst_free( jvmOptions ) ;
   jst_free( classpath  ) ;
 
@@ -919,7 +835,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   }
   
 
-end:
+  end:
   // cleanup
   if ( javavm ) {
     if ( (*javavm)->DetachCurrentThread( javavm ) ) {
@@ -931,8 +847,6 @@ end:
   if ( javaLib.dynLibHandle ) dlclose( javaLib.dynLibHandle ) ;
   if ( classpath        ) free( classpath ) ;
   if ( jvmOptions       ) free( jvmOptions ) ;
-  if ( toolsJarFile     ) free( toolsJarFile ) ;
-  if ( toolsJarD        ) free( toolsJarD ) ;
   if ( userJvmOptsS     ) free( userJvmOptsS ) ;
   
   return rval ;

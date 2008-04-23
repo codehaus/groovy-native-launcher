@@ -619,8 +619,33 @@ int rest_of_main( int argc, char** argv ) {
   extraProgramOptions[ 3 ] = groovyConfFile ;
 
   javaHome = findJavaHome( processedActualParams ) ;
-  if ( !javaHome || !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, javaHome ) ) goto end ;
+  if ( !javaHome || !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, javaHome ) ) {
+    goto end ;
+  }
 
+  {
+    char* toolsJarFile = jst_createFileName( javaHome, "lib", "tools.jar", NULL ) ;
+    
+    if ( !toolsJarFile ) goto end ;
+    if ( jst_fileExists( toolsJarFile ) ) {
+      char* toolsJarD = jst_append( NULL, NULL, "-Dtools.jar=", toolsJarFile, NULL ) ;
+      
+      if ( !toolsJarD || 
+           !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, toolsJarD ) ||
+           ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
+                                                  (int)extraJvmOptionsCount++, 
+                                                  &extraJvmOptionsSize, 
+                                                  toolsJarD,
+                                                  NULL ) ) ) {
+        free( toolsJarFile ) ;
+        goto end ;
+      }
+
+    }
+    
+    free( toolsJarFile ) ;
+  }
+  
   
   if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
                            groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", groovyConfFile, NULL ) ) ) goto end ;
@@ -659,7 +684,6 @@ int rest_of_main( int argc, char** argv ) {
   options.jvmSelectStrategy   = jvmSelectStrategy ; 
   options.javaOptsEnvVar      = "JAVA_OPTS" ;
   // refactor so that the target sys prop can be defined
-  options.toolsJarHandling    = JST_TOOLS_JAR_TO_SYSPROP ;
   options.initialClasspath    = NULL ;
   options.unrecognizedParamStrategy = JST_UNRECOGNIZED_TO_JVM ;
   options.parameters          = processedActualParams ;
