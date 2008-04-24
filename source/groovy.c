@@ -42,6 +42,7 @@
 #include <jni.h>
 
 #include "jvmstarter.h"
+#include "jst_dynmem.h"
 
 #if defined( _WIN32 ) && defined( _cwcompat )
 #  include "jst_cygwin_compatibility.h"

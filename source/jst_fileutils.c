@@ -41,6 +41,7 @@
 
 
 #include "jvmstarter.h"
+#include "jst_dynmem.h"
 
 /** Returns != 0 if the given file exists. In case of error, errno != 0 */
 extern int jst_fileExists( const char* fileName ) {

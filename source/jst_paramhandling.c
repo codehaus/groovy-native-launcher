@@ -19,6 +19,8 @@
 #include <assert.h>
 
 #include "jvmstarter.h"
+#include "jst_dynmem.h"
+
 
 #if defined( _WIN32 )
 #  include <Windows.h>

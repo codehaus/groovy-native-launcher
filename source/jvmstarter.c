@@ -32,6 +32,7 @@
 #include <jni.h>
 
 #include "jvmstarter.h"
+#include "jst_dynmem.h"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // NOTE: when compiling w/ gcc on cygwin, pass -mno-cygwin, which makes gcc define _WIN32 and handle the win headers ok
@@ -196,30 +197,36 @@ extern char* jst_findJavaHomeFromPath() {
     if ( !javahome ) goto end ; 
   
     if ( jst_fileExists( javahome ) ) {
-#if !defined( _WIN32 )
-      // if not on windows (which does not have symlinks), resolve the real location of the java executable
-      char realFile[ PATH_MAX + 1 ] ;
-      if ( !realpath( javahome, realFile ) ) {
-        fprintf( stderr, strerror( errno ) ) ;
-        goto end ;
+      char* lastFileSep ;
+      char* realFile = jst_fullPathName( javahome ) ;
+      jboolean newlyAllocated = ( realFile != javahome ) ;
+      
+      if ( !realFile ) goto end ;
+      
+      if ( newlyAllocated ) { // if true, what we got was either not full path or behind a symlnk
+        javahome[ 0 ] = '\0' ;
+        javahome = jst_append( javahome, &jhlen, realFile, NULL ) ;
+        jst_free( realFile ) ;
+        if ( !javahome ) goto end ;
       }
-      javahome[ 0 ] = '\0' ;
-      javahome = jst_append( javahome, &jhlen, realFile, NULL ) ;
-      if ( !javahome ) goto end ;
-#endif
-      *( strrchr( javahome, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;
-      len = strlen( javahome ) ;
-      if ( len < 4 ) goto end ; // we are checking whether the executable is in "bin" dir, /bin is the shortest possibility (4 chars)
-      // see if we are in the bin dir of java home
-      if ( memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
-        javahome[ len -= 4 ] = '\0' ;
-        assert( len == strlen( javahome ) ) ;
+
+      lastFileSep = strrchr( javahome, JST_FILE_SEPARATOR[ 0 ] ) ;
+      if ( lastFileSep ) {
+        *lastFileSep = '\0' ;
+        len = strlen( javahome ) ;
+        // we are checking whether the executable is in "bin" dir, /bin is the shortest possibility (4 chars)
+        // see if we are in the bin dir of java home
+        // TODO: this is rather elementary test (but works unless there is a java executable in 
+        //       a bin dir of some other app) - a better one is needed
+        if ( len >= 4 && memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
+          javahome[ len -= 4 ] = '\0' ;
+          found = JNI_TRUE ;
+          break ;
+        }
       }
-      found = JNI_TRUE ;
-      break ;
     }
     // TODO: check if this is a valid java home (how?)
-  }
+  } // end loop over path elements
   
   end:
   if ( path ) free( path ) ;
@@ -476,34 +483,32 @@ static char* constructClasspath( char* initialCP, char** jarDirs, char** jars ) 
 }
 
 
-/** returns 0 on error */
-static jboolean handleJVMOptsFromEnvVar( const char* javaOptsEnvVar, JavaVMOption** jvmOptions, int* jvmOptionsCount, size_t* jvmOptionsSize,
-                                         // output
-                                         char** userJvmOptsS ) {
+/** Known bug: always separates at ' ', does not take into accoutn quoted values w/ spaces. Should not 
+ * usually be a problem, so fixing it is left till someone complains about it, i.e. actually has 
+ * a problem w/ it. 
+ * @param userOpts contains ' '  separated options for the jvm. May not be NULL or empty. 
+ * @return NULL on error, otherwise a pointer that must be freed by the called *after* the jvm has been started. */
+static char* handleJVMOptsString( const char* userOpts, JavaVMOption** jvmOptions, int* jvmOptionsCount, size_t* jvmOptionsSize ) {
   
-  if ( !javaOptsEnvVar ) return JNI_TRUE ; 
+  char *s, *jvmOptsS ;
+  jboolean firstTime = JNI_TRUE ;
 
-  {
-    char *userOpts = getenv( javaOptsEnvVar ) ; 
-    
-    if ( userOpts && userOpts[ 0 ] ) {
-      char* s ;
-      jboolean firstTime = JNI_TRUE ;
-  
-      if ( !( *userJvmOptsS = jst_strdup( userOpts ) ) ) return JNI_FALSE ;        
-  
-      while ( ( s = strtok( firstTime ? *userJvmOptsS : NULL, " " ) ) ) {
-        firstTime = JNI_FALSE ;
-        if ( ! ( *jvmOptions = appendJvmOption( *jvmOptions, 
-                                                (*jvmOptionsCount)++, 
-                                                jvmOptionsSize, 
-                                                s, 
-                                                NULL ) ) ) return JNI_FALSE ;
-      }
-      
+  if ( !( jvmOptsS = jst_strdup( userOpts ) ) ) return NULL ;        
+
+  while ( ( s = strtok( firstTime ? jvmOptsS : NULL, " " ) ) ) {
+    firstTime = JNI_FALSE ;
+    if ( ! ( *jvmOptions = appendJvmOption( *jvmOptions, 
+                                            (*jvmOptionsCount)++, 
+                                            jvmOptionsSize, 
+                                            s, 
+                                            NULL ) ) ) {
+      free( jvmOptsS ) ;
+      return NULL ;
     }
   }
-  return JNI_TRUE ;
+    
+  return jvmOptsS ;
+  
 }
 
 /** returns 0 on error */
@@ -736,17 +741,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   
   javaLib.creatorFunc  = NULL ;
   javaLib.dynLibHandle = NULL ;  
-
-    
   
-  // TODO: split finding java home so that there are separate funcs to look it up from 
-  // path
-  // given reg entries
-  // and these funcs return a pointer to a struct (or fill one up?) that has a *checked* path to 
-  // the dyn lib file of the appropriate jvm type (client/server), room for the dyn lib handle (initially NULL)
-  // jvm creator func, the jvm pointer, other?
-  
-
 
   if ( !( classpath = constructClasspath( launchOptions->initialClasspath, launchOptions->jarDirs, launchOptions->jars ) ) ) goto end ;
   if ( !( jvmOptions = appendJvmOption( jvmOptions, 
@@ -772,9 +767,16 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   }
 
   // handle jvm options in env var JAVA_OPTS or similar
-  if ( !handleJVMOptsFromEnvVar( launchOptions->javaOptsEnvVar, &jvmOptions, &jvmOptionsCount, &jvmOptionsSize,
-                                 // output, needs to be freed
-                                 &userJvmOptsS ) ) goto end ;
+  {
+    char *envVar = launchOptions->javaOptsEnvVar ;
+    if ( envVar ) {
+      envVar = getenv( envVar ) ;
+      if ( envVar && envVar[ 0 ] ) {
+        userJvmOptsS = handleJVMOptsString( envVar, &jvmOptions, &jvmOptionsCount, &jvmOptionsSize ) ; 
+        if ( !userJvmOptsS ) goto end ;
+      }
+    }
+  }
 
   
   // jvm options given on the command line by the user

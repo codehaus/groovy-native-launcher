@@ -22,8 +22,9 @@
 
 #include <jni.h>
 
-#include "jst_winreg.h"
 #include "jvmstarter.h"
+#include "jst_dynmem.h"
+#include "jst_winreg.h"
 
 #define KEY_NAME_MAX 256
 #define VALUE_NAME_MAX 16384
@@ -192,8 +193,11 @@ extern char* jst_findJavaHomeFromWinRegistry() {
 
 
 
-  if ( error ) errno = error ;
-  return error ;
+  if ( error ) {
+    errno = error ;
+    if ( javaHome ) jst_free( javaHome ) ;
+  }
+  return javaHome ;
   
 }
 

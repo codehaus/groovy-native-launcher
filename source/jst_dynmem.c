@@ -23,6 +23,7 @@
 #include <errno.h>
 
 #include "jvmstarter.h"
+#include "jst_dynmem.h"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
