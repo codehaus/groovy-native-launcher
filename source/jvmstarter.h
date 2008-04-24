@@ -156,14 +156,6 @@ typedef struct {
   /** The directories from which add all jars from to the startup classpath. NULL terminates the list. */
   char** jarDirs ;
   char** jars ;
-  /** parameterInfos is an array containing info about all the possible program params. The terminating JstParamInfo has NULL for name. */
-  JstParamInfo* paramInfos ;
-  /** terminatingSuffixes contains the suffixes that, if matched, indicate that the matching param and all the rest of the params 
-   * are launcheeParams, e.g. {".groovy", ".gy", NULL}. 
-   * The significance of this is marginal, as any param w/ no preceding "-" is terminating. So, this is only significant
-   * if the terminating option has "-" as prefix, but is not one of the enumerated options. Usually this would be
-   * a file name associated w/ the app, e.g. "-foobar.groovy". As file names do not usually begin w/ "-" this is rather unimportant. */
-  char** terminatingSuffixes ;
 } JavaLauncherOptions ;
 
 
@@ -256,7 +248,7 @@ void* jst_appendArrayItem( void* array, int index, size_t* arlen, void* item, in
 /** Appends the given pointer to the given null terminated pointer array.
  * given pointer to array may point to NULL, in which case a new array is created. 
  * Returns NULL on error. 
- * @param item if NULL, the given array is not modified. */
+ * @param item if NULL, the given array is not modified and NULL is returned. */
 void** jst_appendPointer( void*** pointerToNullTerminatedPointerArray, size_t* arrSize, void* item ) ;
 
 int jst_pointerArrayLen( void** nullTerminatedPointerArray ) ;

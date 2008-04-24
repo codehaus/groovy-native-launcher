@@ -419,7 +419,7 @@ static char* findJavaHome( JstActualParam* processedActualParams ) {
 
   return javaHome ;
 }
-  
+
   
 int main( int argc, char** argv ) {
 
@@ -505,14 +505,19 @@ int rest_of_main( int argc, char** argv ) {
        *groovyDConf     = NULL, // the -Dgroovy.conf=something to pass to the jvm
        *groovyHome      = NULL, 
        *groovyDHome     = NULL, // the -Dgroovy.home=something to pass to the jvm
-       *classpath       = NULL,
-       *classpath_dyn   = NULL, 
+       *classpath       = NULL, 
        *javaHome        = NULL ;
 
   void** dynReservedPointers = NULL ; // free all reserved pointers at at end of func
   size_t dreservedPtrsSize   = 0 ;
+  
+# define MARK_PTR_FOR_FREEING( garbagePtr ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) goto end ;
         
-  // NULL terminated string arrays. Other NULL entries will be filled dynamically below.
+  /** terminatingSuffixes contains the suffixes that, if matched, indicate that the matching param and all the rest of the params 
+   * are launcheeParams, e.g. {".groovy", ".gy", NULL}. 
+   * The significance of this is marginal, as any param w/ no preceding "-" is terminating. So, this is only significant
+   * if the terminating option has "-" as prefix, but is not one of the enumerated options. Usually this would be
+   * a file name associated w/ the app, e.g. "-foobar.groovy". As file names do not usually begin w/ "-" this is rather unimportant. */
   char *terminatingSuffixes[] = { ".groovy", ".gvy", ".gy", ".gsh", NULL },
        *extraProgramOptions[] = { "--main", "groovy.ui.GroovyMain", "--conf", NULL, "--classpath", NULL, NULL }, 
        *jars[]                = { NULL, NULL } ;
@@ -544,11 +549,8 @@ int rest_of_main( int argc, char** argv ) {
   if ( !extraProgramOptions[ 1 ] ) goto end ;
   
   processedActualParams = jst_processInputParameters( argv + 1, argc - 1, parameterInfos, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
-  if ( !processedActualParams ) goto end ;
 
-  
-  if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                           processedActualParams ) ) goto end ;
+  MARK_PTR_FOR_FREEING( processedActualParams )
 
   // set -Dscript.name system property if applicable
   if ( numArgs > 0 ) {
@@ -561,8 +563,8 @@ int rest_of_main( int argc, char** argv ) {
       
       if ( !scriptNameTmp ) goto end ;
       
-      if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                               scriptNameDyn = jst_append( NULL, NULL, "-Dscript.name=", scriptNameTmp, NULL ) ) ) goto end ;
+      scriptNameDyn = jst_append( NULL, NULL, "-Dscript.name=", scriptNameTmp, NULL ) ;
+      MARK_PTR_FOR_FREEING( scriptNameDyn )
       
       if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
                                                   (int)extraJvmOptionsCount++, 
@@ -586,17 +588,21 @@ int rest_of_main( int argc, char** argv ) {
 
   // add "." to the end of the used classpath. This is what the script launcher also does
   if ( classpath ) {
-    if ( !( classpath_dyn = jst_append( NULL, NULL, classpath, JST_PATH_SEPARATOR ".", NULL ) ) ||
-         !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, classpath_dyn ) ) goto end ;
-    extraProgramOptions[ 5 ] = classpath_dyn ;
+    
+    classpath = jst_append( NULL, NULL, classpath, JST_PATH_SEPARATOR ".", NULL ) ;
+    MARK_PTR_FOR_FREEING( classpath )
+
+    extraProgramOptions[ 5 ] = classpath ;
+    
   } else {
+    
     extraProgramOptions[ 5 ] = "." ;
+    
   }
 
+  groovyHome = getGroovyHome() ;
+  MARK_PTR_FOR_FREEING( groovyHome )
 
-  if ( !( groovyHome = getGroovyHome() ) ||
-       !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, groovyHome ) ) goto end ;
-  
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // find out the groovy conf file to use
   
@@ -604,14 +610,13 @@ int rest_of_main( int argc, char** argv ) {
   
   if ( !groovyConfFile  ) groovyConfFile = getenv( "GROOVY_CONF" ) ; 
   
-  if ( !groovyConfFile && // set the default groovy conf file if it was not given as a parameter
-       !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                           groovyConfFile = jst_createFileName( groovyHome, "conf", GROOVY_CONF_FILE, NULL ) ) ) goto end ;
+  if ( !groovyConfFile ) {
+    groovyConfFile = jst_createFileName( groovyHome, "conf", GROOVY_CONF_FILE, NULL ) ;    
+    MARK_PTR_FOR_FREEING( groovyHome )
+  }
   
+  MARK_PTR_FOR_FREEING( jars[ 0 ] = findGroovyStartupJar( groovyHome ) )
   
-  if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                           jars[ 0 ] = findGroovyStartupJar( groovyHome ) ) ) goto end ;
-
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
 
@@ -619,9 +624,7 @@ int rest_of_main( int argc, char** argv ) {
   extraProgramOptions[ 3 ] = groovyConfFile ;
 
   javaHome = findJavaHome( processedActualParams ) ;
-  if ( !javaHome || !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, javaHome ) ) {
-    goto end ;
-  }
+  MARK_PTR_FOR_FREEING( javaHome )
 
   {
     char* toolsJarFile = jst_createFileName( javaHome, "lib", "tools.jar", NULL ) ;
@@ -646,9 +649,9 @@ int rest_of_main( int argc, char** argv ) {
     free( toolsJarFile ) ;
   }
   
+  groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", groovyConfFile, NULL ) ;  
+  MARK_PTR_FOR_FREEING( groovyDConf ) 
   
-  if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                           groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", groovyConfFile, NULL ) ) ) goto end ;
   
   if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
                                               (int)extraJvmOptionsCount++, 
@@ -656,18 +659,17 @@ int rest_of_main( int argc, char** argv ) {
                                               groovyDConf, 
                                               NULL ) ) ) goto end ;
 
-  if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, 
-                           groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ) ) goto end ;
-
+  groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ;
+  MARK_PTR_FOR_FREEING( groovyDHome ) 
 
   if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
                                               (int)extraJvmOptionsCount++, 
                                               &extraJvmOptionsSize, 
                                               groovyDHome, 
                                               NULL ) ) ) goto end ;
-
-  if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, extraJvmOptions ) ) goto end ;
-
+  
+  MARK_PTR_FOR_FREEING( extraJvmOptions )
+  
   
   jvmSelectStrategy = jst_getParameterValue( processedActualParams, "-client" ) ? JST_TRY_CLIENT_ONLY :
                       jst_getParameterValue( processedActualParams, "-server" ) ? JST_TRY_SERVER_ONLY :
@@ -683,7 +685,6 @@ int rest_of_main( int argc, char** argv ) {
   options.javaHome            = javaHome ; 
   options.jvmSelectStrategy   = jvmSelectStrategy ; 
   options.javaOptsEnvVar      = "JAVA_OPTS" ;
-  // refactor so that the target sys prop can be defined
   options.initialClasspath    = NULL ;
   options.unrecognizedParamStrategy = JST_UNRECOGNIZED_TO_JVM ;
   options.parameters          = processedActualParams ;
@@ -694,8 +695,6 @@ int rest_of_main( int argc, char** argv ) {
   options.mainMethodName      = "main" ;
   options.jarDirs             = NULL ;
   options.jars                = jars ;
-  options.paramInfos          = parameterInfos ;
-  options.terminatingSuffixes = terminatingSuffixes ;
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   jst_cygwinRelease() ;

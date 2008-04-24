@@ -732,9 +732,6 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
 
   jboolean  unrecognizedParamsToJvm = ( launchOptions->unrecognizedParamStrategy & JST_UNRECOGNIZED_TO_JVM ) ? JNI_TRUE : JNI_FALSE ;
   
-  // FIXME - apparently this isn't actually used anymore - check and remove
-  jint      launcheeParamCount = 0 ;
-
   JVMSelectStrategy jvmSelectStrategy = launchOptions->jvmSelectStrategy ;
   
   javaLib.creatorFunc  = NULL ;
@@ -812,11 +809,6 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   // construct a java.lang.String[] to give program args in
   // find the application main class
   // find the startup method and call it
-
-  if ( launchOptions->extraProgramOptions ) {
-    i = 0 ;
-    while ( launchOptions->extraProgramOptions[ i++ ] ) launcheeParamCount++ ;
-  }
 
   if ( !( launcheeJOptions = createJMainParams( env, launchOptions->parameters, launchOptions->extraProgramOptions, launchOptions->unrecognizedParamStrategy, &rval ) ) ) goto end ;
                                         
