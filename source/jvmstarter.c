@@ -199,11 +199,10 @@ extern char* jst_findJavaHomeFromPath() {
     if ( jst_fileExists( javahome ) ) {
       char* lastFileSep ;
       char* realFile = jst_fullPathName( javahome ) ;
-      jboolean newlyAllocated = ( realFile != javahome ) ;
       
       if ( !realFile ) goto end ;
       
-      if ( newlyAllocated ) { // if true, what we got was either not full path or behind a symlnk
+      if ( realFile != javahome ) { // if true, what we got was either not full path or behind a symlnk
         javahome[ 0 ] = '\0' ;
         javahome = jst_append( javahome, &jhlen, realFile, NULL ) ;
         jst_free( realFile ) ;
