@@ -33,9 +33,11 @@
 
 #include "jvmstarter.h"
 #include "jst_dynmem.h"
+#include "jst_fileutils.h"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // NOTE: when compiling w/ gcc on cygwin, pass -mno-cygwin, which makes gcc define _WIN32 and handle the win headers ok
+
 #if defined( _WIN32 )
 
 // as appended to JAVA_HOME + JST_FILE_SEPARATOR (when a jre) or JAVA_HOME + JST_FILE_SEPARATOR + "jre" + JST_FILE_SEPARATOR (when a jdk) 
@@ -44,7 +46,6 @@
 
 #  include <Windows.h>
 
-   typedef HINSTANCE DLHandle ;
 #  define dlopen( path, mode ) LoadLibrary( path )
 #  define dlsym( libraryhandle, funcname ) GetProcAddress( libraryhandle, funcname )
 #  define dlclose( handle ) FreeLibrary( handle )
@@ -116,8 +117,6 @@
 #    include <link.h>
 #  endif
   
-   typedef void* DLHandle ;
-
 #endif
 
 #if !defined( CREATE_JVM_FUNCTION_NAME )
@@ -135,7 +134,7 @@ typedef jint ( JNICALL *JVMCreatorFunc )( JavaVM**, void**, void* ) ;
 
 typedef struct {
   JVMCreatorFunc creatorFunc  ;
-  DLHandle       dynLibHandle ;
+  JstDLHandle       dynLibHandle ;
 } JavaDynLib ;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -224,14 +223,15 @@ extern char* jst_findJavaHomeFromPath() {
         }
       }
     }
-    // TODO: check if this is a valid java home (how?)
+    // TODO: check if this is a valid java home (how? possibly by seeing that the dyn lib can be found)
   } // end loop over path elements
   
   end:
   if ( path ) free( path ) ;
-  if ( !found || errno ) {
-    if ( javahome ) jst_free( javahome ) ;
+  if ( ( !found || errno ) && javahome ) {
+    jst_free( javahome ) ;
   }
+  
   if ( _jst_debug ) {
     if ( javahome ) {
       fprintf( stderr, "debug: java home found on PATH: %s\n", javahome ) ;      
@@ -260,7 +260,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
   size_t     pathSize = PATH_MAX + 1 ;
   JavaDynLib rval ;
   int        i = 0, j = 0;
-  DLHandle   jvmLib = (DLHandle)0 ;
+  JstDLHandle   jvmLib = (JstDLHandle)0 ;
   char**     lookupDirs = NULL ;
   char*      dynLibFile ;
   jboolean   preferClient = ( jvmSelectStrategy & 4 ) ? JNI_TRUE : JNI_FALSE,  // third bit

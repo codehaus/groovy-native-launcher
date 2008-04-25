@@ -18,6 +18,7 @@
 
 
 #if !defined( _JVMSTARTER_H_ )
+#define _JVMSTARTER_H_
 
 #include <jni.h>
 
@@ -25,15 +26,20 @@
   extern "C" {
 #endif
 
-#define _JVMSTARTER_H_
 
 #if defined(_WIN32)
 
+#  include <Windows.h>
+
+   typedef HINSTANCE JstDLHandle ;
+    
 #  define JST_FILE_SEPARATOR "\\"
 #  define JST_PATH_SEPARATOR ";"
 
 #else
 
+   typedef void* JstDLHandle ;
+   
 #  define JST_FILE_SEPARATOR "/"
 #  define JST_PATH_SEPARATOR ":"
 
@@ -159,6 +165,21 @@ typedef struct {
 } JavaLauncherOptions ;
 
 
+// TODO: work in progress
+
+typedef struct {
+  char* javahome ;
+  JavaVM* javavm ;
+  JNIEnv* env ;
+  JstDLHandle jvmDynlibHandle ;  
+} JstJvm ;
+
+// TODO: creation and destroying functions
+//       a type containing class and main method handle
+//       a func to invoke the main method
+//       a func to convert given strings to Java String[]. Or maybe just pass in c strings to the above func.
+
+
 #if defined( _WIN32 )
 // to have type DWORD in the func signature below we need this header
 //#include "Windows.h"
@@ -170,46 +191,10 @@ void jst_printWinError( unsigned long errcode ) ;
 
 int jst_launchJavaApp( JavaLauncherOptions* options ) ;
 
-int jst_fileExists( const char* fileName ) ;
-
-/** Returns 1 if the given fileName points to a dir, 0 if a file. If the given file does not exist, the behavior is undefined, most likely
- * a crash. */
-int jst_isDir( const char* fileName ) ;
-
-/** Figures out the path to the parent dir of the given path (which may be a file or a dir). Modifies the argument so
- * that it points to the parent dir. Returns null (but does not modify the given string) if the given dir is the root dir.
- * For files, the dir containing the file is the parent dir. 
- * Note that the given path must be absolute and canonical for this function to work ( no e.g. ..'s ) */
-char* jst_pathToParentDir( char* path ) ;
-
-/** Returns a NULL terminated string array containing the names of files in the given dir. The returned string array is dyn 
- * allocated. It and all the contained strings are freed by freeing the returned pointer.
- * @param fileNamePrefix return only files whose name begins with this prefix. May be NULL or empty string.
- * @param fileNameSuffix return only files whose name ends with this suffix.   May be NULL or empty string. 
- *        Suffix here means the file type identifier part, e.g. in "foo.jar" -> ".jar" */
-char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix ) ;
-
-/** Creates a string that represents a file (or dir) name, i.e. all the elements are
- * ensured to contain a file separator between them. 
- * Usage: give as many strings as you like and a NULL as the last param to terminate. */
-char* jst_createFileName( const char* root, ... ) ;
 
 
-/** Returns the path to the directory where the current executable lives, excluding the last path separator, e.g.
- * c:\programs\groovy\bin or /usr/loca/groovy/bin 
- * Note that this means that if the program lives in the root dir in *nix, "" is returned.
- * Freeing the returned pointer is the responsibility of the caller. 
- * Returns NULL on error. */
-char* jst_getExecutableHome() ;
 
-/** returns the full path to the given file or directory. If the given file or dir does not exist, the
- * given param is returned. Also, if the full path is identical to the param, the param is returned.
- * Also, resolves any symlinks on platforms where applicable.
- * Freeing the returned pointer (if different from the original) must be done by the caller. 
- * @param fileOrDirName if NULL, NULL is returned. 
- * @return NULL on error */
-char* jst_fullPathName( const char* fileOrDirName ) ;
-
+// input parameter handling
 
 
 /** returns an array of JstActualParam, the last one of which contains NULL for field param. 
@@ -227,6 +212,9 @@ char* jst_getParameterAfterTermination( const JstActualParam* processedParams, i
 
 /** returns 0 iff the answer is no. */
 int jst_isToBePassedToLaunchee( const JstActualParam* processedParam, JstUnrecognizedParamStrategy unrecognizedParamStrategy ) ;
+
+
+
 
 
 /** Tries to find Java home by looking where java command is located on PATH. Freeing the returned value

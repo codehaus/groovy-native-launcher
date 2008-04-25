@@ -43,6 +43,7 @@
 
 #include "jvmstarter.h"
 #include "jst_dynmem.h"
+#include "jst_fileutils.h"
 
 #if defined( _WIN32 ) && defined( _cwcompat )
 #  include "jst_cygwin_compatibility.h"

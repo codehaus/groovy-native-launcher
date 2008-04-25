@@ -18,6 +18,10 @@
 #if !defined( _JST_DYNMEM_H_ )
 #  define _JST_DYNMEM_H_
 
+#if defined( __cplusplus )
+  extern "C" {
+#endif
+
 /** Appends the given strings to target. size param tells the current size of target (target must have been
  * dynamically allocated, i.e. not from stack). If necessary, target is reallocated into a bigger space. 
  * Returns the possibly new location of target, and modifies the size inout parameter accordingly. 
@@ -70,6 +74,9 @@ char* jst_strdup( const char* s ) ;
 /** Frees all the pointers in the given array, the array itself and sets the reference to NULL */
 void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) ;
 
+#if defined( __cplusplus )
+  } // end extern "C"
+#endif
 
 
 #endif
