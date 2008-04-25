@@ -377,7 +377,7 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
  * Last, java is looked up from the PATH.
  * Returns NULL if java home could not be figured out. Freeing the returned value is up to the caller. */
 static char* findJavaHome( JstActualParam* processedActualParams ) {
-  char*    javaHome = jst_getParameterValue( processedActualParams, "-jh" ) ;
+  char* javaHome = jst_getParameterValue( processedActualParams, "-jh" ) ;
   
   if ( !javaHome ) javaHome = jst_getParameterValue( processedActualParams, "--javahome" ) ;
   
@@ -385,14 +385,14 @@ static char* findJavaHome( JstActualParam* processedActualParams ) {
     if ( _jst_debug ) {
       fprintf( stderr, "java home %s given as command line parameter\n", javaHome ) ;
     }
-    return javaHome ;
+    return jst_strdup( javaHome ) ;
   }
   
   javaHome = getenv( "JAVA_HOME" ) ;
   
   if ( javaHome && jst_fileExists( javaHome ) ) {
     if ( _jst_debug ) fprintf( stderr, "debug: using java home obtained from env var JAVA_HOME\n" ) ;
-    return javaHome ;
+    return jst_strdup( javaHome ) ;
   }
     
   if ( javaHome ) fprintf( stderr, "warning: JAVA_HOME points to a nonexistent location\n" ) ;
