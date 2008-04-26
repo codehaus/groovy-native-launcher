@@ -614,7 +614,7 @@ int rest_of_main( int argc, char** argv ) {
   
   if ( !groovyConfFile ) {
     groovyConfFile = jst_createFileName( groovyHome, "conf", GROOVY_CONF_FILE, NULL ) ;    
-    MARK_PTR_FOR_FREEING( groovyHome )
+    MARK_PTR_FOR_FREEING( groovyConfFile )
   }
   
   MARK_PTR_FOR_FREEING( jars[ 0 ] = findGroovyStartupJar( groovyHome ) )
