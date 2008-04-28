@@ -332,7 +332,7 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
     } else if ( ( strcmp( execName, "graphicsPad"   ) == 0 ) || strcmp( execName, "graphicspad" ) == 0 ) {
       *displayHelpOut = JNI_FALSE ;
       *parameterInfosOut = (JstParamInfo*)noParameters ;
-      mainClassName = "groovy.swing.j2d.GraphicsPad" ;
+      mainClassName = "groovy.swing.j2d.app.GraphicsPad" ;
     } else { // default to being "groovy"
       if ( numArgs == 0 ) *displayHelpOut = JNI_TRUE ;
       mainClassName = "groovy.ui.GroovyMain" ;
@@ -377,7 +377,11 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
  * Last, java is looked up from the PATH.
  * Returns NULL if java home could not be figured out. Freeing the returned value is up to the caller. */
 static char* findJavaHome( JstActualParam* processedActualParams ) {
-  char* javaHome = jst_getParameterValue( processedActualParams, "-jh" ) ;
+  char* javaHome ;
+  
+  errno = 0 ;
+  
+  javaHome = jst_getParameterValue( processedActualParams, "-jh" ) ;
   
   if ( !javaHome ) javaHome = jst_getParameterValue( processedActualParams, "--javahome" ) ;
   
@@ -387,15 +391,19 @@ static char* findJavaHome( JstActualParam* processedActualParams ) {
     }
     return jst_strdup( javaHome ) ;
   }
+
   
   javaHome = getenv( "JAVA_HOME" ) ;
   
-  if ( javaHome && jst_fileExists( javaHome ) ) {
-    if ( _jst_debug ) fprintf( stderr, "debug: using java home obtained from env var JAVA_HOME\n" ) ;
-    return jst_strdup( javaHome ) ;
+  if ( javaHome ) {
+    if ( jst_fileExists( javaHome ) ) {
+      if ( _jst_debug ) fprintf( stderr, "debug: using java home obtained from env var JAVA_HOME\n" ) ;
+      return jst_strdup( javaHome ) ;
+    } else {
+      fprintf( stderr, "warning: JAVA_HOME points to a nonexistent location\n" ) ;      
+    }
   }
     
-  if ( javaHome ) fprintf( stderr, "warning: JAVA_HOME points to a nonexistent location\n" ) ;
     
   javaHome = jst_findJavaHomeFromPath() ;
   if ( errno ) return NULL ;
@@ -539,6 +547,8 @@ int rest_of_main( int argc, char** argv ) {
                                   ) ? JNI_TRUE : JNI_FALSE ; 
   
   JstActualParam *processedActualParams = NULL ;
+
+  
   
   // _jst_debug is a global debug flag
   if ( getenv( "__JLAUNCHER_DEBUG" ) ) _jst_debug = JNI_TRUE ;
