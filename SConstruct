@@ -40,14 +40,39 @@ executable = SConscript ( 'source/SConscript' , exports = 'environment' , build_
 Default ( Alias ( 'compile' , executable ) )
 Command ( 'test' , executable , 'GROOVY_HOME=' + os.environ['GROOVY_HOME'] + ' ruby launcher_test.rb ' + buildDirectory )
 
-Help ( '''The targets:
-
-    compile
-    test
-
-are provided.  compile is the default.''' )
-
 #  Have take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
 #  does arise on Solaris 10.
 
 Clean ( '.' , Glob ( '*~' ) + Glob ( '*/*~' ) + Glob ( 'hs_err_pid*.log' ) + [ buildDirectory , 'core' ] )
+
+defaultPrefix = '/usr/local'
+defaultInstallBinDirSubdirectory = 'bin'
+defaultInstallBinDir = os.path.join ( defaultPrefix , defaultInstallBinDirSubdirectory )
+prefix = defaultPrefix
+installBinDir = defaultInstallBinDir
+if os.environ.has_key ( 'PREFIX' ) :
+    prefix = os.environ['PREFIX']
+    installBinDir =  os.path.join ( prefix , defaultInstallBinDirSubdirectory )
+if os.environ.has_key ( 'BINDIR' ) : installBinDir = os.environ['BINDIR']
+defaultPrefix = prefix
+defaultInstallBinDir = installBinDir
+localBuildOptions = 'local.build.options'
+if os.access ( localBuildOptions , os.R_OK ) :
+    execfile ( localBuildOptions )
+if prefix != defaultPrefix :
+    if installBinDir == defaultInstallBinDir : installBinDir =  os.path.join ( prefix , defaultInstallBinDirSubdirectory )
+if ARGUMENTS.has_key ( 'prefix' ) :
+    prefix = ARGUMENTS.get ( 'prefix' )
+    installBinDir =  os.path.join ( prefix , defaultInstallBinDirSubdirectory )
+installBinDir = ARGUMENTS.get ( 'installBinDir' , installBinDir )
+
+target = Install ( installBinDir , executable )
+Alias ( 'install' , target , Chmod ( target , 0511 ) )
+
+Help ( '''The targets:
+
+    compile
+    test
+    install
+
+are provided.  compile is the default.''' )
