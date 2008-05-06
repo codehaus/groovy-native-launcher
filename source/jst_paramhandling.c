@@ -70,7 +70,7 @@ static char* cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOrigin
 }
 
 #endif
-
+ 
 
 // TODO: presorting param infos would improve performance as then the param definition would not need to 
 //       be sought w/ exhaustive search
@@ -81,7 +81,7 @@ static char* cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOrigin
 
 // FIXME: the func below is a bit too complex - refactor
 
-extern JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes, CygwinConversionType cygwinConvertParamsAfterTermination ) {
+extern JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, const char** terminatingSuffixes, CygwinConversionType cygwinConvertParamsAfterTermination ) {
 
   // TODO: cygwin conversions of param values 
   //       + for all input params after termination (if requested)
@@ -102,17 +102,17 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
     int found = JNI_FALSE ;
     
     if ( ( arg[ 0 ] == 0 ) ||  // empty strs are always considered to be terminating args to the launchee
-         jst_arrayContainsString( terminatingSuffixes, arg, SUFFIX_SEARCH ) ) {
+         ( jst_arrayContainsString( terminatingSuffixes, arg, SUFFIX_SEARCH ) != -1 ) ) {
       goto end ;
     }
 
-    for ( j = 0 ; paramInfos[ j ].name && !found ; j++ ) {
+    for ( j = 0 ; paramInfos[ j ].names && !found ; j++ ) {
       char* value = NULL ;
       JstParamClass paramClass = paramInfos[ j ].type ;
       
       switch ( paramClass ) {
         case JST_SINGLE_PARAM :
-          if ( strcmp( paramInfos[ j ].name, arg ) == 0 ) {
+          if ( jst_arrayContainsString( paramInfos[ j ].names, arg, EXACT_SEARCH ) != -1 ) {
             found = JNI_TRUE ;
             processedParams[ i ].param = arg ;
             value = "" ;
@@ -120,7 +120,7 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
           }            
           break ;
         case JST_DOUBLE_PARAM : 
-          if ( strcmp( paramInfos[ j ].name, arg ) == 0 ) {
+          if ( jst_arrayContainsString( paramInfos[ j ].names, arg, EXACT_SEARCH ) != -1 ) {
             JstInputParamHandling handling = paramInfos[ j ].handling ; 
             found = JNI_TRUE ;
             processedParams[ i ].param = arg ;
@@ -135,18 +135,24 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
           }
           break ;
         case JST_PREFIX_PARAM :
-          len = strlen( paramInfos[ j ].name ) ;
-          if ( memcmp( paramInfos[ j ].name, arg, len ) == 0 ) {
-            found = JNI_TRUE ;
-            processedParams[ i ].param = arg ;
-            if ( (int)( usedSize + len + 1 ) > (int)actualSize ) {
-              processedParams = jst_realloc( processedParams, actualSize += ( 100 + len ) ) ;
-              if ( !processedParams ) return NULL ;
+        {
+          const char* pname ;
+          int k ;
+          for ( k = 0 ; !found && ( pname = paramInfos[ j ].names[ k ] ) ; k++ ) {
+            len = strlen( pname ) ;
+            if ( memcmp( pname, arg, len ) == 0 ) {
+              found = JNI_TRUE ;
+              processedParams[ i ].param = arg ;
+              if ( (int)( usedSize + len + 1 ) > (int)actualSize ) {
+                processedParams = jst_realloc( processedParams, actualSize += ( 100 + len ) ) ;
+                if ( !processedParams ) return NULL ;
+              }
+                            
+              value = arg ;
+              processedParams[ i ].handling = paramInfos[ j ].handling ;
             }
-                          
-            value = arg ;
-            processedParams[ i ].handling = paramInfos[ j ].handling ;
           }
+        }
           break ;
       } // switch
       
@@ -225,24 +231,24 @@ extern int jst_isToBePassedToLaunchee( const JstActualParam* processedParam, Jst
 }
 
 
+// FIXME - make this take a param def. Provide a func to find a param def for a given param
+
 extern char* jst_getParameterValue( const JstActualParam* processedParams, const char* paramName ) {
 
   JstParamInfo* paramDef ;
   char* rval = NULL ; 
-  // TODO: refactor JSTParamInfo so that it contains list of all the aliases for the param name 
-  //       (ATM they are presented as separate parameters, which makes reasoning about them harder)
-  
-  //        After that refactoring, for each actual param, check whether
-  //        the given name is in the corresponding JstParamInfo's name list
   
   for ( ; !rval && processedParams->param ; processedParams++ ) {
     if ( ( processedParams->handling ) & JST_TERMINATING_OR_AFTER ) break ;
     paramDef = processedParams->paramDefinition ;
-    if ( paramDef && strcmp( paramName, paramDef->name ) == 0 ) {
-      rval = processedParams->value ;
-      if ( paramDef->type == JST_PREFIX_PARAM ) {
-        size_t len = strlen( paramDef->name ) ;
-        rval += len ;
+    if ( paramDef ) {
+       if ( ( paramDef->handling & JST_SINGLE_PARAM || paramDef->handling & JST_DOUBLE_PARAM ) &&
+          ( jst_arrayContainsString( paramDef->names, paramName, EXACT_SEARCH ) != -1 ) ) {
+        rval = processedParams->value ;
+      } else if ( ( paramDef->type == JST_PREFIX_PARAM ) &&
+                  ( jst_arrayContainsString( paramDef->names, paramName, PREFIX_SEARCH ) != -1 ) ) {
+        size_t len = strlen( paramName ) ;
+        rval = ( processedParams->value ) + len ;
       }
     }
   }

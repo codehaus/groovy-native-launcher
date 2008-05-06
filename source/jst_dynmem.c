@@ -246,34 +246,35 @@ extern char* jst_concatenateStrArray( char** nullTerminatedStringArray ) {
   return rval ;
 }
 
-extern jboolean jst_arrayContainsString( char** nullTerminatedArray, const char* searchString, SearchMode mode ) {
-  int    i = 0 ;
+extern int jst_arrayContainsString( const char** nullTerminatedArray, const char* searchString, SearchMode mode ) {
+  int    i ;
   size_t sslen, len ;
-  char   *str ;
+  const char *str ;
 
   if ( nullTerminatedArray ) {
     switch ( mode ) {
       case PREFIX_SEARCH : 
-        while ( ( str = nullTerminatedArray[ i++ ] ) ) {
-          len = strlen( str ) ;
-          if ( memcmp( str, searchString, len ) == 0 ) return JNI_TRUE ;
+        len = strlen( searchString ) ;
+        for ( i = 0 ; ( str = nullTerminatedArray[ i ] ) ; i++ ) {
+          if ( memcmp( str, searchString, len ) == 0 ) return i ;
         }
         break ;
       case SUFFIX_SEARCH : 
         sslen = strlen( searchString ) ;        
-        while ( ( str = nullTerminatedArray[ i++ ] ) ) {
+        for ( i = 0 ; ( str = nullTerminatedArray[ i ] ) ; i++ ) {
           len = strlen( str ) ;
-          if ( len <= sslen && memcmp( searchString + sslen - len, str, len ) == 0 ) return JNI_TRUE ;
+          if ( len >= sslen && memcmp( searchString, str + len - sslen, sslen ) == 0 ) return i ;
         }
         break ;
       case EXACT_SEARCH : 
-        while ( ( str = nullTerminatedArray[ i++ ] ) ) {
-          if ( strcmp( str, searchString ) == 0 ) return JNI_TRUE ;
+        for ( i = 0 ; ( str = nullTerminatedArray[ i ] ); i++ ) {
+          if ( strcmp( str, searchString ) == 0 ) return i ;
         }
         break ;
     }
   }
-  return JNI_FALSE ;
+  
+  return -1 ;
 }
 
 

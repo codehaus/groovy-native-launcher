@@ -85,7 +85,8 @@ typedef enum {
 
 typedef struct {
   
-  char          *name ;
+  /** a NULL terminated string array with all the aliases for a certain param. */
+  const char **names ;
   JstParamClass type ;
   /** If != 0, the actual parameters followed by this one are passed on to the launchee. */
 //  unsigned char terminating ;
@@ -203,7 +204,7 @@ int jst_launchJavaApp( JavaLauncherOptions* options ) ;
  * @param cygwinConvertParamsAfterTermination if cygwin compatibility is set in the build & cygwin1.dll is found and loaded, 
  *                                            the terminating param (the param which w/ all the following params is passed to launchee)
  *                                            and all the following params are cygwin path converted with the given conversion type. */
-JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, char** terminatingSuffixes, CygwinConversionType cygwinConvertParamsAfterTermination ) ;
+JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, const char** terminatingSuffixes, CygwinConversionType cygwinConvertParamsAfterTermination ) ;
 
 /** For single params, returns "" if the param is present, NULL otherwise. */
 char* jst_getParameterValue( const JstActualParam* processedParams, const char* paramName ) ;

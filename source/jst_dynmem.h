@@ -58,8 +58,12 @@ char** jst_packStringArray( char** nullTerminatedStringArray ) ;
 
 typedef enum { PREFIX_SEARCH, SUFFIX_SEARCH, EXACT_SEARCH } SearchMode;
 
-/** The first param may be NULL, it is considered an empty array. */
-jboolean jst_arrayContainsString( char** nullTerminatedArray, const char* searchString, SearchMode mode ) ; 
+/** The first param may be NULL, it is considered an empty array. Returns -1 if not found, the index where 
+ * found otherwise. 
+ * EXACT_SEARCH match exactly
+ * PREFIX_SEARCH see if the given string is a prefix in any of the strings in the array 
+ * SUFFIX_SEARCH see if the given string is a suffix in any of the strings in the array  */
+int jst_arrayContainsString( const char** nullTerminatedArray, const char* searchString, SearchMode mode ) ; 
 
 /** These wrap the corresponding memory allocation routines. The only difference is that these print an error message if
  * the call fails. */

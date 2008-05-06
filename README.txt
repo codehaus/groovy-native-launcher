@@ -90,7 +90,6 @@ TODO
      * leave out
    * what about the other way around, i.e. specifying that a sys prop / launchee param is to
      be created using a param value / env var value / hard coded default value?
- * cygwin support
  * add the possibility to define "recursive jar dirs", i.e. directories where jars are searched for recursively.
  * add a check that the java home found can actually be used (i.e. it is valid). ATM the first java home is used; in some
    cases it may not be valid (e.g. if there are stale win registry entries, if the java executable found on path
@@ -103,5 +102,3 @@ TODO
  * add an option to restrict the used jre/jdk version to be exactly something, greater than something, between some values etc.
    Have a look at how eclipse plugins define the required version of their dependant plugins in their manifest.mf
    A problem that needs to be solved: how to reliably tell the version of a java impl w/out actually loading and starting the jvm?
- * see if there is a standard how the jvm aliases are stored in some file in the jdk. If so, it is possible to remove the hard coded
-   paths to client / server jvms and support aliases for them

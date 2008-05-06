@@ -56,10 +56,10 @@
  * Returns NULL on error, otherwise dynallocated string (which caller must free). */
 static char* findGroovyStartupJar( const char* groovyHome ) {
   char *firstGroovyJarFound = NULL,
-        *startupJar         = NULL,
-        *groovyLibDir       = NULL, 
-        **jarNames          = NULL, 
-        *jarName ;
+       *startupJar         = NULL,
+       *groovyLibDir       = NULL, 
+       **jarNames          = NULL, 
+       *jarName ;
   int i = 0 ;
 
   if ( !( groovyLibDir = jst_createFileName( groovyHome, "lib", NULL ) ) ) goto end ;
@@ -171,106 +171,135 @@ char* getGroovyHome() {
   
 }
 
+// ms visual c++ compiler does not support compound literals 
+// ( i.e. defining e.g. arrays inline, e.g. { (char*[]){ "hello", NULL }, 12 } ),
+// so for sake of maximum portability the initialization of all the arrays containing 
+// the parameter names must be done clumsily here
+
+static const char* groovyLinebylineParam[] = { "-p", NULL } ;
+static const char* groovyDefineParam[]     = { "-D", "--define",    NULL } ;
+static const char* groovyAutosplitParam[]  = { "-a", "--autosplit", NULL } ;
+static const char* groovyCharsetParam[]    = { "-c", "--encoding",  NULL } ;
+static const char* groovyDebugParam[]      = { "-d", "--debug",     NULL } ;
+static const char* groovyOnelinerParam[]   = { "-e", NULL } ;
+static const char* groovyHelpParam[]       = { "-h", "--help", NULL } ;
+static const char* groovyModinplaceParam[] = { "-i", NULL } ;
+static const char* groovyListenParam[]     = { "-l", NULL } ;
+static const char* groovyLinevarParam[]    = { "-n", NULL } ;
+static const char* groovyVersionParam[]    = { "-v", "--version", NULL } ;
+static const char* groovyClasspathParam[]  = { "-cp", "-classpath", "--classpath", NULL } ;
+static const char* groovyJavahomeParam[]   = { "-jh", "--javahome", NULL } ;
+static const char* groovyConfParam[]       = { "--conf",  NULL } ;
+static const char* groovyClientParam[]     = { "-client", NULL } ;
+static const char* groovyServerParam[]     = { "-server", NULL } ;
 
 // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
 // are handled separately below
 static const JstParamInfo groovyParameters[] = {
-  { "-D",          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
-  { "--define",    JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
-  { "-c",          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
-  { "--encoding",  JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
-  { "-h",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
-  { "--help",      JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
-  { "-d",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--debug",     JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-e",          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
-  { "-i",          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
-  { "-l",          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
-  { "-n",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-p",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-v",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--version",   JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-jh",         JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATH_CONVERT },
-  { "--javahome",  JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATH_CONVERT },
-  { "-cp",         JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATHLIST_CONVERT },
-  { "-classpath",  JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATHLIST_CONVERT },
-  { "--classpath", JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATHLIST_CONVERT },
-  { "--conf",      JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATH_CONVERT },
-  { "-client",     JST_SINGLE_PARAM, JST_IGNORE },
-  { "-server",     JST_SINGLE_PARAM, JST_IGNORE },
+  { groovyLinebylineParam, JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { groovyDefineParam,     JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
+  { groovyAutosplitParam,  JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
+  { groovyCharsetParam,    JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
+  { groovyDebugParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { groovyOnelinerParam,   JST_DOUBLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
+  { groovyHelpParam,       JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
+  { groovyModinplaceParam, JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
+  { groovyListenParam,     JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
+  { groovyLinevarParam,    JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { groovyVersionParam,    JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  // native launcher supported extra params
+  { groovyClasspathParam,  JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATHLIST_CONVERT },
+  { groovyJavahomeParam,   JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATH_CONVERT },
+  { groovyConfParam,       JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATH_CONVERT },
+  { groovyClientParam,     JST_SINGLE_PARAM, JST_IGNORE },
+  { groovyServerParam,     JST_SINGLE_PARAM, JST_IGNORE },
   { NULL,          0,                0 }
 } ;
+
+
+static const char* groovycEncodingParam[]   = { "--encoding", NULL } ;
+static const char* groovycFParam[]          = { "-F", NULL } ;
+static const char* groovycJParam[]          = { "-J", NULL } ;
+static const char* groovycClassplaceParam[] = { "-d", NULL } ;
+static const char* groovycExceptionParam[]  = { "-e", "--exception", NULL } ;
+static const char* groovycVersionParam[]    = { "-v", "--version", NULL } ;
+static const char* groovycHelpParam[]       = { "-h", "--help", NULL } ;
+static const char* groovycJointcompParam[]  = { "-j", "--jointCompilation", NULL } ;
 
 static const JstParamInfo groovycParameters[] = {
-  { "--encoding",  JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
-  { "-F",          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
-  { "-J",          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
-  { "-d",          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
-  { "-e",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--exception", JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--version",   JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-h",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
-  { "--help",      JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
-  { "-j",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--jointCompilation", JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-v",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--version",   JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { NULL,          0,                0 }
+  { groovycEncodingParam,   JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
+  { groovycFParam,          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
+  { groovycJParam,          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
+  { groovycClassplaceParam, JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
+  { groovycExceptionParam,  JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { groovycHelpParam,       JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },  
+  { groovycJointcompParam,  JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { groovycVersionParam,    JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  
+  // native launcher supported extra params
+  { groovyClasspathParam,   JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATHLIST_CONVERT },
+  { groovyJavahomeParam,    JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATH_CONVERT },
+  { groovyConfParam,        JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATH_CONVERT },
+  { groovyClientParam,      JST_SINGLE_PARAM, JST_IGNORE },
+  { groovyServerParam,      JST_SINGLE_PARAM, JST_IGNORE },
+  { NULL,                   0,                0 }
 } ;
+
+
+static const char* gantUsecacheParam[]    = { "-c", "--usecache", NULL } ;
+static const char* gantDryrunParam[]      = { "-n", "--dry-run",  NULL } ;
+static const char* gantDefineParam[]      = { "-D", NULL } ;
+static const char* gantClasspathParam[]   = { "-P", "--classpath", NULL } ;
+static const char* gantTargetsParam[]     = { "-T", "--targets",   NULL } ;
+static const char* gantVersionParam[]     = { "-V", "--version",   NULL } ;
+static const char* gantCachedirParam[]    = { "-d", "--cachedir",  NULL } ;
+static const char* gantGantfileParam[]    = { "-f", "--gantfile",  NULL } ;
+static const char* gantGantlibParam[]     = { "-l", "--gantlib",   NULL } ;
+static const char* gantProjecthelpParam[] = { "-p", "--projecthelp", NULL } ;
+static const char* gantQuietParam[]       = { "-q", "--quiet",       NULL } ;
+static const char* gantSilentParam[]      = { "-s", "--silent",      NULL } ;
+static const char* gantVerboseParam[]     = { "-v", "--verbose",     NULL } ;
 
 static const JstParamInfo gantParameters[] = {
-  { "-c",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--usecache",  JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-n",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--dry-run",   JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-D",          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
-  { "-P",          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
-  { "-T",          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
-  { "--targets",   JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
-  { "-V",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--version",   JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-d",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--cachedir",  JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
-  { "-f",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--gantfile",  JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
-  { "-h",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
-  { "--help",      JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
-  { "-l",          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
-  { "--gantlib",   JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
-  { "-p",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--projecthelp", JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-q",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--quiet",     JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-s",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--silent",    JST_SINGLE_PARAM, JST_TO_LAUNCHEE },  
-  { "-v",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--verbose",   JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { NULL,          0,                0 }
+  { gantUsecacheParam,    JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { gantDryrunParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { gantDefineParam,      JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
+  { gantClasspathParam,   JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
+  { gantTargetsParam,     JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
+  { gantVersionParam,     JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { gantCachedirParam,    JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { gantGantfileParam,    JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { groovyHelpParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
+  { gantGantlibParam,     JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
+  { gantProjecthelpParam, JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { gantQuietParam,       JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { gantSilentParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { gantVerboseParam,     JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { NULL,                 0,                0 }
 } ;
+
+
+static const char* groovyshColorParam[] = { "-C", "--color", NULL } ;
+static const char* groovyshTerminalParam[] = { "-T", "--terminal", NULL } ;
 
 static const JstParamInfo groovyshParameters[] = {
-  { "-C",          JST_PREFIX_PARAM, JST_TO_LAUNCHEE },
-  { "--color",     JST_PREFIX_PARAM, JST_TO_LAUNCHEE },
-  { "-D",          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
-  { "--define",    JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
-  { "-T",          JST_PREFIX_PARAM, JST_TO_LAUNCHEE }, 
-  { "--terminal",  JST_PREFIX_PARAM, JST_TO_LAUNCHEE }, 
-  { "-V",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE }, 
-  { "--version",   JST_SINGLE_PARAM, JST_TO_LAUNCHEE }, 
-  { "-d",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--debug",     JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-h",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
-  { "--help",      JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
-  { "-q",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--quiet",     JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "-v",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { "--verbose",   JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { NULL,          0,                0 }
+  { groovyshColorParam,    JST_PREFIX_PARAM, JST_TO_LAUNCHEE },
+  { groovyDefineParam,     JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
+  { groovyshTerminalParam, JST_PREFIX_PARAM, JST_TO_LAUNCHEE }, 
+  { gantVersionParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE }, 
+  { groovyDebugParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { groovyHelpParam,       JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
+  { gantQuietParam,        JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { gantVerboseParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { NULL,                  0,                0 }
 } ;
 
+
+static const char* java2groovyHelpParam[] = { "-h", NULL } ;
+
 static const JstParamInfo java2groovyParameters[] = {
-  { "-h",          JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
-  { NULL,          0,                0 }
+  { java2groovyHelpParam, JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
+  { NULL,                 0,                0 }
 } ;
 
 static const JstParamInfo noParameters[] = {
@@ -528,9 +557,9 @@ int rest_of_main( int argc, char** argv ) {
    * The significance of this is marginal, as any param w/ no preceding "-" is terminating. So, this is only significant
    * if the terminating option has "-" as prefix, but is not one of the enumerated options. Usually this would be
    * a file name associated w/ the app, e.g. "-foobar.groovy". As file names do not usually begin w/ "-" this is rather unimportant. */
-  char *terminatingSuffixes[] = { ".groovy", ".gvy", ".gy", ".gsh", NULL },
-       *extraProgramOptions[] = { "--main", "groovy.ui.GroovyMain", "--conf", NULL, "--classpath", NULL, NULL }, 
-       *jars[]                = { NULL, NULL } ;
+  const char *terminatingSuffixes[] = { ".groovy", ".gvy", ".gy", ".gsh", NULL } ;
+  char *extraProgramOptions[]       = { "--main", "groovy.ui.GroovyMain", "--conf", NULL, "--classpath", NULL, NULL }, 
+       *jars[]                      = { NULL, NULL } ;
 
   int  numArgs = argc - 1 ;
          
@@ -722,8 +751,7 @@ int rest_of_main( int argc, char** argv ) {
     "\n"
     " -cp,-classpath,--classpath <user classpath>\n" 
     "                                 the classpath to use\n"
-    " -client/-server                 to use a client/server VM (aliases for these\n"
-    "                                 are not supported)\n"
+    " -client/-server                 to use a client/server VM\n"
     "\n"
     "In addition, you can give any parameters accepted by the jvm you are using, e.g.\n"
     "-Xmx<size> (see java -help and java -X for details)\n"
