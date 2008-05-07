@@ -411,9 +411,7 @@ static char* findJavaHome( JstActualParam* processedActualParams ) {
   errno = 0 ;
   
   javaHome = jst_getParameterValue( processedActualParams, "-jh" ) ;
-  
-  if ( !javaHome ) javaHome = jst_getParameterValue( processedActualParams, "--javahome" ) ;
-  
+    
   if ( javaHome ) {
     if ( _jst_debug ) {
       fprintf( stderr, "java home %s given as command line parameter\n", javaHome ) ;
@@ -620,11 +618,7 @@ int rest_of_main( int argc, char** argv ) {
   
   classpath = jst_getParameterValue( processedActualParams, "-cp" ) ;
   if ( !classpath ) {
-    classpath = jst_getParameterValue( processedActualParams, "-classpath" ) ;
-    if ( !classpath ) {
-      classpath = jst_getParameterValue( processedActualParams, "--classpath" ) ;
-      if ( !classpath ) classpath = getenv( "CLASSPATH" ) ;
-    }
+    classpath = getenv( "CLASSPATH" ) ;
   }
 
   // add "." to the end of the used classpath. This is what the script launcher also does

@@ -231,7 +231,14 @@ extern int jst_isToBePassedToLaunchee( const JstActualParam* processedParam, Jst
 }
 
 
-// FIXME - make this take a param def. Provide a func to find a param def for a given param
+
+// not needed ATM. Should be paired w/ a version of jst_getParameterValue that takes a single JstParamInfo*
+// instead of the name of the parameter
+//extern JstParamInfo* jst_findParamInfo( JstParamInfo* paraminfos, const char* paramName ) {
+  // TODO
+//  return NULL ;
+//}
+
 
 extern char* jst_getParameterValue( const JstActualParam* processedParams, const char* paramName ) {
 

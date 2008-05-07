@@ -112,7 +112,7 @@ class LauncherTest < Test::Unit::TestCase
       create_file bfile, "class B { def sayHello() { println( 'hello there' ); } }\n" 
 
       begin
-        excecution_succeeded?( "#{EXE_FILE} -cp /tmp:/tmp/foo -e \"new A().b.sayHello()\"", /hello there/ )       
+        excecution_succeeded?( "#{EXE_FILE} --classpath /tmp:/tmp/foo -e \"new A().b.sayHello()\"", /hello there/ )       
       ensure
         FileUtils.rm afile
         FileUtils.rm bfile

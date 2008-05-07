@@ -206,7 +206,11 @@ int jst_launchJavaApp( JavaLauncherOptions* options ) ;
  *                                            and all the following params are cygwin path converted with the given conversion type. */
 JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, const char** terminatingSuffixes, CygwinConversionType cygwinConvertParamsAfterTermination ) ;
 
-/** For single params, returns "" if the param is present, NULL otherwise. */
+/** For single params, returns "" if the param is present, NULL otherwise. Note that you do not 
+ * need to try out all the aliases for a param - e.g. if -jh and --javahome stand for the same param,
+ * you will get the value passed for the param even if you ask just for "-jh". 
+ * Note also that you can only query values for recognized params w/ this function, i.e. 
+ * values for params that have been defined in the JstParamInfo[] given to jst_processInputParameters func. */
 char* jst_getParameterValue( const JstActualParam* processedParams, const char* paramName ) ;
 
 char* jst_getParameterAfterTermination( const JstActualParam* processedParams, int indx ) ;

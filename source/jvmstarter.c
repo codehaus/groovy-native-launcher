@@ -750,7 +750,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
                                         NULL ) ) ) goto end ; 
   
   
-  // the jvm options order handling is significant: if the same option is given more than once, the last one is the one
+  // the order in which jvm options are handled is significant: if the same option is given more than once, the last one is the one
   // that stands. That's why we here set first the jvm opts set programmatically, then the ones from user env var
   // and then the ones from the command line. Thus the user can override the ones he wants on the next level, 
   // i.e. the precedence is: 
