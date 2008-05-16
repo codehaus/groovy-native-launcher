@@ -82,7 +82,7 @@ if environment['CC'] == 'cl' :
     #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
     # the -O1 is there just to reduce the size of the executable - it is not mandatory
     environment.Append ( CCFLAGS = '-O1 -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -nologo -c -MD -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN' ,
-                         LINKFLAGS = '-nologo -subsystem:console' , LIBS = [ 'advapi32.lib ' ] )
+                         LINKFLAGS = '-nologo -subsystem:console' , LIBS = [ 'advapi32' ] )
 else :
     assert environment['CC'] == 'gcc'
     environment.Append ( CCFLAGS = ' -O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls' )
