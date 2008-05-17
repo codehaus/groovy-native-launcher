@@ -1,4 +1,4 @@
-# -*- mode:python encoding:UTF-8 -*-
+# -*- mode:python coding:utf-8 -*-
 # jedit: :mode=python:
 
 #  Groovy -- A native launcher for Groovy
@@ -27,8 +27,12 @@ debug = eval ( ARGUMENTS.get ( 'debug' , 'False' ) )
 if debug :
     if environment['CC'] == 'cl' :
         environment.Append ( CCFLAGS = '-Zi' )
-    else :
+    elif environment['CC'] == 'gcc' :
         environment.Append ( CCFLAGS = '-g' )
+    else :
+        import sys
+        print 'Debug mode not set up for compiler' , environment['CC']
+        sys.exit ( 1 )
 
 cygwinCompile = eval ( ARGUMENTS.get ( 'cygwinCompile' , 'False' ) )
 if cygwinCompile :
@@ -52,7 +56,8 @@ if javaHome == '' :
 
 if environment['PLATFORM'] == 'cygwin' :
     javaHome = os.popen ( 'cygpath --unix "' + javaHome + '"' ).read ( ).strip ( )
-    environment.Append ( CCFLAGS = ' -mno-cygwin' , LINKFLAGS = ' -s -mno-cygwin -mwindows' )
+    environment.Append ( CCFLAGS = ' -mno-cygwin' , LINKFLAGS = ' -s -mno-cygwin' )
+    windowsEnvironment = environment.Clone ( LINKFLAGS = '-s -mno-cygwin -mwindows' )
 
 if environment['PLATFORM'] == 'darwin' :
     environment.Append ( LINKFLAGS = '-framework CoreFoundation' )
@@ -83,18 +88,24 @@ if environment['CC'] == 'cl' :
     # the -O1 is there just to reduce the size of the executable - it is not mandatory
     environment.Append ( CCFLAGS = '-O1 -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -nologo -c -MD -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN' ,
                          LINKFLAGS = '-nologo -subsystem:console' , LIBS = [ 'advapi32' ] )
-else :
-    assert environment['CC'] == 'gcc'
+    windowsEnvironment = environment.Clone ( LINKFLAGS = '-nologo -subsystem:windows -entry:mainCRTStartup' )
+elif environment['CC'] == 'gcc' :
+    #  Set Cygwin specific options earlier.
     environment.Append ( CCFLAGS = ' -O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls' )
+else :
+    print 'Assuming default options for compiler' , environment['CC']
 
 if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = 'dl' )
 
 if environment['PLATFORM'] in [ 'Windows' , 'mingw' , 'cygwin' ] :
+    #  Two different links for the same objects so split into two stages.
+    objects = environment.Object ( sources )
     if environment['PLATFORM'] == 'Windows' :
         resources = Command ( environment['Name'] + '.res' , environment['Name'] + '.rc' , 'rc -fo $SOURCE $TARGET' )
     else :
         resources = Command ( environment['Name'] + '.coff' , environment['Name'] + '.rc' , 'windres -O coff --include-dir source $SOURCE $TARGET' )
-    returnValue = environment.Program ( environment['Name'] + '.exe' , sources + [ resources ] )
+    returnValue = [ environment.Program ( environment['Name'] + '.exe' , objects + [ resources ] ) ,
+                    windowsEnvironment.Program ( environment['Name'] + 'w.exe' , objects + [ resources ] ) ]
 else :
     returnValue = environment.Program ( environment['Name'] , sources )
 

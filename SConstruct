@@ -1,4 +1,4 @@
-# -*- mode:python encoding:UTF-8 -*-
+# -*- mode:python coding:utf-8 -*-
 # jedit: :mode=python:
 
 #  Groovy -- A native launcher for Groovy
@@ -40,7 +40,7 @@ executable = SConscript ( 'source/SConscript' , exports = 'environment' , build_
 Default ( Alias ( 'compile' , executable ) )
 Command ( 'test' , executable , 'GROOVY_HOME=' + os.environ['GROOVY_HOME'] + ' ruby launcher_test.rb ' + buildDirectory )
 
-#  Have take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
+#  Have to take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
 #  does arise on Solaris 10.
 
 Clean ( '.' , Glob ( '*~' ) + Glob ( '*/*~' ) + Glob ( 'hs_err_pid*.log' ) + [ buildDirectory , 'core' ] )

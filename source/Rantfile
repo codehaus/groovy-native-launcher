@@ -1,4 +1,4 @@
-# -*- mode:ruby encoding:UTF-8 -*-
+# -*- mode:ruby coding:utf-8 -*-
 # jedit: :mode=ruby:
 
 #  Groovy -- A native launcher for Groovy
@@ -101,8 +101,7 @@ when WINDOWS
     "#{$gcc} #{' -D_cwcompat ' if $cygwinc}-O1 -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -Fo#{target} #{$cppFlags} #{sources}"
   end
   def linkCommand( target , sources )
-    windowsApp = ( target =~ /w\.exe$/ )    
-    "link -nologo #{windowsApp ? '-subsystem:windows -entry:mainCRTStartup' : '-subsystem:console'} -out:#{target} advapi32.lib #{sources}"
+    "link -nologo #{( target =~ /w\.exe$/ ) ? '-subsystem:windows -entry:mainCRTStartup' : '-subsystem:console'} -out:#{target} advapi32.lib #{sources}"
   end
 end 
 
