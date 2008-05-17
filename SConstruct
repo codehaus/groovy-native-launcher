@@ -30,7 +30,17 @@ environment = Environment ( Name = 'groovy' )
 
 unameResult = platform.uname ( )
 environment['Architecture'] = unameResult[0]
-discriminator = unameResult[0] + '_' + unameResult[4]
+
+#  Windows cmd and MSYS shell present the same information to Python since both are using the Windows native
+#  Python.  Antti wishes to distinguish these though as was done with the earlier Rant build system.  On
+#  Windows try executing uname directly as a command, if it fails this is Windows native, if it succeeds
+#  then we are using MSYS.
+
+if environment['Architecture'] == 'Windows' :
+    result = os.popen ( 'uname -s' ).read ( ).strip ( )
+    if result != '' : environment['Architecture'] = result
+
+discriminator = environment['Architecture'] + '_' + unameResult[4]
 buildDirectory = 'build_scons_' + discriminator
 
 environment.SConsignFile ( '.sconsign_' + discriminator )
