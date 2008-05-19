@@ -28,6 +28,7 @@
 
 # include "jvmstarter.h"
 # include "jst_cygwin_compatibility.h"
+# include "jst_dynmem.h"
 
 #  if !defined( PATH_MAX )
 #    define PATH_MAX MAX_PATH
@@ -35,6 +36,7 @@
 
 
   cygwin_initfunc_type       cygwin_initfunc            = NULL ;
+  // see http://cygwin.com/cygwin-api/func-cygwin-conv-to-win32-path.html
   cygwin_conversionfunc_type cygwin_posix2win_path      = NULL ;
   cygwin_conversionfunc_type cygwin_posix2win_path_list = NULL ;
 
