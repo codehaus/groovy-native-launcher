@@ -106,7 +106,7 @@ if environment['PLATFORM'] in [ 'win32' , 'cygwin' ] :
     if environment['Architecture'] == 'Windows' :
         resources = Command ( environment['Name'] + '.res' , environment['Name'] + '.rc' , 'rc -fo $SOURCE $TARGET' )
     else :
-        resources = Command ( environment['Name'] + '.coff' , environment['Name'] + '.rc' , 'windres $SOURCES -I source -I /usr/include/sys -O coff $TARGET' )
+        resources = Command ( environment['Name'] + '.coff' , environment['Name'] + '.rc' , 'windres $SOURCES -I source -O coff $TARGET' )
     returnValue = [ environment.Program ( environment['Name'] + '.exe' , objects + [ resources ] ) ,
                     windowsEnvironment.Program ( environment['Name'] + 'w.exe' , objects + [ resources ] ) ]
 else :
