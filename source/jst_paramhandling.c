@@ -52,6 +52,8 @@ static char* cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOrigin
   
   if ( strcmp( value, convertedValue ) ) {
     
+    if ( _jst_debug ) fprintf( stderr, "  cygwin converted param %s to %s\n", value, convertedValue ) ;
+    
     size_t len = strlen( convertedValue ) + 1 ;
     
     if ( *usedSize + len > *actualSize ) {

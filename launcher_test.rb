@@ -41,10 +41,10 @@ puts "testing #{EXE_FILE}"
 
 class LauncherTest < Test::Unit::TestCase
 
-  def excecution_succeeded?( execstatement, expected_output_pattern )
+  def excecution_succeeded?( execstatement, expected_output_pattern, extra_message = nil )
     output = `#{execstatement}`
-    assert_equal 0, $CHILD_STATUS.exitstatus, execstatement + "\n" + output
-    assert_match( expected_output_pattern, output, execstatement + "\n" + output )    
+    assert_equal 0, $CHILD_STATUS.exitstatus, execstatement + "\n" + ( extra_message ? extra_message + "\n" : '' ) + output
+    assert_match( expected_output_pattern, output, execstatement + "\n" + ( extra_message ? extra_message + "\n" : '' ) + output )    
   end
   
   def test_version
@@ -68,12 +68,12 @@ class LauncherTest < Test::Unit::TestCase
   
   # the scriptfilename (the file passed to groovy for execution) is not the same as the file to write to disc on cygwin
   # (as cygwin ruby wants file name to open in cygwin format)
-  def test_launching_script( scriptfile = 'justatest.groovy', filetowrite = scriptfile )
+  def test_launching_script( scriptfile = 'justatest.groovy', filetowrite = scriptfile, extra_message = nil )
     
     create_file filetowrite, "println 'hello ' + args[ 0 ]\n" 
     
     begin
-      excecution_succeeded?( "#{EXE_FILE} #{scriptfile} world", /hello world/ )       
+      excecution_succeeded?( "#{EXE_FILE} #{scriptfile} world", /hello world/, extra_message )       
     ensure
       FileUtils.rm filetowrite
     end
@@ -88,11 +88,12 @@ class LauncherTest < Test::Unit::TestCase
 
   if HOST_OS =~ /cygwin/
     CYGFILENAME = '/tmp/justatest.groovy'
+    CYGMESSAGE  = '  NOTE: this test will always fail unless you have compiled the binary w/ cygwin compatibility on. It is not on by default.'
     def test_cygwin_pathconversion
       # generate a groovy source file
       # get path to it in cygwin format
       # try to execute
-      test_launching_script( CYGFILENAME )
+      test_launching_script( CYGFILENAME, CYGFILENAME, CYGMESSAGE )
     end
     
     def test_cygwin_with_windows_style_path
@@ -112,7 +113,7 @@ class LauncherTest < Test::Unit::TestCase
       create_file bfile, "class B { def sayHello() { println( 'hello there' ); } }\n" 
 
       begin
-        excecution_succeeded?( "#{EXE_FILE} --classpath /tmp:/tmp/foo -e \"new A().b.sayHello()\"", /hello there/ )       
+        excecution_succeeded?( "#{EXE_FILE} --classpath /tmp:/tmp/foo -e \"new A().b.sayHello()\"", /hello there/, CYGMESSAGE )       
       ensure
         FileUtils.rm afile
         FileUtils.rm bfile
