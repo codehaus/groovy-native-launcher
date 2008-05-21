@@ -22,9 +22,10 @@
 import platform
 import os
 
-#  The in-built PLATFORM key does not necessarily provide proper discrimination of Posix compliant systems,
-#  and does not distinguish same operating system on different architectures, so we are forced to do things
-#  a bit more 'uname'ish.
+#  The in-built PLATFORM key does not provide proper discrimination it just gives an impression of what
+#  might be -- it basically specifies a class of operating system.  It does not distinguish same operating
+#  system on different architectures, nor does it properly distinguish different Posix compliant systems.
+#  So we are forced to do things a bit more 'uname'ish.
 
 environment = Environment ( Name = 'groovy' )
 
@@ -32,20 +33,19 @@ unameResult = platform.uname ( )
 environment['Architecture'] = unameResult[0]
 
 #  Windows cmd and MSYS shell present the same information to Python since both are using the Windows native
-#  Python.  Antti wishes to distinguish these though as was done with the earlier Rant build system.  On
-#  Windows try executing uname directly as a command, if it fails this is Windows native, if it succeeds
-#  then we are using MSYS.
+#  Python.  We need to distinguish these (as was done with the earlier Rant build system).  Try executing
+#  uname directly as a command, if it fails this is Windows native, if it succeeds then we are using MSYS.
 
 if environment['Architecture'] == 'Windows' :
     result = os.popen ( 'uname -s' ).read ( ).strip ( )
     if result != '' : environment['Architecture'] = result
 
-discriminator = environment['Architecture'] + '_' + unameResult[4]
+discriminator = environment['Architecture'] + '_' + unameResult[4] + '_' + environment['CC'] 
 buildDirectory = 'build_scons_' + discriminator
 
 environment.SConsignFile ( '.sconsign_' + discriminator )
 
-executable = SConscript ( 'source/SConscript' , exports = 'environment' , build_dir = buildDirectory , duplicate = 0 )
+executable = SConscript ( 'source/SConscript' , exports = 'environment' , variant_dir = buildDirectory , duplicate = 0 )
 
 Default ( Alias ( 'compile' , executable ) )
 Command ( 'test' , executable , 'GROOVY_HOME=' + os.environ['GROOVY_HOME'] + ' ruby launcher_test.rb ' + buildDirectory )
