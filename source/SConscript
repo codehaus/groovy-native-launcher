@@ -34,7 +34,7 @@ if debug :
         print 'Debug mode not set up for compiler' , environment['CC']
         sys.exit ( 1 )
 
-cygwinCompile = eval ( ARGUMENTS.get ( 'cygwinCompile' , 'False' ) )
+cygwinCompile = eval ( ARGUMENTS.get ( 'cygwinCompile' , 'True' ) )
 if cygwinCompile :
     if environment['PLATFORM'] in [ 'Windows' , 'mingw' , 'cygwin' ] :
         environment.Append ( CCFLAGS = '-D_cwcompat' )
@@ -103,9 +103,10 @@ if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = 'dl'
 if environment['PLATFORM'] in [ 'win32' , 'cygwin' ] :
     #  Two different links for the same objects so split into two stages.
     objects = environment.Object ( sources )
-    if environment['Architecture'] == 'Windows' :
+    if environment['CC'] == 'cl' :
         resources = Command ( environment['Name'] + '.res' , environment['Name'] + '.rc' , 'rc -fo $TARGET $SOURCE' )
     else :
+        assert environment['CC'] == 'gcc'
         resources = Command ( environment['Name'] + '.coff' , environment['Name'] + '.rc' , 'windres $SOURCES -I source -O coff $TARGET' )
     returnValue = [ environment.Program ( environment['Name'] + '.exe' , objects + [ resources ] ) ,
                     windowsEnvironment.Program ( environment['Name'] + 'w.exe' , objects + [ resources ] ) ]
