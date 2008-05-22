@@ -15,7 +15,7 @@
 #  implied. See the License for the specific language governing permissions and limitations under the
 #  License.
 
-#  This tests relaize din this Python script originated from the ones in the launcher_test.rb script by
+#  This tests realized in this Python script originated from the ones in the launcher_test.rb script by
 #  Antti Karanta.
 
 #  The direrctory in which the current executable is stored is calculated by SCons and includes the compiler
@@ -60,12 +60,12 @@ def executeGroovy ( command ) :
 
 class LauncherTestCase ( unittest.TestCase ) :
 
-    def groovyExecutionTest ( self , command , expectedReturnCode , expectedOutput , extra = None ) :
+    def groovyExecutionTest ( self , command , expectedReturnCode , expectedOutput , extraMessage = None ) :
         '''Execute a Groovy command and then test that the return code is right and the output is right.'''
         ( returnCode , output ) = executeGroovy ( command )
         self.assertEqual ( returnCode , expectedReturnCode )
         if type ( expectedOutput ) == type ( re.compile ( 'a' ) ) :
-            assert expectedOutput.search ( output ) != None , 'Failed to match ' + extra
+            assert expectedOutput.search ( output ) != None , 'Failed to match ' + extraMessage
         else :
             self.assertEqual ( output, expectedOutput )
 
@@ -88,14 +88,46 @@ class LauncherTestCase ( unittest.TestCase ) :
     def testLaunchingScript ( self ) :
         #  There is a weird problem with using filenames on MSYS, assume the same is true for Windwoes.
         tmpFile = file ( 'flobadob' , 'w+' ) if platform == 'win32' else javaNameCompatibleTemporaryFile ( )
-        tmpFile.write ( 'println \'hello \' + args[ 0 ]\n' )
-        tmpFile.flush( )
-        self.groovyExecutionTest ( tmpFile.name + ' world' , None , 'hello world' )
-        tmpFile.close ( )
+        self.launchScriptTest ( tmpFile.name , tmpFile )
         if platform == 'win32' : os.remove ( tmpFile.name )
 
+    def launchScriptTest ( self , filename , theFile , extraMessage = None ) :
+        theFile.write ( 'println \'hello \' + args[ 0 ]\n' )
+        theFile.flush( )
+        self.groovyExecutionTest ( filename + ' world' , None , 'hello world' )
+        theFile.close ( )
+
 class CygwinLauncherTestCase ( LauncherTestCase ) :
-    pass
+    
+    def testPathUnconverted ( self ) :
+        tmpFile = javaNameCompatibleTemporaryFile ( )
+        self.launchScriptTest ( tmpFile.name , tmpFile )
+
+    def testPathConvertedBackslash ( self ) :
+        tmpFile = javaNameCompatibleTemporaryFile ( )
+        filename = os.popen ( 'cygpath -w ' + tmpFile.name ).read ( ).strip ( ).replace ( '\\' , '\\\\' )
+        self.launchScriptTest ( filename , tmpFile )
+
+    def testPathConvertedForwardSlash ( self ) :
+        tmpFile = javaNameCompatibleTemporaryFile ( )
+        filename = os.popen ( 'cygpath -w ' + tmpFile.name ).read ( ).strip ( ).replace ( '\\' , '/' )
+        self.launchScriptTest ( filename , tmpFile )
+
+    def testClasspathConversion ( self ) :
+        aDirectory = '/tmp'
+        bDirectory = aDirectory + '/foo'
+        if os.path.exists ( bDirectory ) and not os.path.isdir ( bDirectory ) : os.remove ( bDirectory )
+        if not os.path.isdir ( bDirectory ) : os.mkdir ( bDirectory )
+        aFile = file ( aDirectory + '/A.groovy' , 'w' )
+        aFile.write ( 'class A { def getB ( ) { return new B ( ) } }' )
+        aFile.flush ( )
+        bFile = file ( bDirectory + '/B.groovy' , 'w' )
+        bFile.write ( 'class B { def sayHello ( ) { println( "hello there" ) } }' )
+        bFile.flush ( )
+        self.groovyExecutionTest ( '--classpath ' + aDirectory + ':' + bDirectory + ' -e "new A ( ).b.sayHello ( )"' , None , 'hello there' )
+        os.remove ( aFile.name )
+        os.remove ( bFile.name )
+        os.rmdir (bDirectory )
 
 #  The entry point for SCons to use.
 
