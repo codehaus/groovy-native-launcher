@@ -15,12 +15,14 @@
 #  implied. See the License for the specific language governing permissions and limitations under the
 #  License.
 #
-#  Author : Russel Winder <russel@russel.org.uk>
+#  Author : Russel Winder <russel.winder@concertant.com>
 #  $Revision$
 #  $Date$
 
 import platform
 import os
+
+import launcherTest
 
 #  The in-built PLATFORM key does not provide proper discrimination it just gives an impression of what
 #  might be -- it basically specifies a class of operating system.  It does not distinguish same operating
@@ -48,7 +50,11 @@ environment.SConsignFile ( '.sconsign_' + discriminator )
 executable = SConscript ( 'source/SConscript' , exports = 'environment' , variant_dir = buildDirectory , duplicate = 0 )
 
 Default ( Alias ( 'compile' , executable ) )
-Command ( 'test' , executable , 'GROOVY_HOME=' + os.environ['GROOVY_HOME'] + ' ruby launcher_test.rb ' + buildDirectory )
+
+def runLauncherTests ( target , source , env ) :
+    launcherTest.runLauncherTests ( source[0].path , environment['PLATFORM'] )
+
+Command ( 'test' , executable , runLauncherTests )
 
 #  Have to take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
 #  does arise on Solaris 10.
