@@ -136,8 +136,7 @@ def runLauncherTests ( path , architecture ) :
     executablePath = path
     platform = architecture
     suite = unittest.makeSuite ( CygwinLauncherTestCase , 'test' ) if platform == 'cygwin' else unittest.makeSuite ( LauncherTestCase , 'test' )
-    runner = unittest.TextTestRunner ( )
-    runner.run ( suite )
+    return unittest.TextTestRunner ( ).run ( suite ).wasSuccessful ( )
 
 if __name__ == '__main__' :
     print 'Run tests using command "scons test".'

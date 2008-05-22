@@ -21,6 +21,7 @@
 
 import platform
 import os
+import sys
 
 import launcherTest
 
@@ -52,7 +53,8 @@ executable = SConscript ( 'source/SConscript' , exports = 'environment' , varian
 Default ( Alias ( 'compile' , executable ) )
 
 def runLauncherTests ( target , source , env ) :
-    launcherTest.runLauncherTests ( source[0].path , environment['PLATFORM'] )
+    if not launcherTest.runLauncherTests ( source[0].path , environment['PLATFORM'] ) :
+        sys.exit ( 1 )
 
 Command ( 'test' , executable , runLauncherTests )
 
