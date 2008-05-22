@@ -15,7 +15,7 @@
 #  implied. See the License for the specific language governing permissions and limitations under the
 #  License.
 #
-#  Author : Russel Winder <russel@russel.org.uk> & Antti Karanta <Antti dot Karanta at hornankuusi dot fi>
+#  Author : Russel Winder <russel.winder@concertant.com> & Antti Karanta <Antti dot Karanta at hornankuusi dot fi>
 
 # TODO: Use the name of the architecture specific directory in ${JAVA_HOME}/include as representation.
 
@@ -55,4 +55,3 @@ def get_builddir()
     "build_rant_#{get_architecture()}"
   end
 end
-  
