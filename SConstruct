@@ -21,7 +21,6 @@
 
 import platform
 import os
-import sys
 
 import launcherTest
 
@@ -54,7 +53,7 @@ Default ( Alias ( 'compile' , executable ) )
 
 def runLauncherTests ( target , source , env ) :
     if not launcherTest.runLauncherTests ( source[0].path , environment['PLATFORM'] ) :
-        sys.exit ( 1 )
+        Exit ( 1 )
 
 Command ( 'test' , executable , runLauncherTests )
 
