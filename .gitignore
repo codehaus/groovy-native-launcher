@@ -1,2 +1,6 @@
 .sconsign_*.dblite
 build_*
+*~
+hs_err_pid*.log
+*.pyc
+core
