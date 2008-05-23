@@ -60,7 +60,7 @@ Command ( 'test' , executable , runLauncherTests )
 #  Have to take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
 #  does arise on Solaris 10.
 
-Clean ( '.' , Glob ( '*~' ) + Glob ( '*/*~' ) + Glob ( 'hs_err_pid*.log' ) + [ buildDirectory , 'core' ] )
+Clean ( '.' , Glob ( '*~' ) + Glob ( '.*~' ) + Glob ( '*/*~' ) + Glob ( '*.pyc' ) + Glob ( 'hs_err_pid*.log' ) + [ buildDirectory , 'core' ] )
 
 defaultPrefix = '/usr/local'
 defaultInstallBinDirSubdirectory = 'bin'
