@@ -29,7 +29,7 @@ import launcherTest
 #  system on different architectures, nor does it properly distinguish different Posix compliant systems.
 #  So we are forced to do things a bit more 'uname'ish.
 
-environment = Environment ( Name = 'groovy' )
+environment = Environment ( )
 
 unameResult = platform.uname ( )
 environment['Architecture'] = unameResult[0]
@@ -47,15 +47,15 @@ buildDirectory = 'build_scons_' + discriminator
 
 environment.SConsignFile ( '.sconsign_' + discriminator )
 
-executable = SConscript ( 'source/SConscript' , exports = 'environment' , variant_dir = buildDirectory , duplicate = 0 )
+executables = SConscript ( 'source/SConscript' , exports = 'environment' , variant_dir = buildDirectory , duplicate = 0 )
 
-Default ( Alias ( 'compile' , executable ) )
+Default ( Alias ( 'compile' , executables ) )
 
 def runLauncherTests ( target , source , env ) :
     if not launcherTest.runLauncherTests ( source[0].path , environment['PLATFORM'] ) :
         Exit ( 1 )
 
-Command ( 'test' , executable , runLauncherTests )
+Command ( 'test' , executables , runLauncherTests )
 
 #  Have to take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
 #  does arise on Solaris 10.
@@ -83,7 +83,7 @@ if ARGUMENTS.has_key ( 'prefix' ) :
     installBinDir =  os.path.join ( prefix , defaultInstallBinDirSubdirectory )
 installBinDir = ARGUMENTS.get ( 'installBinDir' , installBinDir )
 
-target = Install ( installBinDir , executable )
+target = Install ( installBinDir , executables )
 Alias ( 'install' , target , Chmod ( target , 0511 ) )
 
 Help ( '''The targets:

@@ -39,8 +39,6 @@ if cygwinCompile :
     if environment['PLATFORM'] in [ 'Windows' , 'mingw' , 'cygwin' ] :
         environment.Append ( CCFLAGS = '-D_cwcompat' )
 
-sources = Glob ( '*.c' )
-
 try :
     javaHome = os.environ['JAVA_HOME']
 except :
@@ -100,17 +98,20 @@ else :
 
 if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = 'dl' )
 
-if environment['PLATFORM'] in [ 'win32' , 'cygwin' ] :
-    #  Two different links for the same objects so split into two stages.
-    objects = environment.Object ( sources )
-    if environment['CC'] == 'cl' :
-        resources = Command ( environment['Name'] + '.res' , environment['Name'] + '.rc' , 'rc -fo $TARGET $SOURCE' )
+returnValue = [ ]
+for name in [ 'groovy' , 'gant' ] :
+    sources =  [ name + '.c' , 'jvmstarter.c' ] + Glob ( 'jst_*.c' )
+    if environment['PLATFORM'] in [ 'win32' , 'cygwin' ] :
+        #  Two different links for the same objects so split into two stages.
+        objects = environment.Object ( sources )
+        if environment['CC'] == 'cl' :
+            resources = Command ( name + '.res' , name + '.rc' , 'rc -fo $TARGET $SOURCE' )
+        else :
+            assert environment['CC'] == 'gcc'
+            resources = Command ( name + '.coff' , name + '.rc' , 'windres $SOURCES -I source -O coff $TARGET' )
+        returnValue += [ environment.Program ( name + '.exe' , objects + [ resources ] ) ,
+        windowsEnvironment.Program ( name + 'w.exe' , objects + [ resources ] ) ]
     else :
-        assert environment['CC'] == 'gcc'
-        resources = Command ( environment['Name'] + '.coff' , environment['Name'] + '.rc' , 'windres $SOURCES -I source -O coff $TARGET' )
-    returnValue = [ environment.Program ( environment['Name'] + '.exe' , objects + [ resources ] ) ,
-                    windowsEnvironment.Program ( environment['Name'] + 'w.exe' , objects + [ resources ] ) ]
-else :
-    returnValue = environment.Program ( environment['Name'] , sources )
+        returnValue += environment.Program ( name , sources )
 
 Return ( 'returnValue' )
