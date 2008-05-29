@@ -27,8 +27,16 @@ import os
 #  system on different architectures, nor does it properly distinguish different Posix compliant systems.
 #  So we are forced to do things a bit more 'uname'ish.
 
-environment = Environment ( )
+environment = None
 
+# it seems that toolchain needs to be passed in when creating the environment -
+# setting it later seems to have no effect
+forceMingwTools = ARGUMENTS.get( 'usemingwtoolchain' ) == 'true'
+if forceMingwTools :
+    environment = Environment ( tools = ['mingw'] )
+else :
+    environment = Environment ( )
+    
 unameResult = platform.uname ( )
 environment['Architecture'] = unameResult[0]
 
