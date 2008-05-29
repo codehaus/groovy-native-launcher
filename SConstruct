@@ -22,8 +22,6 @@
 import platform
 import os
 
-import launcherTest
-
 #  The in-built PLATFORM key does not provide proper discrimination it just gives an impression of what
 #  might be -- it basically specifies a class of operating system.  It does not distinguish same operating
 #  system on different architectures, nor does it properly distinguish different Posix compliant systems.
@@ -52,6 +50,7 @@ executables = SConscript ( 'source/SConscript' , exports = 'environment' , varia
 Default ( Alias ( 'compile' , executables ) )
 
 def runLauncherTests ( target , source , env ) :
+    import launcherTest
     if not launcherTest.runLauncherTests ( source[0].path , environment['PLATFORM'] ) :
         Exit ( 1 )
 
