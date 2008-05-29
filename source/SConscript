@@ -20,6 +20,7 @@
 #  $Date$
 
 import os
+import re
 
 Import ( 'environment' )
 
@@ -97,13 +98,18 @@ else :
 
 if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = 'dl' )
 
-#  Antti believes that the build should change so that it scans all .c files, finds all those with a main
-#  function, and links an executable for each so that each is linked with all the object files produced from
-#  .c files without a main function.  Currently Russel believes that listing the names of the files with
-#  mains that are to be generated is fine for the moment, it isn't DRY but then it doesn't involve parsing
-#  the files.
+#  Search for any file with what appears to be a main function and assume that file is the main file of an
+#  application to be built.  Assume all other source files should be compiled and linked with each of the
+#  main files.  Return a list of all the executables made.
 
-mainFiles =  [ 'groovy.c' , 'gant.c' ]
+mainFiles = [ ]
+for f in Glob ( '*.c' ) :
+    try :
+        theFile = file ( f.name )
+        theText = theFile.read ( )
+        if re.compile ( 'int\s+main\s*\(' ).search ( theText ) : mainFiles += [ f.name ]
+    finally :
+        theFile.close ( )
 otherSources =  [ f.name for f in Glob ( '*.c' ) if f.name not in mainFiles ]
 returnValue = [ ]
 for name in mainFiles :
