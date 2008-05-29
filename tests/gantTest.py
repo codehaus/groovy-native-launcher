@@ -14,6 +14,10 @@
 #  implied. See the License for the specific language governing permissions and limitations under the
 #  License.
 
+import unittest
+
+import supportModule
+
 #  The actual test cases are collected together in this class.
 
 class GantTestCase ( unittest.TestCase ) :
@@ -24,7 +28,7 @@ class GantTestCase ( unittest.TestCase ) :
 def runTests ( path , architecture ) :
     supportModule.executablePath = path
     supportModule.platform = architecture
-    suite = unittest.makeSuite ( GroovyTestCase , 'test' )
+    suite = unittest.makeSuite ( GantTestCase , 'test' )
     return unittest.TextTestRunner ( ).run ( suite ).wasSuccessful ( )
 
 if __name__ == '__main__' :
