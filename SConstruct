@@ -21,23 +21,32 @@
 
 import platform
 import os
+import sys
 
-#  The in-built PLATFORM key does not provide proper discrimination it just gives an impression of what
-#  might be -- it basically specifies a class of operating system.  It does not distinguish same operating
-#  system on different architectures, nor does it properly distinguish different Posix compliant systems.
-#  So we are forced to do things a bit more 'uname'ish.
+#  Once we have an environment, we can distinguish things according to the PLATFORM which is one of posix,
+#  darwin, sunos, cygwin, win32 for the machines tested to date.  This does not distinguish the same OS on
+#  different architectures where this is an issue.  For Python this is not an issue but we are compiling C
+#  so it is.  We therefore use uname to provide better discrimination.  This will give Linux, SunOS, Darwin,
+#  CYGWIN_NT-5.1, Windows as possible values for the operating system (no different from PLATFORM really,
+#  and values like i686 for the processor where it can be determined, i.e not on Windows but on all other
+#  systems.  Combine this with the compiler in use and we have a complete platform specification so that we
+#  can have multiple concurrent builds for different architectures all in the same source hierarchy.
 
-environment = None
-
-# it seems that toolchain needs to be passed in when creating the environment -
-# setting it later seems to have no effect
-forceMingwTools = ARGUMENTS.get( 'usemingwtoolchain' ) == 'true'
-if forceMingwTools :
-    environment = Environment ( tools = ['mingw'] )
-else :
-    environment = Environment ( )
-    
 unameResult = platform.uname ( )
+
+#  usemingw option is processed here, the debug and cygwinCompile options are processed in source/SConscript
+
+#  There is an issue when using Windows that Visual C++ has precedence of GCC and sometimes you really have
+#  to use GCC even when Visual C++ is present.
+
+useMinGW = eval ( ARGUMENTS.get ( 'usemingw' , 'False' ) )
+if ( unameResult[0] == 'Windows' ) and useMinGW :
+    print 'Using MinGW'
+    environment = Environment ( tools = [ 'mingw' ] )
+else :
+    print 'Using default.'
+    environment = Environment ( )
+
 environment['Architecture'] = unameResult[0]
 
 #  Windows cmd and MSYS shell present the same information to Python since both are using the Windows native
@@ -48,26 +57,39 @@ if environment['Architecture'] == 'Windows' :
     result = os.popen ( 'uname -s' ).read ( ).strip ( )
     if result != '' : environment['Architecture'] = result
 
+#  Distinguish the build directory and the sconsign file by architecture, shell, processor, and compiler so
+#  that multiple builds for different architectures can happen concurrently using the same source tree.
+ 
 discriminator = environment['Architecture'] + '_' + unameResult[4] + '_' + environment['CC'] 
 buildDirectory = 'build_scons_' + discriminator
 
 environment.SConsignFile ( '.sconsign_' + discriminator )
 
+#  All information about the actual build itself is in the subsidiary script.
+
 executables = SConscript ( 'source/SConscript' , exports = 'environment' , variant_dir = buildDirectory , duplicate = 0 )
+
+#  From here down is about the targets that the user will want to make use of.
 
 Default ( Alias ( 'compile' , executables ) )
 
 def runLauncherTests ( target , source , env ) :
-    import launcherTest
-    if not launcherTest.runLauncherTests ( source[0].path , environment['PLATFORM'] ) :
-        Exit ( 1 )
+    for item in source :
+        ( root , ext ) = os.path.splitext ( item.name )
+        sys.path.append ( 'tests' )
+        try :
+            module = __import__ ( root + 'Test' )
+            if not module.runTests ( item.path , environment['PLATFORM'] ) :
+                Exit ( 1 )
+        except ImportError :
+            pass
 
 Command ( 'test' , executables , runLauncherTests )
 
 #  Have to take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
 #  does arise on Solaris 10.
 
-Clean ( '.' , Glob ( '*~' ) + Glob ( '.*~' ) + Glob ( '*/*~' ) + Glob ( '*.pyc' ) + Glob ( 'hs_err_pid*.log' ) + [ buildDirectory , 'core' ] )
+Clean ( '.' , Glob ( '*~' ) + Glob ( '.*~' ) + Glob ( '*/*~' ) + Glob ( '*.pyc' ) + Glob ( '*/*.pyc' ) + Glob ( 'hs_err_pid*.log' ) + [ buildDirectory , 'core' ] )
 
 defaultPrefix = '/usr/local'
 defaultInstallBinDirSubdirectory = 'bin'
@@ -99,4 +121,9 @@ Help ( '''The targets:
     test
     install
 
-are provided.  compile is the default.''' )
+are provided.  compile is the default.  Possible options are:
+
+    debug=(True|False)
+    cygwinCompile=(True|False)
+    usemingw=(True|False)
+''' )
