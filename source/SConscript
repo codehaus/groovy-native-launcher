@@ -104,11 +104,12 @@ for name in [ 'groovy' , 'gant' ] :
     if environment['PLATFORM'] in [ 'win32' , 'cygwin' ] :
         #  Two different links for the same objects so split into two stages.
         objects = environment.Object ( sources )
-        if environment['CC'] == 'cl' :
-            resources = Command ( name + '.res' , name + '.rc' , 'rc -fo $TARGET $SOURCE' )
-        else :
-            assert environment['CC'] == 'gcc'
-            resources = Command ( name + '.coff' , name + '.rc' , 'windres $SOURCES -I source -O coff $TARGET' )
+        #if environment['CC'] == 'cl' :
+            #resources = Command ( name + '.res' , name + '.rc' , 'rc -fo $TARGET $SOURCE' )
+        #else :
+            #assert environment['CC'] == 'gcc'
+            #resources = Command ( name + '.coff' , name + '.rc' , 'windres $SOURCES -I source -O coff $TARGET' )
+        resources = environment.RES ( target = name + '.coff' , source = name + '.rc' )
         returnValue += [ environment.Program ( name + '.exe' , objects + [ resources ] ) ,
         windowsEnvironment.Program ( name + 'w.exe' , objects + [ resources ] ) ]
     else :
