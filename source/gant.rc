@@ -48,12 +48,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Codehaus"
             VALUE "FileDescription", "gant binary"
-            VALUE "FileVersion", "1.5"
+            VALUE "FileVersion", "1.3.0"
             VALUE "InternalName", "gant"
             VALUE "LegalCopyright", "Copyright (C) 2008"
             VALUE "OriginalFilename", "gant.rc"
             VALUE "ProductName", " gant"
-            VALUE "ProductVersion", "1.5"
+            VALUE "ProductVersion", "1.3.0"
             VALUE "Comments", "See http://gant.codehaus.org"
         END
     END
