@@ -20,7 +20,7 @@
 #  The directory in which the current executable is stored is calculated by SCons and includes the compiler
 #  in use.  This means this test script is not entirely standalone but must be initiated by SCons.
 
-#import os
+import os
 import re
 import unittest
 
