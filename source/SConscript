@@ -109,6 +109,8 @@ for name in [ 'groovy' , 'gant' ] :
         #else :
             #assert environment['CC'] == 'gcc'
             #resources = Command ( name + '.coff' , name + '.rc' , 'windres $SOURCES -I source -O coff $TARGET' )
+        # FIXME cygwin compilation works w/ this, but not w/ environment.RES
+        #resources = Command ( name + '.coff' , name + '.rc' , 'windres $SOURCES -I source -O coff $TARGET' )
         resources = environment.RES ( target = name + '.coff' , source = name + '.rc' )
         returnValue += [ environment.Program ( name + '.exe' , objects + [ resources ] ) ,
         windowsEnvironment.Program ( name + 'w.exe' , objects + [ resources ] ) ]
