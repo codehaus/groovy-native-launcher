@@ -19,6 +19,7 @@
 #  $Revision$
 #  $Date$
 
+import glob
 import os
 import re
 
@@ -103,11 +104,11 @@ if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = 'dl'
 #  main files.  Return a list of all the executables made.
 
 mainFiles = [ ]
-for f in Glob ( '*.c' ) :
+for f in glob.glob ( '*.c' ) :
+    theFile = file ( f )
     try :
-        theFile = file ( f.name )
         theText = theFile.read ( )
-        if re.compile ( 'int\s+main\s*\(' ).search ( theText ) : mainFiles += [ f.name ]
+        if re.compile ( 'int\s+main\s*\(' ).search ( theText ) : mainFiles += [ f ]
     finally :
         theFile.close ( )
 otherSources =  [ f.name for f in Glob ( '*.c' ) if f.name not in mainFiles ]
