@@ -30,9 +30,8 @@ if debug :
     elif environment['CC'] == 'gcc' :
         environment.Append ( CCFLAGS = '-g' )
     else :
-        import sys
         print 'Debug mode not set up for compiler' , environment['CC']
-        sys.exit ( 1 )
+        Exit ( 1 )
 
 cygwinCompile = eval ( ARGUMENTS.get ( 'cygwinCompile' , 'True' ) )
 if cygwinCompile :
@@ -98,23 +97,29 @@ else :
 
 if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = 'dl' )
 
+#  Antti believes that the build should change so that it scans all .c files, finds all those with a main
+#  function, and links an executable for each so that each is linked with all the object files produced from
+#  .c files without a main function.  Currently Russel believes that listing the names of the files with
+#  mains that are to be generated is fine for the moment, it isn't DRY but then it doesn't involve parsing
+#  the files.
+
+mainFiles =  [ 'groovy.c' , 'gant.c' ]
+otherSources =  [ f.name for f in Glob ( '*.c' ) if f.name not in mainFiles ]
 returnValue = [ ]
-for name in [ 'groovy' , 'gant' ] :
-    sources =  [ name + '.c' , 'jvmstarter.c' ] + Glob ( 'jst_*.c' )
+for name in mainFiles :
+    root = name.replace ( '.c' , '' )
+    sources =  [ name ] + otherSources
     if environment['PLATFORM'] in [ 'win32' , 'cygwin' ] :
         #  Two different links for the same objects so split into two stages.
         objects = environment.Object ( sources )
-        #if environment['CC'] == 'cl' :
-            #resources = Command ( name + '.res' , name + '.rc' , 'rc -fo $TARGET $SOURCE' )
-        #else :
-            #assert environment['CC'] == 'gcc'
-            #resources = Command ( name + '.coff' , name + '.rc' , 'windres $SOURCES -I source -O coff $TARGET' )
-        # FIXME cygwin compilation works w/ this, but not w/ environment.RES
-        #resources = Command ( name + '.coff' , name + '.rc' , 'windres $SOURCES -I source -O coff $TARGET' )
-        resources = environment.RES ( target = name + '.coff' , source = name + '.rc' )
-        returnValue += [ environment.Program ( name + '.exe' , objects + [ resources ] ) ,
-        windowsEnvironment.Program ( name + 'w.exe' , objects + [ resources ] ) ]
+        #  SCons does not provide the RES builder for the Cygwin toolchain. cf. Scons Bug 2077.
+        if environment['PLATFORM'] == 'cygwin' :
+            resources = Command ( name + '.coff' , root + '.rc' , 'windres $SOURCES -I source -O coff $TARGET' )
+        else :
+            resources = environment.RES ( target = root + '.coff' , source = root + '.rc' )
+        returnValue += [ environment.Program ( root + '.exe' , objects + [ resources ] ) ,
+                         windowsEnvironment.Program ( root + 'w.exe' , objects + [ resources ] ) ]
     else :
-        returnValue += environment.Program ( name , sources )
+        returnValue += environment.Program ( root , sources )
 
 Return ( 'returnValue' )

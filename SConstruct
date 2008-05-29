@@ -31,23 +31,6 @@ import launcherTest
 
 environment = Environment ( )
 
-# FIXME - change build so that it scans all .c files, finds all the ones w/ main func
-#         and links and executable for each so that it is linked w/ all the object
-#         files produced from .c files w/ no main
-
-# problem: cygwin compilation does not know how to compile .rc files
-# unless instructed to use mingw toolchain...
-mingwgccCompile = ARGUMENTS.get ( 'mingwtoolchain' ) == 'True'
-
-# adding this
-#, ENV = {'PATH' : os.environ['PATH']}
-# does not seem to help finding windres on msys
-if mingwgccCompile :
-    # for some reason setting 'tools' after the environment has been created is not effective - seems it has to
-    # be set at the time environment object is created
-    #    environment[ 'tools' ] = [ 'mingw' ]
-    environment = Environment ( Name = 'groovy', tools=['mingw'] )
-
 unameResult = platform.uname ( )
 environment['Architecture'] = unameResult[0]
 
