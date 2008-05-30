@@ -371,9 +371,17 @@ extern JavaVMOption* appendJvmOption( JavaVMOption* opts, int indx, size_t* opts
  * before the given entry, unless this is the first entry. Returns the cp buffer (which may be moved)
  * Returns 0 on error (err msg already printed). */
 static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
-  // "-Djava.class.path=" == 18 chars -> if 19th char (index 18) is not a null char, we have more than that and need to append path separator
-  if ( cp[ 18 ]
-      && !(cp = jst_append( cp, cpsize, JST_PATH_SEPARATOR, NULL ) ) ) return NULL ;
+  
+  jboolean firstEntry = 
+    // "-Xbootclasspath:" 
+    ( cp[ 15 ] == ':' && !cp[ 16 ] ) 
+    // "-Djava.class.path=" == 18 chars -> if 19th char (index 18) is not a null char, we have more than that and need to append path separator
+    // "-Xbootclasspath/a:" or "-Xbootclasspath/p:" are same length, but different last char       
+    || ( ( cp[ 17 ] == '=' || cp[ 17 ] == ':' ) && !cp[ 18 ] ) 
+    ;
+    
+  if ( !firstEntry
+      && !( cp = jst_append( cp, cpsize, JST_PATH_SEPARATOR, NULL ) ) ) return NULL ;
  
   return jst_append( cp, cpsize, entry, NULL ) ;
 }
@@ -446,11 +454,30 @@ typedef struct {
 } JSTJVMOptionHolder ;
 
 /** @param initialCP may be NULL */
-static char* constructClasspath( char* initialCP, char** jarDirs, char** jars ) {
+static char* constructClasspath( char* initialCP, char** jarDirs, char** jars, JstClasspathStrategy classpathStrategy ) {
   size_t cpsize    = 255 ; // just an initial guess for classpath length, will be expanded as necessary 
   char*  classpath = NULL ;
+  char*  cpPrefix ;
   
-  if ( !( classpath = jst_append( NULL, &cpsize, "-Djava.class.path=", NULL ) ) ) goto end ;
+  switch ( classpathStrategy ) {
+    case JST_NORMAL_CLASSPATH :
+      cpPrefix = "-Djava.class.path=" ;
+      break ;
+    case JST_BOOTSTRAP_CLASSPATH :
+      cpPrefix = "-Xbootclasspath:" ;      
+      break ;
+    case JST_BOOTSTRAP_CLASSPATH_A :
+      cpPrefix = "-Xbootclasspath/a:" ;
+      break ;
+    case JST_BOOTSTRAP_CLASSPATH_P :
+      cpPrefix = "-Xbootclasspath/p:" ;      
+      break ;
+    default :
+      fprintf( stderr, "error: unrecognized classpath strategy %d\n", classpathStrategy ) ;
+      return NULL ;
+  }
+  
+  if ( !( classpath = jst_append( NULL, &cpsize, cpPrefix, NULL ) ) ) goto end ;
 
   if ( initialCP ) {
     if ( !( classpath = appendCPEntry( classpath, &cpsize, initialCP ) ) ) goto end ;
@@ -742,7 +769,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   javaLib.dynLibHandle = NULL ;  
   
 
-  if ( !( classpath = constructClasspath( launchOptions->initialClasspath, launchOptions->jarDirs, launchOptions->jars ) ) ) goto end ;
+  if ( !( classpath = constructClasspath( launchOptions->initialClasspath, launchOptions->jarDirs, launchOptions->jars, launchOptions->classpathStrategy ) ) ) goto end ;
   if ( !( jvmOptions = appendJvmOption( jvmOptions, 
                                         jvmOptionsCount++, 
                                         &jvmOptionsSize, 

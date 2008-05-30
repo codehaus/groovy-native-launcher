@@ -192,6 +192,7 @@ static const char* groovyJavahomeParam[]   = { "-jh", "--javahome", NULL } ;
 static const char* groovyConfParam[]       = { "--conf",  NULL } ;
 static const char* groovyClientParam[]     = { "-client", NULL } ;
 static const char* groovyServerParam[]     = { "-server", NULL } ;
+static const char* groovyQuickStartParam[] = { "--quickstart", NULL } ;
 
 // the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
 // are handled separately below
@@ -213,6 +214,7 @@ static const JstParamInfo groovyParameters[] = {
   { groovyConfParam,       JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATH_CONVERT },
   { groovyClientParam,     JST_SINGLE_PARAM, JST_IGNORE },
   { groovyServerParam,     JST_SINGLE_PARAM, JST_IGNORE },
+  { groovyQuickStartParam, JST_SINGLE_PARAM, JST_IGNORE },
   { NULL,          0,                0 }
 } ;
 
@@ -712,6 +714,7 @@ int rest_of_main( int argc, char** argv ) {
                       // faster startup (despite it running much slower)
                       JST_CLIENT_FIRST ;
   
+  
   // populate the startup parameters
   // first, set the memory to 0. This is just a precaution, as NULL (0) is a sensible default value for many options.
   // TODO: remove this, it gives false sense of safety...
@@ -730,6 +733,7 @@ int rest_of_main( int argc, char** argv ) {
   options.mainMethodName      = "main" ;
   options.jarDirs             = NULL ;
   options.jars                = jars ;
+  options.classpathStrategy   = jst_getParameterValue( processedActualParams, "--quickstart" ) ? JST_BOOTSTRAP_CLASSPATH_A : JST_NORMAL_CLASSPATH ;
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   jst_cygwinRelease() ;

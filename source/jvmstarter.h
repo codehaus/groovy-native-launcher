@@ -135,6 +135,13 @@ typedef enum {
   JST_UNRECOGNIZED_TO_APP = 2
 } JstUnrecognizedParamStrategy ;
 
+typedef enum {
+  JST_NORMAL_CLASSPATH = 0,
+  JST_BOOTSTRAP_CLASSPATH = 1,
+  JST_BOOTSTRAP_CLASSPATH_A = 3,
+  JST_BOOTSTRAP_CLASSPATH_P = 5,  
+} JstClasspathStrategy ;
+
  /** Note that if you tell that -cp / --classpath and/or -jh / --javahome params are handled automatically. 
   * If you do not want the user to be able to affect 
   * javahome, specify these two as double params and their processing is up to you. 
@@ -163,6 +170,10 @@ typedef struct {
   /** The directories from which add all jars from to the startup classpath. NULL terminates the list. */
   char** jarDirs ;
   char** jars ;
+  /** What classpath to put the startup jars and initial classpath into. ATM it is only possible to put everything into
+   * one of the possible classpaths, but finer grain of control may be provided in future implementation if 
+   * it is deemed necessary. */
+  JstClasspathStrategy classpathStrategy ;
 } JavaLauncherOptions ;
 
 
