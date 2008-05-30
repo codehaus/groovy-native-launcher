@@ -104,7 +104,6 @@ if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = 'dl'
 #  application to be built.  Assume all other source files should be compiled and linked with each of the
 #  main files.  Return a list of all the executables made.
 
-#mainFiles = [ 'groovy.c' , 'gant.c' ]
 mainFiles = [ ]
 mainFunctionPattern = re.compile ( 'int\s+main\s*\(' )
 for f in Glob ( '*.c' ) :
