@@ -374,10 +374,10 @@ static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
   
   jboolean firstEntry = 
     // "-Xbootclasspath:" 
-    ( cp[ 15 ] == ':' && !cp[ 16 ] ) 
+    cp[ 15 ] == ':' ? !cp[ 16 ] :  
     // "-Djava.class.path=" == 18 chars -> if 19th char (index 18) is not a null char, we have more than that and need to append path separator
-    // "-Xbootclasspath/a:" or "-Xbootclasspath/p:" are same length, but different last char       
-    || ( ( cp[ 17 ] == '=' || cp[ 17 ] == ':' ) && !cp[ 18 ] ) 
+    // "-Xbootclasspath/a:" or "-Xbootclasspath/p:" are same length       
+    !cp[ 18 ]  
     ;
     
   if ( !firstEntry
