@@ -93,8 +93,9 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
   }
   
   end:
-  if ( jarNames            ) free( jarNames ) ;
-  if ( groovyLibDir        ) free( groovyLibDir ) ;
+  if ( jarNames     ) free( jarNames ) ;
+  if ( groovyLibDir ) free( groovyLibDir ) ;
+  
   return startupJar ;
    
 }
