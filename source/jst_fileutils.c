@@ -99,7 +99,7 @@ extern char* jst_pathToParentDir( char* path ) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix ) {
+extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix, int (*selector)( const char* filename ) ) {
   char     **tempResult ;
   size_t   resultSize = 30 ;
   jboolean errorOccurred = JNI_FALSE ;
@@ -150,11 +150,20 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
     if ( !( lastError = GetLastError() ) ) {
     
       do {
-        char* temp = jst_strdup( fdata.cFileName ) ;
-        if ( !temp || 
-             !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
-          errorOccurred = JNI_TRUE ;
-          goto end ;
+        int okToInclude = JNI_TRUE ;
+        if ( selector ) {
+          errno = 0 ;
+          okToInclude = selector( fdata.cFileName ) ;
+          if ( errno ) { errorOccurred = JNI_TRUE; goto end ; }
+        }
+        
+        if ( okToInclude ) {
+          char* temp = jst_strdup( fdata.cFileName ) ;
+          if ( !temp || 
+               !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
+            errorOccurred = JNI_TRUE ;
+            goto end ;
+          }
         }
       } while ( FindNextFile( fileHandle, &fdata ) ) ;
       
@@ -195,11 +204,20 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
       
       if ( ( !fileNamePrefix || memcmp( fileNamePrefix, fileName, prefixlen ) == 0 ) &&
            ( !fileNameSuffix || memcmp( fileNameSuffix, fileName + len - suffixlen, suffixlen ) == 0 ) ) {
-        char* temp = jst_strdup( fileName ) ;
-        if ( !temp || 
-             !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
-          errorOccurred = JNI_TRUE ;
-          goto end ;
+        int okToInclude = JNI_TRUE ;
+        if ( selector ) {
+          errno = 0 ;
+          okToInclude = selector( fdata.cFileName ) ;
+          if ( errno ) { errorOccurred = JNI_TRUE; goto end ; }
+        }
+        
+        if ( okToInclude ) {
+          char* temp = jst_strdup( fileName ) ;
+          if ( !temp || 
+               !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
+            errorOccurred = JNI_TRUE ;
+            goto end ;
+          }
         }
       }
     }

@@ -51,16 +51,26 @@
 
 #define GROOVY_CONF_FILE "groovy-starter.conf"
 
+
+int groovyJarSelect( const char* fileName ) {
+  int result = strcmp( "groovy-starter.jar", fileName ) == 0 ;
+  if ( !result ) {
+    size_t fileNameLen = strlen( fileName ) ;
+    // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
+    // aren't available, we'll just check that the char following 
+    // groovy- is a digit
+    if ( fileNameLen >= 8 ) result = isdigit( fileName[ 7 ] ) ;
+  }
+  return result ;
+}
+
 /** If groovy-starter.jar exists, returns path to that. If not, the first jar whose name starts w/ "groovy-x" (where x is a digit) is returned.
  * The previous is appropriate for groovy <= 1.0, the latter for groovy >= 1.1
  * Returns NULL on error, otherwise dynallocated string (which caller must free). */
 static char* findGroovyStartupJar( const char* groovyHome ) {
-  char *firstGroovyJarFound = NULL,
-       *startupJar         = NULL,
+  char *startupJar         = NULL,
        *groovyLibDir       = NULL, 
-       **jarNames          = NULL, 
-       *jarName ;
-  int i = 0 ;
+       **jarNames          = NULL ;
 
   if ( !( groovyLibDir = jst_createFileName( groovyHome, "lib", NULL ) ) ) goto end ;
 
@@ -69,31 +79,22 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
     goto end ;
   }
   
-  if ( !( jarNames = jst_getFileNames( groovyLibDir, "groovy-", ".jar" ) ) ) goto end ;
+  if ( !( jarNames = jst_getFileNames( groovyLibDir, "groovy-", ".jar", &groovyJarSelect ) ) ) goto end ;
   
-  while ( ( jarName = jarNames[ i++ ] ) ) {
-    if ( strcmp( "groovy-starter.jar", jarName ) == 0 ) { // groovy < 1.1
-      if ( !( startupJar = jst_createFileName( groovyLibDir, jarName, NULL ) ) ) goto end ;
+  switch ( jst_pointerArrayLen( (void**)jarNames ) ) {
+    case 0 :
+      fprintf( stderr, "error: could not find groovy startup jar from %s\n", groovyLibDir ) ;
       break ;
-    }
-    if ( !firstGroovyJarFound ) {
-      size_t jarNameLen = strlen( jarName ) ;
-       // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
-       // aren't available, we'll just check that the char following 
-       // groovy- is a digit
-       if ( jarNameLen >= 8 && isdigit( jarName[ 7 ] ) &&
-            !( firstGroovyJarFound = jst_createFileName( groovyLibDir, jarName, NULL ) ) ) goto end ;
-    }
-  } // while
-  
-  if ( !startupJar && firstGroovyJarFound ) {
-    if ( !( startupJar = jst_strdup( firstGroovyJarFound ) ) ) goto end ;
+    case 1 :
+      startupJar = jst_createFileName( groovyLibDir, jarNames[ 0 ], NULL ) ;
+      break ;
+    default :
+      fprintf( stderr, "error: too many groovy startup jars in %s e.g. %s and %s\n", groovyLibDir, jarNames[ 0 ], jarNames[ 1 ] ) ;
   }
-
+  
   end:
   if ( jarNames            ) free( jarNames ) ;
   if ( groovyLibDir        ) free( groovyLibDir ) ;
-  if ( firstGroovyJarFound ) free( firstGroovyJarFound ) ;
   return startupJar ;
    
 }

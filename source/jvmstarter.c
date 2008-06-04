@@ -392,7 +392,7 @@ static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
 /** returns != 0 on failure. May change the target to point to a new location */
 static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetSize ) {
 
-  char **jarNames = jst_getFileNames( dirName, NULL, ".jar" ),
+  char **jarNames = jst_getFileNames( dirName, NULL, ".jar", NULL ),
        *s ;
   int i = 0 ;
   jboolean dirNameEndsWithSeparator = ( strcmp( dirName + strlen( dirName ) - strlen( JST_FILE_SEPARATOR ), JST_FILE_SEPARATOR ) == 0 ) ? JNI_TRUE : JNI_FALSE,

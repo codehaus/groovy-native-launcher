@@ -40,8 +40,11 @@ char* jst_pathToParentDir( char* path ) ;
  * allocated. It and all the contained strings are freed by freeing the returned pointer.
  * @param fileNamePrefix return only files whose name begins with this prefix. May be NULL or empty string.
  * @param fileNameSuffix return only files whose name ends with this suffix.   May be NULL or empty string. 
- *        Suffix here means the file type identifier part, e.g. in "foo.jar" -> ".jar" */
-char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix ) ;
+ *        Suffix here means the file type identifier part, e.g. in "foo.jar" -> ".jar"
+ * @param selector pointer to a function that is called to decide whether the given file will be included (returns != 0 if file is to be included). 
+ *        it is to return true when the file is to be included in the returned list. May be NULL
+ *  */
+char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix, int (*selector)( const char* filename ) ) ;
 
 /** Creates a string that represents a file (or dir) name, i.e. all the elements are
  * ensured to contain a file separator between them. 
