@@ -64,46 +64,17 @@ int groovyJarSelect( const char* fileName ) {
   return result ;
 }
 
+
 /** If groovy-starter.jar exists, returns path to that. If not, the first jar whose name starts w/ "groovy-x" (where x is a digit) is returned.
  * The previous is appropriate for groovy <= 1.0, the latter for groovy >= 1.1
  * Returns NULL on error, otherwise dynallocated string (which caller must free). */
 static char* findGroovyStartupJar( const char* groovyHome ) {
-  char *startupJar         = NULL,
-       *groovyLibDir       = NULL, 
-       **jarNames          = NULL ;
-
-  if ( !( groovyLibDir = jst_createFileName( groovyHome, "lib", NULL ) ) ) goto end ;
-
-  if ( !jst_fileExists( groovyLibDir ) ) {
-    fprintf( stderr, "Lib dir %s does not exist\n", groovyLibDir ) ; 
-    goto end ;
-  }
-  
-  if ( !( jarNames = jst_getFileNames( groovyLibDir, "groovy-", ".jar", &groovyJarSelect ) ) ) goto end ;
-  
-  switch ( jst_pointerArrayLen( (void**)jarNames ) ) {
-    case 0 :
-      fprintf( stderr, "error: could not find groovy startup jar from %s\n", groovyLibDir ) ;
-      break ;
-    case 1 :
-      startupJar = jst_createFileName( groovyLibDir, jarNames[ 0 ], NULL ) ;
-      break ;
-    default :
-      fprintf( stderr, "error: too many groovy startup jars in %s e.g. %s and %s\n", groovyLibDir, jarNames[ 0 ], jarNames[ 1 ] ) ;
-  }
-  
-  end:
-  if ( jarNames     ) free( jarNames ) ;
-  if ( groovyLibDir ) free( groovyLibDir ) ;
-  
-  return startupJar ;
-   
+  return findStartupJar( groovyHome, "lib", "groovy-", &groovyJarSelect ) ;
 }
-
 
 /** Checks that the given dir is a valid groovy dir.
  * If false is returned, check errno to see if there was an error (in mem allocation) */
-static jboolean isValidGroovyHome( const char* dir ) {
+static int isValidGroovyHome( const char* dir ) {
   char *gconfFile = NULL ;
   jboolean rval = JNI_FALSE ;
 
@@ -120,6 +91,20 @@ static jboolean isValidGroovyHome( const char* dir ) {
 
 // FIXME - the func below is a bit too complex - refactor
 
+typedef enum {
+  // TODO
+  JST_
+} JstAppHomeStrategy ;
+
+/**
+ * @param validator returns != 0 if the given dir is a valid app home. May be NULL.
+ */
+char* getAppHome( const char* envVarName, int (*validator)( const char* dirname ) ) {
+  
+  // TODO
+  return NULL ;
+}
+
 /** returns null on error, otherwise pointer to groovy home. 
  * First tries to see if the current executable is located in a groovy installation's bin directory. If not, groovy
  * home env var is looked up. If neither succeed, an error msg is printed.
@@ -128,7 +113,7 @@ char* getGroovyHome() {
   
   char *appHome = jst_getExecutableHome() ;
   if ( appHome && jst_pathToParentDir( appHome ) ) {
-    jboolean validGroovyHome = isValidGroovyHome( appHome ) ;
+    int validGroovyHome = isValidGroovyHome( appHome ) ;
     if ( errno ) return NULL ;
     if ( validGroovyHome ) {
       if ( _jst_debug ) {

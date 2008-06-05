@@ -67,6 +67,10 @@ char* jst_getExecutableHome() ;
  * @return NULL on error */
 char* jst_fullPathName( const char* fileOrDirName ) ;
 
+/**
+ * @param subdir may be NULL or empty
+ */
+char* findStartupJar( const char* basedir, const char* subdir, const char* prefix, int (*selector)( const char* filename ) ) ;
 
     
 #if defined( __cplusplus )

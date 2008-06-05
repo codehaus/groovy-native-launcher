@@ -453,3 +453,37 @@ extern char* jst_fullPathName( const char* fileOrDirName ) {
   
 }
 
+extern char* findStartupJar( const char* basedir, const char* subdir, const char* prefix, int (*selector)( const char* filename ) ) {
+  char *startupJar = NULL,
+       *libDir     = NULL, 
+       **jarNames  = NULL ;
+
+  if ( subdir && subdir[ 0 ] ) {
+    if ( !( libDir = jst_createFileName( basedir, subdir, NULL ) ) ) goto end ;
+  }
+  
+  if ( !jst_fileExists( libDir ) ) {
+    fprintf( stderr, "Lib dir %s does not exist\n", libDir ) ; 
+    goto end ;
+  }
+  
+  if ( !( jarNames = jst_getFileNames( (char*)(libDir ? libDir : basedir), (char*)prefix, ".jar", selector ) ) ) goto end ;
+  
+  switch ( jst_pointerArrayLen( (void**)jarNames ) ) {
+    case 0 :
+      fprintf( stderr, "error: could not find groovy startup jar from %s\n", libDir ) ;
+      break ;
+    case 1 :
+      startupJar = jst_createFileName( libDir ? libDir : basedir, jarNames[ 0 ], NULL ) ;
+      break ;
+    default :
+      fprintf( stderr, "error: too many groovy startup jars in %s e.g. %s and %s\n", libDir, jarNames[ 0 ], jarNames[ 1 ] ) ;
+  }
+  
+  end:
+  if ( jarNames ) free( jarNames ) ;
+  if ( libDir   ) free( libDir ) ;
+  
+  return startupJar ;
+   
+}
