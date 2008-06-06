@@ -487,3 +487,77 @@ extern char* findStartupJar( const char* basedir, const char* subdir, const char
   return startupJar ;
    
 }
+
+extern char* getAppHome( JstAppHomeStrategy appHomeStrategy, const char* envVarName, int (*validator)( const char* dirname ) ) {
+  
+  // FIXME - this func is a bit too complex - refactor
+
+  char *appHome = NULL ;
+  
+  if ( appHomeStrategy != JST_INGORE_EXECUTABLE_LOCATION ) {
+    appHome = jst_getExecutableHome() ;
+    if ( !appHome ) return NULL ;
+    
+    if ( appHomeStrategy == JST_USE_PARENT_OF_EXEC_LOCATION_AS_HOME ) {
+      if ( !jst_pathToParentDir( appHome ) ) {
+        jst_free( appHome ) ;
+      }
+    }
+    
+    if ( appHome && validator ) {
+      int isvalid ;
+      errno = 0 ;
+      isvalid = validator( appHome ) ;
+      if ( errno ) {
+        jst_free( appHome ) ;
+        return NULL ;
+      }
+      if ( !isvalid ) jst_free( appHome ) ;
+    }
+    
+    if ( appHome ) {
+      if ( _jst_debug ) fprintf( stderr, "debug: app home located based on executable location: %s\n", appHome ) ;
+      return appHome ;
+    }
+    
+  }
+  
+  if ( envVarName ) {
+    appHome = getenv( envVarName ) ;
+    if ( appHome ) {
+#if defined( _WIN32 ) && defined( _cwcompat )
+      if ( CYGWIN_LOADED ) {
+        char convertedPath[ PATH_MAX + 1 ] ;
+        cygwin_posix2win_path( appHome, convertedPath ) ;
+        appHome = jst_strdup( convertedPath ) ;
+      }
+#endif          
+      if ( validator ) {
+        int isvalid ;
+        errno = 0 ;
+        isvalid = validator( appHome ) ;
+        if ( errno ) {
+#if defined( _WIN32 ) && defined( _cwcompat )
+          if ( CYGWIN_LOADED ) free( appHome ) ;
+#endif          
+          return NULL ;
+        }
+        if ( !isvalid ) {
+#if defined( _WIN32 ) && defined( _cwcompat )
+          if ( CYGWIN_LOADED ) free( appHome ) ;
+#endif 
+          appHome = NULL ;
+          fprintf( stderr, "error: could not locate app home\n" ) ;
+        } 
+      }
+      
+#if !( defined( _WIN32 ) && defined( _cwcompat ) )          
+      if ( appHome ) appHome = jst_strdup( appHome ) ;
+#endif
+          
+    }
+  }
+  
+  return appHome ;
+}
+

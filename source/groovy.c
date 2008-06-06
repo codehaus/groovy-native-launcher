@@ -89,73 +89,15 @@ static int isValidGroovyHome( const char* dir ) {
   return rval ;
 }
 
-// FIXME - the func below is a bit too complex - refactor
-
-typedef enum {
-  // TODO
-  JST_
-} JstAppHomeStrategy ;
-
-/**
- * @param validator returns != 0 if the given dir is a valid app home. May be NULL.
- */
-char* getAppHome( const char* envVarName, int (*validator)( const char* dirname ) ) {
-  
-  // TODO
-  return NULL ;
-}
 
 /** returns null on error, otherwise pointer to groovy home. 
  * First tries to see if the current executable is located in a groovy installation's bin directory. If not, groovy
  * home env var is looked up. If neither succeed, an error msg is printed.
  * freeing the returned pointer must be done by the caller. */
 char* getGroovyHome() {
-  
-  char *appHome = jst_getExecutableHome() ;
-  if ( appHome && jst_pathToParentDir( appHome ) ) {
-    int validGroovyHome = isValidGroovyHome( appHome ) ;
-    if ( errno ) return NULL ;
-    if ( validGroovyHome ) {
-      if ( _jst_debug ) {
-        fprintf( stderr, "debug: groovy home located based on executable location: %s\n", appHome ) ;
-      }
-    } else {
-      jst_free( appHome ) ;
-      appHome = getenv( "GROOVY_HOME" ) ;
-      if ( appHome ) {
-        if ( _jst_debug ) {
-          fprintf( stderr, "warning: the groovy executable is not located in groovy installation's bin directory, resorting to using GROOVY_HOME=%s\n", appHome ) ;
-        }
-        
-#if defined( _WIN32 ) && defined( _cwcompat )
-        if ( CYGWIN_LOADED ) {
-          char convertedPath[ PATH_MAX + 1 ] ;
-          cygwin_posix2win_path( appHome, convertedPath ) ;
-          appHome = jst_strdup( convertedPath ) ;
-        }
-#endif          
 
-        validGroovyHome = isValidGroovyHome( appHome ) ;
-        if ( errno ) {
-#if defined( _WIN32 ) && defined( _cwcompat )
-          if ( CYGWIN_LOADED ) free( appHome ) ;
-#endif          
-          return NULL ;
-        }
-        if ( validGroovyHome ) {
-#if !( defined( _WIN32 ) && defined( _cwcompat ) )          
-          appHome = jst_strdup( appHome ) ;
-#endif          
-        } else {
-          fprintf( stderr, "error: binary is not in groovy installation's bin dir and GROOVY_HOME=%s does not point to a groovy installation\n", appHome ) ;
-        }
-      } else {
-        fprintf( stderr, "error: could not find groovy installation - either the binary must reside in groovy installation's bin dir or GROOVY_HOME must be set\n" ) ;
-      }
-    } 
-  }
-  return appHome ;
-  
+  return getAppHome( JST_USE_PARENT_OF_EXEC_LOCATION_AS_HOME, "GROOVY_HOME", &isValidGroovyHome ) ;
+   
 }
 
 // ms visual c++ compiler does not support compound literals 
@@ -389,6 +331,8 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
 
 #endif
 
+  // TODO: move this to some util source file
+  
 /** First sees if JAVA_HOME is set and points to an existing location (the validity is not checked).
  * Next, windows registry is checked (if on windows) or if on os-x the standard location 
  * /System/Library/Frameworks/JavaVM.framework is checked for existence. 

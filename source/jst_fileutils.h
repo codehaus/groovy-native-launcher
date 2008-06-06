@@ -31,7 +31,7 @@ int jst_fileExists( const char* fileName ) ;
 int jst_isDir( const char* fileName ) ;
 
 /** Figures out the path to the parent dir of the given path (which may be a file or a dir). Modifies the argument so
- * that it points to the parent dir. Returns null (but does not modify the given string) if the given dir is the root dir.
+ * that it points to the parent dir. Returns NULL (but does not modify the given string) if the given dir is the root dir.
  * For files, the dir containing the file is the parent dir. 
  * Note that the given path must be absolute and canonical for this function to work ( no e.g. ..'s ) */
 char* jst_pathToParentDir( char* path ) ;
@@ -71,6 +71,18 @@ char* jst_fullPathName( const char* fileOrDirName ) ;
  * @param subdir may be NULL or empty
  */
 char* findStartupJar( const char* basedir, const char* subdir, const char* prefix, int (*selector)( const char* filename ) ) ;
+
+/** This is a rather crude set of choices, but suffices for now... */
+typedef enum {
+  JST_INGORE_EXECUTABLE_LOCATION,
+  JST_USE_EXEC_LOCATION_AS_HOME,
+  JST_USE_PARENT_OF_EXEC_LOCATION_AS_HOME 
+} JstAppHomeStrategy ;
+
+/**
+ * @param validator returns != 0 if the given dir is a valid app home. May be NULL.
+ */
+char* getAppHome( JstAppHomeStrategy appHomeStrategy, const char* envVarName, int (*validator)( const char* dirname ) ) ;
 
     
 #if defined( __cplusplus )
