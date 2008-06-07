@@ -7,9 +7,9 @@ Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 What it is
 ----------
 
-This is a native launcher for groovy, i.e. here you can find c sources and
-build files to build a native executable to launch groovy scripts, much the 
-same way java binary is used to launch java programs.
+This is a native launcher for Groovy, i.e. here you can find C sources and
+build files to build a native executable to launch Groovy scripts, much the 
+same way Java binary is used to launch Java programs.
 
 
 Design principles
