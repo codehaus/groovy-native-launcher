@@ -19,7 +19,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -30,7 +29,6 @@
 #elif defined ( _WIN32 )
 
 #  include <Windows.h>
-#  include "jst_winreg.h"
 
 #  if !defined( PATH_MAX )
 #    define PATH_MAX MAX_PATH
@@ -331,65 +329,7 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
 
 #endif
 
-  // TODO: move this to some util source file
   
-/** First sees if JAVA_HOME is set and points to an existing location (the validity is not checked).
- * Next, windows registry is checked (if on windows) or if on os-x the standard location 
- * /System/Library/Frameworks/JavaVM.framework is checked for existence. 
- * Last, java is looked up from the PATH.
- * Returns NULL if java home could not be figured out. Freeing the returned value is up to the caller. */
-static char* findJavaHome( JstActualParam* processedActualParams ) {
-  char* javaHome ;
-  
-  errno = 0 ;
-  
-  javaHome = jst_getParameterValue( processedActualParams, "-jh" ) ;
-    
-  if ( javaHome ) {
-    if ( _jst_debug ) {
-      fprintf( stderr, "java home %s given as command line parameter\n", javaHome ) ;
-    }
-    return jst_strdup( javaHome ) ;
-  }
-
-  
-  javaHome = getenv( "JAVA_HOME" ) ;
-  
-  if ( javaHome ) {
-    if ( jst_fileExists( javaHome ) ) {
-      if ( _jst_debug ) fprintf( stderr, "debug: using java home obtained from env var JAVA_HOME\n" ) ;
-      return jst_strdup( javaHome ) ;
-    } else {
-      fprintf( stderr, "warning: JAVA_HOME points to a nonexistent location\n" ) ;      
-    }
-  }
-    
-    
-  javaHome = jst_findJavaHomeFromPath() ;
-  if ( errno ) return NULL ;
-  if ( javaHome ) return javaHome ;
-    
-#  if defined( _WIN32 )          
-
-  javaHome = jst_findJavaHomeFromWinRegistry() ;
-  if ( errno ) return NULL ;
-  
-#  elif defined( __APPLE__ )
-  
-  javaHome = jst_strdup( "/System/Library/Frameworks/JavaVM.framework" ) ;
-  if ( !javaHome ) return NULL ;
-  if ( !jst_fileExists( javaHome ) ) {
-    fprintf( stderr, "warning: java home not found in standard location %s\n", javaHome ) ;
-    jst_free( javaHome ) ;
-  }
-        
-#  endif          
-  
-  if ( !javaHome ) fprintf( stderr, "error: could not locate java home\n" ) ;
-
-  return javaHome ;
-}
-
   
 int main( int argc, char** argv ) {
 
@@ -591,7 +531,7 @@ int rest_of_main( int argc, char** argv ) {
 
   extraProgramOptions[ 3 ] = groovyConfFile ;
 
-  javaHome = findJavaHome( processedActualParams ) ;
+  javaHome = jst_findJavaHome( processedActualParams ) ;
   MARK_PTR_FOR_FREEING( javaHome )
 
   {

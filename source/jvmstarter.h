@@ -238,6 +238,15 @@ int jst_isToBePassedToLaunchee( const JstActualParam* processedParam, JstUnrecog
  * errno != 0 on error. */
 char* jst_findJavaHomeFromPath() ;
 
+/** First sees if JAVA_HOME is set and points to an existing location (the validity is not checked).
+ * Next, windows registry is checked (if on windows) or if on os-x the standard location 
+ * /System/Library/Frameworks/JavaVM.framework is checked for existence. 
+ * Last, java is looked up from the PATH.
+ * This is just a composite function putting together the ways to search for a java installation
+ * in a way that is very coomon. If you want to use a different order, please use the more 
+ * specific funtions, e.g. jst_findJavaHomeFromPath().  
+ * Returns NULL if java home could not be figured out. Freeing the returned value is up to the caller. */
+char* jst_findJavaHome( JstActualParam* processedActualParams ) ;
 
 
 /** As appendArrayItem, but specifically for jvm options. 

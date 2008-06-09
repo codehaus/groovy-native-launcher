@@ -244,6 +244,67 @@ extern char* jst_findJavaHomeFromPath() {
 }
 
 
+/** First sees if JAVA_HOME is set and points to an existing location (the validity is not checked).
+ * Next, windows registry is checked (if on windows) or if on os-x the standard location 
+ * /System/Library/Frameworks/JavaVM.framework is checked for existence. 
+ * Last, java is looked up from the PATH.
+ * This is just a composite function putting together the ways to search for a java installation
+ * in a way that is very coomon. If you want to use a different order, please use the more 
+ * specific funtions, e.g. jst_findJavaHomeFromPath().  
+ * Returns NULL if java home could not be figured out. Freeing the returned value is up to the caller. */
+extern char* jst_findJavaHome( JstActualParam* processedActualParams ) {
+  char* javaHome ;
+  
+  errno = 0 ;
+  
+  javaHome = jst_getParameterValue( processedActualParams, "-jh" ) ;
+    
+  if ( javaHome ) {
+    if ( _jst_debug ) {
+      fprintf( stderr, "java home %s given as command line parameter\n", javaHome ) ;
+    }
+    return jst_strdup( javaHome ) ;
+  }
+
+  
+  javaHome = getenv( "JAVA_HOME" ) ;
+  
+  if ( javaHome ) {
+    if ( jst_fileExists( javaHome ) ) {
+      if ( _jst_debug ) fprintf( stderr, "debug: using java home obtained from env var JAVA_HOME\n" ) ;
+      return jst_strdup( javaHome ) ;
+    } else {
+      fprintf( stderr, "warning: JAVA_HOME points to a nonexistent location\n" ) ;      
+    }
+  }
+    
+    
+  javaHome = jst_findJavaHomeFromPath() ;
+  if ( errno ) return NULL ;
+  if ( javaHome ) return javaHome ;
+    
+#  if defined( _WIN32 )          
+
+  javaHome = jst_findJavaHomeFromWinRegistry() ;
+  if ( errno ) return NULL ;
+  
+#  elif defined( __APPLE__ )
+  
+  javaHome = jst_strdup( "/System/Library/Frameworks/JavaVM.framework" ) ;
+  if ( !javaHome ) return NULL ;
+  if ( !jst_fileExists( javaHome ) ) {
+    fprintf( stderr, "warning: java home not found in standard location %s\n", javaHome ) ;
+    jst_free( javaHome ) ;
+  }
+        
+#  endif          
+  
+  if ( !javaHome ) fprintf( stderr, "error: could not locate java home\n" ) ;
+
+  return javaHome ;
+}
+
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
