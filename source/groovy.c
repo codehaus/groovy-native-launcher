@@ -30,10 +30,6 @@
 
 #  include <Windows.h>
 
-#  if !defined( PATH_MAX )
-#    define PATH_MAX MAX_PATH
-#  endif
-
 #endif
 
 
@@ -57,7 +53,7 @@ int groovyJarSelect( const char* fileName ) {
     // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
     // aren't available, we'll just check that the char following 
     // groovy- is a digit
-    if ( fileNameLen >= 8 ) result = isdigit( fileName[ 7 ] ) ;
+    if ( fileNameLen >= 12 ) result = isdigit( fileName[ 7 ] ) ;
   }
   return result ;
 }
@@ -94,7 +90,7 @@ static int isValidGroovyHome( const char* dir ) {
  * freeing the returned pointer must be done by the caller. */
 char* getGroovyHome() {
 
-  return getAppHome( JST_USE_PARENT_OF_EXEC_LOCATION_AS_HOME, "GROOVY_HOME", &isValidGroovyHome ) ;
+  return jst_getAppHome( JST_USE_PARENT_OF_EXEC_LOCATION_AS_HOME, "GROOVY_HOME", &isValidGroovyHome ) ;
    
 }
 
@@ -438,9 +434,6 @@ int rest_of_main( int argc, char** argv ) {
 
   JVMSelectStrategy jvmSelectStrategy ;
   
-  // this flag is used to tell us whether we reserved the memory for the conf file location string
-  // or whether it was obtained from cmdline or environment var. That way we don't try to free memory
-  // we did not allocate.
   jboolean displayHelp          = ( ( numArgs == 0 )                       ||  
                                     ( strcmp( argv[ 1 ], "-h"     ) == 0 ) || 
                                     ( strcmp( argv[ 1 ], "--help" ) == 0 )

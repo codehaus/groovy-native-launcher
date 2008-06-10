@@ -82,7 +82,15 @@ typedef enum {
 /**
  * @param validator returns != 0 if the given dir is a valid app home. May be NULL.
  */
-char* getAppHome( JstAppHomeStrategy appHomeStrategy, const char* envVarName, int (*validator)( const char* dirname ) ) ;
+char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* envVarName, int (*validator)( const char* dirname ) ) ;
+
+/** Tries to find the given executable from PATH. Freeing the returned value
+ * is up to the caller. NULL is returned if not found. 
+ * errno != 0 on error. 
+ * @param lastDirOnExecPath the leaf dir that the executable is required to be in, e.g. "bin". May be NULL
+ * @param removeLastDir if true and lastDirOnExecPath, the last dir is removed from the path before it is returned. 
+ * */
+char* jst_findFromPath( const char* execName, const char* lastDirOnExecPath, jboolean removeLastDir ) ;
 
     
 #if defined( __cplusplus )

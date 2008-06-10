@@ -488,7 +488,7 @@ extern char* findStartupJar( const char* basedir, const char* subdir, const char
    
 }
 
-extern char* getAppHome( JstAppHomeStrategy appHomeStrategy, const char* envVarName, int (*validator)( const char* dirname ) ) {
+extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* envVarName, int (*validator)( const char* dirname ) ) {
   
   // FIXME - this func is a bit too complex - refactor
 
@@ -559,5 +559,93 @@ extern char* getAppHome( JstAppHomeStrategy appHomeStrategy, const char* envVarN
   }
   
   return appHome ;
+}
+
+
+/** Tries to find the given executable from PATH. Freeing the returned value
+ * is up to the caller. NULL is returned if not found. 
+ * errno != 0 on error. 
+ * @param lastDirOnExecPath the leaf dir that the executable is required to be in, e.g. "bin". May be NULL
+ * @param removeLastDir if true and lastDirOnExecPath, the last dir is removed from the path before it is returned. 
+ * */
+extern char* jst_findFromPath( const char* execName, const char* lastDirOnExecPath, jboolean removeLastDir ) {
+
+  char     *path = NULL, 
+           *p, 
+           *executablePath = NULL ;
+  size_t   execPathBufSize = 100,
+           lastDirLen = ( lastDirOnExecPath && lastDirOnExecPath[ 0 ] ) ? strlen( lastDirOnExecPath ) : -1 ;
+  jboolean firstTime = JNI_TRUE,
+           found     = JNI_FALSE ;
+
+  errno = 0 ;
+  
+  p = getenv( "PATH" ) ;
+  if ( !p ) goto end ; // PATH not defined. Should never happen, but is not really an error if it does.
+  
+  if ( !( path = jst_strdup( p ) ) ) goto end ;
+  
+  for ( ; ( p = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
+    size_t len = strlen( p ) ;
+    if ( len == 0 ) continue ;
+    
+    if ( executablePath ) executablePath[ 0 ] = '\0' ;
+    
+    if ( !( executablePath = jst_append( executablePath, &execPathBufSize, p, NULL ) ) ) goto end ;
+    
+    executablePath = jst_append( executablePath, &execPathBufSize, 
+                           ( executablePath[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) ? JST_FILE_SEPARATOR : "",
+                           execName, NULL ) ;
+
+    if ( !executablePath ) goto end ; 
+  
+    if ( jst_fileExists( executablePath ) ) {
+      char* lastFileSep ;
+      char* realFile = jst_fullPathName( executablePath ) ;
+      
+      if ( !realFile ) goto end ;
+      
+      if ( realFile != executablePath ) { // if true, what we got was either not full path or behind a symlnk
+        executablePath[ 0 ] = '\0' ;
+        executablePath = jst_append( executablePath, &execPathBufSize, realFile, NULL ) ;
+        jst_free( realFile ) ;
+        if ( !executablePath ) goto end ;
+      }
+
+      lastFileSep = strrchr( executablePath, JST_FILE_SEPARATOR[ 0 ] ) ;
+      if ( lastFileSep ) {
+        *lastFileSep = '\0' ;
+        len = strlen( executablePath ) ;
+        if ( lastDirLen != -1 ) {
+          if ( ( len >= lastDirLen + 1 ) && 
+               ( strcmp( executablePath + len - lastDirLen, lastDirOnExecPath ) == 0 ) ) {
+            if ( removeLastDir ) executablePath[ len -= lastDirLen + 1 ] = '\0' ;
+            found = JNI_TRUE ;
+            break ;
+          }
+        } else {
+          found = JNI_TRUE ;
+          break ;          
+        }
+      }
+    }
+  } 
+  
+  end:
+  if ( path ) free( path ) ;
+  if ( ( !found || errno ) && executablePath ) {
+    jst_free( executablePath ) ;
+  }
+  
+  if ( _jst_debug ) {
+    if ( executablePath ) {
+      fprintf( stderr, "debug: java home found on PATH: %s\n", executablePath ) ;      
+    } else {
+      fprintf( stderr, "debug: java home not found on PATH\n" ) ;
+    }
+  }
+    
+  return executablePath ;
+
 }
 

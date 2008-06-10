@@ -166,81 +166,15 @@ extern void jst_printWinError( unsigned long errcode ) {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 extern char* jst_findJavaHomeFromPath() {
-
-  char     *path = NULL, 
-           *p, 
-           *javahome = NULL ;
-  size_t   jhlen     = 100  ;
-  jboolean firstTime = JNI_TRUE,
-           found     = JNI_FALSE ;
-
-  errno = 0 ;
+  // TODO: check if this is a valid java home (how? possibly by seeing that the dyn lib can be found)
+  // end loop over path elements
   
-  p = getenv( "PATH" ) ;
-  if ( !p ) goto end ; // PATH not defined. Should never happen, but is not really an error if it does.
-  
-  if ( !( path = jst_strdup( p ) ) ) goto end ;
-  
-  for ( ; ( p = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
-    size_t len = strlen( p ) ;
-    if ( len == 0 ) continue ;
-    
-    if ( javahome ) javahome[ 0 ] = '\0' ;
-    
-    if ( !( javahome = jst_append( javahome, &jhlen, p, NULL ) ) ) goto end ;
-    
-    javahome = jst_append( javahome, &jhlen, 
-                           ( javahome[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) ? JST_FILE_SEPARATOR : "",
-                           JAVA_EXECUTABLE, NULL ) ;
-
-    if ( !javahome ) goto end ; 
-  
-    if ( jst_fileExists( javahome ) ) {
-      char* lastFileSep ;
-      char* realFile = jst_fullPathName( javahome ) ;
-      
-      if ( !realFile ) goto end ;
-      
-      if ( realFile != javahome ) { // if true, what we got was either not full path or behind a symlnk
-        javahome[ 0 ] = '\0' ;
-        javahome = jst_append( javahome, &jhlen, realFile, NULL ) ;
-        jst_free( realFile ) ;
-        if ( !javahome ) goto end ;
-      }
-
-      lastFileSep = strrchr( javahome, JST_FILE_SEPARATOR[ 0 ] ) ;
-      if ( lastFileSep ) {
-        *lastFileSep = '\0' ;
-        len = strlen( javahome ) ;
-        // we are checking whether the executable is in "bin" dir, /bin is the shortest possibility (4 chars)
-        // see if we are in the bin dir of java home
-        // TODO: this is rather elementary test (but works unless there is a java executable in 
-        //       a bin dir of some other app) - a better one is needed
-        if ( len >= 4 && memcmp( javahome + len - 3, "bin", 3 ) == 0 ) {
-          javahome[ len -= 4 ] = '\0' ;
-          found = JNI_TRUE ;
-          break ;
-        }
-      }
-    }
-    // TODO: check if this is a valid java home (how? possibly by seeing that the dyn lib can be found)
-  } // end loop over path elements
-  
-  end:
-  if ( path ) free( path ) ;
-  if ( ( !found || errno ) && javahome ) {
-    jst_free( javahome ) ;
-  }
-  
-  if ( _jst_debug ) {
-    if ( javahome ) {
-      fprintf( stderr, "debug: java home found on PATH: %s\n", javahome ) ;      
-    } else {
-      fprintf( stderr, "debug: java home not found on PATH\n" ) ;
-    }
-  }
-    
-  return javahome ;
+  // we are checking whether the executable is in "bin" dir, /bin is the shortest possibility (4 chars)
+  // see if we are in the bin dir of java home
+  // TODO: this is rather elementary test (but works unless there is a java executable in 
+  //       a bin dir of some other app) - a better one is needed. Make the called func take 
+  //       a pointer to a func that does the check.
+  return jst_findFromPath( JAVA_EXECUTABLE, "bin", JNI_TRUE ) ;
 }
 
 
