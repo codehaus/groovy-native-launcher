@@ -1,4 +1,4 @@
-$Revision$
+﻿$Revision$
 $Date$
 
 Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
@@ -102,6 +102,5 @@ TODO
  * add an option to restrict the used jre/jdk version to be exactly something, greater than something, between some values etc.
    Have a look at how eclipse plugins define the required version of their dependant plugins in their manifest.mf
    A problem that needs to be solved: how to reliably tell the version of a java impl w/out actually loading and starting the jvm?
- * Allow using bootclasspath instead of classpath at startup. See http://archive.jruby.codehaus.org/dev/481A4453.3060307%40sun.com
  
  

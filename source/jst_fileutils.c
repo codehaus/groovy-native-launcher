@@ -522,7 +522,7 @@ extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* env
     
   }
   
-  if ( envVarName ) {
+  if ( !appHome && envVarName ) {
     appHome = getenv( envVarName ) ;
     if ( appHome ) {
 #if defined( _WIN32 ) && defined( _cwcompat )
@@ -557,7 +557,7 @@ extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* env
           
     }
   }
-  
+    
   return appHome ;
 }
 

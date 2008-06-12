@@ -135,6 +135,8 @@ typedef enum {
   JST_UNRECOGNIZED_TO_APP = 2
 } JstUnrecognizedParamStrategy ;
 
+/** On some applications putting jars in bootstrap classpath instead of classpath boosts startup performance. 
+ * See e.g. http://archive.jruby.codehaus.org/dev/481A4453.3060307%40sun.com */
 typedef enum {
   JST_NORMAL_CLASSPATH = 0,
   JST_BOOTSTRAP_CLASSPATH = 1,

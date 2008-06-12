@@ -749,9 +749,9 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   int            i,
                  jvmOptionsCount      = 0 ;
 
-  jclass       launcheeMainClassHandle  = NULL;
-  jmethodID    launcheeMainMethodID     = NULL;
-  jobjectArray launcheeJOptions         = NULL;
+  jclass       launcheeMainClassHandle  = NULL ;
+  jmethodID    launcheeMainMethodID     = NULL ;
+  jobjectArray launcheeJOptions         = NULL ;
   
   char      *classpath     = NULL,
             *userJvmOptsS  = NULL ; 

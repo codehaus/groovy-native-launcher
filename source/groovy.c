@@ -425,7 +425,7 @@ int rest_of_main( int argc, char** argv ) {
    * if the terminating option has "-" as prefix, but is not one of the enumerated options. Usually this would be
    * a file name associated w/ the app, e.g. "-foobar.groovy". As file names do not usually begin w/ "-" this is rather unimportant. */
   const char *terminatingSuffixes[] = { ".groovy", ".gvy", ".gy", ".gsh", NULL } ;
-  char *extraProgramOptions[]       = { "--main", "groovy.ui.GroovyMain", "--conf", NULL, "--classpath", NULL, NULL }, 
+  char *extraProgramOptions[]       = { "--main", "groovy.ui.GroovyMain", "--conf", NULL, "--classpath", ".", NULL }, 
        *jars[]                      = { NULL, NULL } ;
 
   int  numArgs = argc - 1 ;
@@ -495,11 +495,7 @@ int rest_of_main( int argc, char** argv ) {
 
     extraProgramOptions[ 5 ] = classpath ;
     
-  } else {
-    
-    extraProgramOptions[ 5 ] = "." ;
-    
-  }
+  } 
 
   groovyHome = getGroovyHome() ;
   MARK_PTR_FOR_FREEING( groovyHome )

@@ -247,7 +247,6 @@ int rest_of_main( int argc, char** argv ) {
   size_t       extraJvmOptionsCount = 0, 
                extraJvmOptionsSize  = 5 ;
   char *gantConfFile  = NULL, 
-       *gantDConf     = NULL, // the -Dgroovy.conf=something to pass to the jvm
        *gantHome      = NULL, 
        *gantDHome     = NULL, // the -Dgroovy.home=something to pass to the jvm
        *classpath     = NULL, 
@@ -259,7 +258,7 @@ int rest_of_main( int argc, char** argv ) {
 # define MARK_PTR_FOR_FREEING( garbagePtr ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) goto end ;
         
   const char *terminatingSuffixes[] = { ".gant", NULL } ;
-  char *extraProgramOptions[]       = { "--main", "gant.Gant", "--conf", NULL, "--classpath", NULL, NULL }, 
+  char *extraProgramOptions[]       = { "--main", "gant.Gant", "--conf", NULL, "--classpath", ".", NULL }, 
        *jars[]                      = { NULL, NULL } ;
          
   int  rval = -1 ; 
@@ -278,7 +277,7 @@ int rest_of_main( int argc, char** argv ) {
   processedActualParams = jst_processInputParameters( argv + 1, argc - 1, (JstParamInfo*)gantParameters, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
 
   MARK_PTR_FOR_FREEING( processedActualParams )
-  
+
   classpath = getenv( "CLASSPATH" ) ;
 
   // add "." to the end of the used classpath. This is what the script launcher also does
@@ -289,14 +288,12 @@ int rest_of_main( int argc, char** argv ) {
 
     extraProgramOptions[ 5 ] = classpath ;
     
-  } else {
-    
-    extraProgramOptions[ 5 ] = "." ;
-    
-  }
+  } 
 
   gantHome = getGantHome() ;
   MARK_PTR_FOR_FREEING( gantHome )
+
+  MARK_PTR_FOR_FREEING( jars[ 0 ] = findGantStartupJar( gantHome ) )
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // find out the groovy conf file to use
@@ -307,14 +304,22 @@ int rest_of_main( int argc, char** argv ) {
     gantConfFile = jst_createFileName( gantHome, "conf", GANT_CONF_FILE, NULL ) ;    
     MARK_PTR_FOR_FREEING( gantConfFile )
   }
-  
-  MARK_PTR_FOR_FREEING( jars[ 0 ] = findGantStartupJar( gantHome ) )
-  
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  // set -Dgant.home, -Dgroovy.home and -Dgroovy.starter.conf as jvm options
-
 
   extraProgramOptions[ 3 ] = gantConfFile ;
+
+  {
+    char *groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", gantConfFile, NULL ) ;  
+    MARK_PTR_FOR_FREEING( groovyDConf ) 
+    
+    
+    if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
+                                                (int)extraJvmOptionsCount++, 
+                                                &extraJvmOptionsSize, 
+                                                groovyDConf, 
+                                                NULL ) ) ) goto end ;
+  }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   javaHome = jst_findJavaHome( processedActualParams ) ;
   MARK_PTR_FOR_FREEING( javaHome )
@@ -341,19 +346,7 @@ int rest_of_main( int argc, char** argv ) {
     
     free( toolsJarFile ) ;
   }
-  
-  {
-    char *groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", gantConfFile, NULL ) ;  
-    MARK_PTR_FOR_FREEING( groovyDConf ) 
     
-    
-    if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
-                                                (int)extraJvmOptionsCount++, 
-                                                &extraJvmOptionsSize, 
-                                                gantDConf, 
-                                                NULL ) ) ) goto end ;
-  }
-  
   
   gantDHome = jst_append( NULL, NULL, "-Dgant.home=", gantHome, NULL ) ;
   MARK_PTR_FOR_FREEING( gantDHome ) 
@@ -390,6 +383,9 @@ int rest_of_main( int argc, char** argv ) {
                                                 NULL ) ) ) goto end ;
 
   }
+  
+  // FIXME - add groovy-x.*\.jar to classpath
+  
 // FIXME - these two are essentially the same (handling groovy home and gant home). Refactor out the duplicate code.
   {
     char *antHome  = getenv( "ANT_HOME" ), 
@@ -406,7 +402,7 @@ int rest_of_main( int argc, char** argv ) {
       if ( antHome ) { MARK_PTR_FOR_FREEING( antHome ) }      
     }
     
-    if ( !antHome ) fprintf( stderr, "error: could not locate ant installation\n" ) ;
+    if ( !antHome ) { fprintf( stderr, "error: could not locate ant installation\n" ) ; goto end ; }
   
     antDHome = jst_append( NULL, NULL, "-Dant.home=", antHome, NULL ) ;
     MARK_PTR_FOR_FREEING( antDHome ) 
