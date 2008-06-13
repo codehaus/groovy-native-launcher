@@ -79,6 +79,10 @@ static char* cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOrigin
 //       The performance is atm O(n*m) where n = number of actual params, m = number of param definitions.
 //       Thenagain, this should only be optimized if profiling says it must (for a real case), 
 //       as n and m are both likely to be very small.
+//       It would also be possible to use a (balanced) binary tree ( O(log(N)) ) or a hash. 
+//       However, it is unlikely that the number of parameters is ever significant enough for this to be an
+//       issue, so doing these improvements is left till it is verified that there are cases where
+//       this actually makes a difference.
 
 
 // FIXME: the func below is a bit too complex - refactor

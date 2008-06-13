@@ -573,8 +573,8 @@ extern char* jst_findFromPath( const char* execName, const char* lastDirOnExecPa
   char     *path = NULL, 
            *p, 
            *executablePath = NULL ;
-  size_t   execPathBufSize = 100,
-           lastDirLen = ( lastDirOnExecPath && lastDirOnExecPath[ 0 ] ) ? strlen( lastDirOnExecPath ) : -1 ;
+  size_t   execPathBufSize = 100 ;
+  int      lastDirLen = ( lastDirOnExecPath && lastDirOnExecPath[ 0 ] ) ? (int)strlen( lastDirOnExecPath ) : -1 ;
   jboolean firstTime = JNI_TRUE,
            found     = JNI_FALSE ;
 
@@ -617,7 +617,7 @@ extern char* jst_findFromPath( const char* execName, const char* lastDirOnExecPa
         *lastFileSep = '\0' ;
         len = strlen( executablePath ) ;
         if ( lastDirLen != -1 ) {
-          if ( ( len >= lastDirLen + 1 ) && 
+          if ( ( (int)len >= lastDirLen + 1 ) && 
                ( strcmp( executablePath + len - lastDirLen, lastDirOnExecPath ) == 0 ) ) {
             if ( removeLastDir ) executablePath[ len -= lastDirLen + 1 ] = '\0' ;
             found = JNI_TRUE ;

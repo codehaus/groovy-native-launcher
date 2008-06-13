@@ -65,11 +65,26 @@ int gantJarSelect( const char* fileName ) {
   return result ;
 }
 
+int groovyJarSelect( const char* fileName ) {
+  int result = strcmp( "groovy-starter.jar", fileName ) == 0 ;
+  if ( !result ) {
+    size_t fileNameLen = strlen( fileName ) ;
+    // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
+    // aren't available, we'll just check that the char following 
+    // groovy- is a digit
+    if ( fileNameLen >= 12 ) result = isdigit( fileName[ 7 ] ) ;
+  }
+  return result ;
+}
 
 /** 
  * @return NULL on error, otherwise dynallocated string (which caller must free). */
 static char* findGantStartupJar( const char* gantHome ) {
   return findStartupJar( gantHome, "lib", "gant-", &gantJarSelect ) ;
+}
+
+static char* findGroovyStartupJar( const char* groovyHome ) {
+  return findStartupJar( groovyHome, "lib", "groovy-", &groovyJarSelect ) ;
 }
 
 /** Checks that the given dir is a valid groovy dir.
@@ -259,7 +274,7 @@ int rest_of_main( int argc, char** argv ) {
         
   const char *terminatingSuffixes[] = { ".gant", NULL } ;
   char *extraProgramOptions[]       = { "--main", "gant.Gant", "--conf", NULL, "--classpath", ".", NULL }, 
-       *jars[]                      = { NULL, NULL } ;
+       *jars[]                      = { NULL, NULL, NULL } ;
          
   int  rval = -1 ; 
 
@@ -295,6 +310,7 @@ int rest_of_main( int argc, char** argv ) {
 
   MARK_PTR_FOR_FREEING( jars[ 0 ] = findGantStartupJar( gantHome ) )
 
+  
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // find out the groovy conf file to use
   
@@ -373,6 +389,9 @@ int rest_of_main( int argc, char** argv ) {
     
     if ( !groovyHome ) fprintf( stderr, "error: could not locate groovy installation\n" ) ;
   
+    MARK_PTR_FOR_FREEING( jars[ 1 ] = findGroovyStartupJar( groovyHome ) )
+    
+    
     groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ;
     MARK_PTR_FOR_FREEING( groovyDHome ) 
     
