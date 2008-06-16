@@ -19,7 +19,6 @@
 #  $Revision$
 #  $Date$
 
-#import glob
 import os
 import re
 
@@ -34,6 +33,13 @@ if debug :
     else :
         print 'Debug mode not set up for compiler' , environment['CC']
         Exit ( 1 )
+else :
+    if environment['CC'] == 'cl' :
+        pass
+    elif environment['CC'] == 'gcc' :
+        environment.Append ( LINKFLAGS = '-Wl,--strip-all' )
+    else :
+        print 'Strip mode not set for compiler' , environment['CC']
 
 cygwinCompile = eval ( ARGUMENTS.get ( 'cygwinCompile' , 'True' ) )
 if cygwinCompile :
@@ -56,7 +62,8 @@ if javaHome == '' :
 if environment['PLATFORM'] == 'cygwin' :
     javaHome = os.popen ( 'cygpath --unix "' + javaHome + '"' ).read ( ).strip ( )
     environment.Append ( CCFLAGS = ' -mno-cygwin' , LINKFLAGS = ' -s -mno-cygwin' )
-    windowsEnvironment = environment.Clone ( LINKFLAGS = '-s -mno-cygwin -mwindows' )
+    windowsEnvironment = environment.Clone ( )
+    windowsEnvironment.Append ( LINKFLAGS = '-mwindows' )
 
 if environment['PLATFORM'] == 'darwin' :
     environment.Append ( LINKFLAGS = '-framework CoreFoundation' )
@@ -87,14 +94,18 @@ if environment['CC'] == 'cl' :
     # the -O1 is there just to reduce the size of the executable - it is not mandatory
     environment.Append (
         CCFLAGS = '-O1 -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -nologo -c -MD -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN' ,
-        LINKFLAGS = '-nologo -opt:ref -opt:nowin98 -subsystem:console' , LIBS = [ 'advapi32' ] )
-    windowsEnvironment = environment.Clone ( LINKFLAGS = '-nologo -opt:ref -opt:nowin98 -subsystem:windows -entry:mainCRTStartup' )
+        LINKFLAGS = '-nologo -opt:ref -opt:nowin98' ,
+        LIBS = [ 'advapi32' ] )
+    windowsEnvironment = environment.Clone ( )
+    windowsEnvironment.Append ( LINKFLAGS = '-subsystem:windows -entry:mainCRTStartup' )
+    environment.Append ( LINKFLAGS = '-subsystem:console' )
 elif environment['CC'] == 'gcc' :
     #  Cygwin specific options were set earlier.
     environment.Append ( CCFLAGS = ' -O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls' )
     if environment['PLATFORM'] == 'win32' :
         # TODO:  Find out what the right options are here for the MinGW GCC.
-        windowsEnvironment = environment.Clone ( LINKFLAGS = '-s -mwindows' )
+        windowsEnvironment = environment.Clone ( )
+        windowsEnvironment.Append ( LINKFLAGS = '-mwindows' )
 else :
     print 'Assuming default options for compiler' , environment['CC']
 

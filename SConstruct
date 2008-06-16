@@ -41,10 +41,8 @@ unameResult = platform.uname ( )
 
 useMinGW = eval ( ARGUMENTS.get ( 'usemingw' , 'False' ) )
 if ( unameResult[0] == 'Windows' ) and useMinGW :
-    print 'Using MinGW'
     environment = Environment ( tools = [ 'mingw' ] )
 else :
-    print 'Using default.'
     environment = Environment ( )
 
 environment['Architecture'] = unameResult[0]
