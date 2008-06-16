@@ -80,11 +80,15 @@ int groovyJarSelect( const char* fileName ) {
 /** 
  * @return NULL on error, otherwise dynallocated string (which caller must free). */
 static char* findGantStartupJar( const char* gantHome ) {
-  return findStartupJar( gantHome, "lib", "gant-", &gantJarSelect ) ;
+  char *gantStartupJar = findStartupJar( gantHome, "lib", "gant-", &gantJarSelect ) ;
+//  if ( !gantStartupJar ) fprintf( stderr, "error: could not locate gant startup jar\n" ) ;
+  return gantStartupJar ;
 }
 
 static char* findGroovyStartupJar( const char* groovyHome ) {
-  return findStartupJar( groovyHome, "lib", "groovy-", &groovyJarSelect ) ;
+  char *groovyStartupJar = findStartupJar( groovyHome, "lib", "groovy-", &groovyJarSelect ) ;
+//  if ( !groovyStartupJar ) fprintf( stderr, "error: could not locate groovy startup jar\n" ) ;
+  return groovyStartupJar ;  
 }
 
 /** Checks that the given dir is a valid groovy dir.
