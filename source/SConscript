@@ -37,7 +37,9 @@ else :
     if environment['CC'] == 'cl' :
         pass
     elif environment['CC'] == 'gcc' :
-        environment.Append ( LINKFLAGS = '-Wl,--strip-all' )
+        #  The Mac OS X ld does not understand long options, and only allows stripping on 32-bit builds.
+        #  The Solaris GCC appears to use the Sun ld if present rathe than the ld in binutils.
+        environment.Append ( LINKFLAGS = '-Wl,-s' )
     else :
         print 'Strip mode not set for compiler' , environment['CC']
 
