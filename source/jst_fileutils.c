@@ -145,9 +145,11 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
 
     if ( fileHandle == INVALID_HANDLE_VALUE ) {
       lastError = GetLastError() ;
-      fprintf( stderr, "error: opening directory %s failed\n", dirName ) ;
-      jst_printWinError( lastError ) ;
-      errorOccurred = JNI_TRUE ;
+      if ( lastError != ERROR_FILE_NOT_FOUND ) {
+        fprintf( stderr, "error: opening directory %s failed\n", dirName ) ;
+        jst_printWinError( lastError ) ;
+        errorOccurred = JNI_TRUE ;
+      }
       goto end ;
     }
 
@@ -457,12 +459,12 @@ extern char* jst_fullPathName( const char* fileOrDirName ) {
   
 }
 
-// FIXME - add program name as param so it can be used in error messages
-extern char* findStartupJar( const char* basedir, const char* subdir, const char* prefix, int (*selector)( const char* filename ) ) {
+extern char* findStartupJar( const char* basedir, const char* subdir, const char* prefix, const char* progname, int (*selector)( const char* filename ) ) {
   char *startupJar = NULL,
        *libDir     = NULL, 
        **jarNames  = NULL ;
-
+  int numJarsFound = 0 ;
+  
   if ( subdir && subdir[ 0 ] ) {
     if ( !( libDir = jst_createFileName( basedir, subdir, NULL ) ) ) goto end ;
   }
@@ -474,18 +476,20 @@ extern char* findStartupJar( const char* basedir, const char* subdir, const char
   
   if ( !( jarNames = jst_getFileNames( (char*)(libDir ? libDir : basedir), (char*)prefix, ".jar", selector ) ) ) goto end ;
   
-  switch ( jst_pointerArrayLen( (void**)jarNames ) ) {
+  numJarsFound = jst_pointerArrayLen( (void**)jarNames ) ; 
+    
+  end:  
+  switch ( numJarsFound ) {
     case 0 :
-      fprintf( stderr, "error: could not find startup jar from %s\n", libDir ) ;
+      if ( progname ) fprintf( stderr, "error: could not find %s startup jar from %s\n", progname, libDir ) ;
       break ;
     case 1 :
       startupJar = jst_createFileName( libDir ? libDir : basedir, jarNames[ 0 ], NULL ) ;
       break ;
     default :
-      fprintf( stderr, "error: too many startup jars in %s e.g. %s and %s\n", libDir, jarNames[ 0 ], jarNames[ 1 ] ) ;
+      if ( progname ) fprintf( stderr, "error: too many %s startup jars in %s e.g. %s and %s\n", progname, libDir, jarNames[ 0 ], jarNames[ 1 ] ) ;
   }
   
-  end:
   if ( jarNames ) free( jarNames ) ;
   if ( libDir   ) free( libDir ) ;
   

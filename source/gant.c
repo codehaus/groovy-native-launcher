@@ -67,6 +67,7 @@ int gantJarSelect( const char* fileName ) {
 
 int groovyJarSelect( const char* fileName ) {
   int result = strcmp( "groovy-starter.jar", fileName ) == 0 ;
+  if ( !result ) result = memcmp( "groovy-all-", fileName, 11 ) == 0 ;
   if ( !result ) {
     size_t fileNameLen = strlen( fileName ) ;
     // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
@@ -80,15 +81,16 @@ int groovyJarSelect( const char* fileName ) {
 /** 
  * @return NULL on error, otherwise dynallocated string (which caller must free). */
 static char* findGantStartupJar( const char* gantHome ) {
-  char *gantStartupJar = findStartupJar( gantHome, "lib", "gant-", &gantJarSelect ) ;
+  char *gantStartupJar = findStartupJar( gantHome, "lib", "gant-", "gant", &gantJarSelect ) ;
 //  if ( !gantStartupJar ) fprintf( stderr, "error: could not locate gant startup jar\n" ) ;
   return gantStartupJar ;
 }
 
-static char* findGroovyStartupJar( const char* groovyHome ) {
-  char *groovyStartupJar = findStartupJar( groovyHome, "lib", "groovy-", &groovyJarSelect ) ;
-//  if ( !groovyStartupJar ) fprintf( stderr, "error: could not locate groovy startup jar\n" ) ;
-  return groovyStartupJar ;  
+static char* findGroovyStartupJar( const char* groovyHome, jboolean errorMsgOnFailure ) {
+  char *groovyStartupJar = findStartupJar( groovyHome, "lib", "groovy-", errorMsgOnFailure ? "groovy" : NULL, &groovyJarSelect ) ;
+    
+  return groovyStartupJar ;
+  
 }
 
 /** Checks that the given dir is a valid groovy dir.
@@ -376,27 +378,33 @@ int rest_of_main( int argc, char** argv ) {
                                               &extraJvmOptionsSize, 
                                               gantDHome, 
                                               NULL ) ) ) goto end ;
+  
+  
+  
   {
-    char *groovyHome  = getenv( "GROOVY_HOME" ), 
+    char *groovyHome  = NULL,  
          *groovyDHome = NULL ;
-    if ( !groovyHome ) {
-      groovyHome = jst_findFromPath( GROOVY_EXECUTABLE, "bin", JNI_TRUE ) ;
-      if ( errno ) goto end ;
-#if defined( _WIN32 )
+    jars[ 1 ] = findGroovyStartupJar( gantHome, JNI_FALSE ) ;
+    
+    if ( !jars[ 1 ] ) {
+      groovyHome = getenv( "GROOVY_HOME" ) ;
       if ( !groovyHome ) {
-        groovyHome = jst_findFromPath( "groovy.bat", "bin", JNI_TRUE ) ;
+        groovyHome = jst_findFromPath( GROOVY_EXECUTABLE, "bin", JNI_TRUE ) ;
         if ( errno ) goto end ;
-      }
+#if defined( _WIN32 )
+        if ( !groovyHome ) {
+          groovyHome = jst_findFromPath( "groovy.bat", "bin", JNI_TRUE ) ;
+          if ( errno ) goto end ;
+        }
 #endif
-      if ( groovyHome ) { MARK_PTR_FOR_FREEING( groovyHome ) }
+        if ( groovyHome ) { MARK_PTR_FOR_FREEING( groovyHome ) }
+      }
+      if ( groovyHome ) jars[ 1 ] = findGroovyStartupJar( groovyHome, JNI_FALSE ) ;
     }
     
-    if ( !groovyHome ) fprintf( stderr, "error: could not locate groovy installation\n" ) ;
-  
-    MARK_PTR_FOR_FREEING( jars[ 1 ] = findGroovyStartupJar( groovyHome ) )
+    MARK_PTR_FOR_FREEING( jars[ 1 ] )    
     
-    
-    groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ;
+    groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome ? groovyHome : gantHome, NULL ) ;
     MARK_PTR_FOR_FREEING( groovyDHome ) 
     
     if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
@@ -407,7 +415,6 @@ int rest_of_main( int argc, char** argv ) {
 
   }
   
-  // FIXME - add groovy-x.*\.jar to classpath
   
 // FIXME - these two are essentially the same (handling groovy home and gant home). Refactor out the duplicate code.
   {

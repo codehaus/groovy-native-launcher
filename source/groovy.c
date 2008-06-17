@@ -63,7 +63,7 @@ int groovyJarSelect( const char* fileName ) {
  * The previous is appropriate for groovy <= 1.0, the latter for groovy >= 1.1
  * Returns NULL on error, otherwise dynallocated string (which caller must free). */
 static char* findGroovyStartupJar( const char* groovyHome ) {
-  return findStartupJar( groovyHome, "lib", "groovy-", &groovyJarSelect ) ;
+  return findStartupJar( groovyHome, "lib", "groovy-", "groovy", &groovyJarSelect ) ;
 }
 
 /** Checks that the given dir is a valid groovy dir.

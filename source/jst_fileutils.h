@@ -69,8 +69,9 @@ char* jst_fullPathName( const char* fileOrDirName ) ;
 
 /**
  * @param subdir may be NULL or empty
+ * @param progname if != NULL, will be used in possible error msgs. If NULL, no error msg will be printed.
  */
-char* findStartupJar( const char* basedir, const char* subdir, const char* prefix, int (*selector)( const char* filename ) ) ;
+char* findStartupJar( const char* basedir, const char* subdir, const char* prefix, const char* progname, int (*selector)( const char* filename ) ) ;
 
 /** This is a rather crude set of choices, but suffices for now... */
 typedef enum {
@@ -86,6 +87,8 @@ char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* envVarName
 
 /** Tries to find the given executable from PATH. Freeing the returned value
  * is up to the caller. NULL is returned if not found. 
+ * Note that the returned path to the executable is the dir where the executable resides, not containing
+ * the executable name. Any symlinks and relative paths have been resolved.
  * errno != 0 on error. 
  * @param lastDirOnExecPath the leaf dir that the executable is required to be in, e.g. "bin". May be NULL
  * @param removeLastDir if true and lastDirOnExecPath, the last dir is removed from the path before it is returned. 
