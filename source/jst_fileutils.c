@@ -556,7 +556,6 @@ extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* env
           if ( CYGWIN_LOADED ) free( appHome ) ;
 #endif 
           appHome = NULL ;
-          fprintf( stderr, "error: could not locate app home\n" ) ;
         } 
       }
       
@@ -566,7 +565,16 @@ extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* env
           
     }
   }
-    
+
+  if ( !appHome ) {
+    int execLocAndEnvVar = ( appHomeStrategy != JST_INGORE_EXECUTABLE_LOCATION ) && envVarName ;
+    fprintf( stderr, "error: could not locate app home\nplease " ) ;
+    if ( execLocAndEnvVar )                                  fprintf( stderr, "either " ) ;
+    if ( appHomeStrategy != JST_INGORE_EXECUTABLE_LOCATION ) fprintf( stderr, "place the executable in the appropriate directory " ) ;
+    if ( execLocAndEnvVar )                                  fprintf( stderr, "or " ) ;
+    if ( envVarName )                                        fprintf( stderr, "set the environment variable %s\n", envVarName ) ;
+  }
+  
   return appHome ;
 }
 
