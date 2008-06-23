@@ -17,7 +17,7 @@
 
 // FIXME - experimant w/ removing this dependency - check if it's necessary at all
 // and if it not, remove, if it is, inline
-#include "resource.h"
+// #include "resource.h"
 
 #define APSTUDIO_READONLY_SYMBOLS
 
