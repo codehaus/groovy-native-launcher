@@ -297,6 +297,31 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
                                                   NULL ) ) ) goto end ;
 
       if ( jst_fileExists( path ) ) {
+
+#if !defined( _WIN32_WINNT )
+#  define _WIN32_WINNT 0x0502
+#  define JST_WINNT_VERSION_WAS_UNDEFINED        
+#endif
+#       if defined( _WIN32 ) && ( _WIN32_WINNT >= 0x0502 )
+        // on some sun jdks (e.g. 1.6.0_06) the jvm.dll depends on msvcr71.dll, which is in the bin dir
+        // of java installation, which may not be on PATH and thus the dll is not found if it is 
+        // not available in e.g. system dll dirs.
+        
+        // NOTE: SetDllDirectoryA is only available on Win XP sp 1 and later. The native
+        //       launcher can be compiled to run on older windows versions, but then the 
+        //       functionality of automatically adding %JAVA_HOME%\bin to dll search path
+        //       will be missing.
+        char* javaBinDir = jst_append( NULL, NULL, java_home, JST_FILE_SEPARATOR, "bin", NULL ) ;
+        BOOL succeededModifyingDLLSearchPath ;
+        if ( !javaBinDir ) goto end ;
+        succeededModifyingDLLSearchPath = SetDllDirectoryA( javaBinDir ) ;
+        jst_free( javaBinDir ) ;
+        if ( !succeededModifyingDLLSearchPath ) {
+          jst_printWinError( GetLastError() ) ;
+          goto end ;
+        }
+#       endif
+        
         errno = 0 ;
         if ( !( jvmLib = dlopen( path, RTLD_LAZY ) ) )  {
           fprintf( stderr, "error: dynamic library %s exists but could not be loaded!\n", path ) ;
@@ -339,10 +364,18 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
   }
   
   end:
+# if defined( _WIN32 ) && ( _WIN32_WINNT >= 0x0502 )
+  SetDllDirectoryA( NULL ) ;
+# endif
   if ( path ) free( path ) ;
   
   return rval ;
 }
+
+#if defined( JST_WINNT_VERSION_WAS_UNDEFINED )
+#  undef JST_WINNT_VERSION_WAS_UNDEFINED
+#  undef _WIN32_WINNT
+#endif
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
