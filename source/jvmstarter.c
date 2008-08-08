@@ -53,6 +53,7 @@
 #  define PATHS_TO_CLIENT_JVM "bin\\client\\jvm.dll"
 
 #  include <Windows.h>
+#  include <direct.h>
 
 #  define dlopen( path, mode ) LoadLibrary( path )
 #  define dlsym( libraryhandle, funcname ) GetProcAddress( libraryhandle, funcname )
@@ -304,12 +305,18 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
     lookupDirs = preferClient ? potentialPathsToAnyJVMPreferringClient : potentialPathsToAnyJVMPreferringServer ;
   }
 
+#if defined( _WIN32 )  
   if ( !dllDirSetterFunc ) dllDirSetterFunc = getDllDirSetterFunc() ;
   
   if ( !dllDirSetterFunc ) {
-    currentDir = jst_strdup( getcwd() ) ;
+    currentDir = jst_malloc( PATH_MAX + 1 ) ;
     if ( !currentDir ) goto end ;
+    if ( !getcwd( currentDir, PATH_MAX + 1 ) ) {
+      fprintf( stderr, "error %d: could not figure out current dir: %s\n", errno, strerror( errno ) ) ;
+      goto end ;
+    }
   }
+#endif  
   
   for ( i = 0 ; i < 2 ; i++ ) { // try both jdk and jre style paths
     for ( j = 0; ( dynLibFile = lookupDirs[ j ] ) ; j++ ) {
