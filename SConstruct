@@ -39,9 +39,13 @@ unameResult = platform.uname ( )
 #  There is an issue when using Windows that Visual C++ has precedence of GCC and sometimes you really have
 #  to use GCC even when Visual C++ is present.
 
-useMinGW = eval ( ARGUMENTS.get ( 'usemingw' , 'False' ) )
-if ( unameResult[0] == 'Windows' ) and useMinGW :
-    environment = Environment ( tools = [ 'mingw' ] )
+useMinGW    = eval ( ARGUMENTS.get ( 'usemingw' , 'False' ) )
+msvsVersion = ARGUMENTS.get ( 'msvsversion' , False ) 
+if ( unameResult[0] == 'Windows' and ( useMinGW or msvsVersion ) ) :
+    if ( useMinGW ) :
+        environment = Environment ( tools = [ 'mingw' ] )
+    else :
+        environment = Environment ( MSVS_VERSION = msvsVersion )
 else :
     environment = Environment ( )
 
@@ -124,4 +128,5 @@ are provided.  compile is the default.  Possible options are:
     debug=(True|False)
     cygwinCompile=(True|False)
     usemingw=(True|False)
+    msvsversion=(version) (use if several versions are installed)
 ''' )

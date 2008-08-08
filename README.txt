@@ -66,17 +66,18 @@ java app.
 Ruby was chosen as the implementation language to avoid any bootstrap issues,
 and due to its great yaml support.
   
-There are other similar projects. Here are the ones that I'm aware of and why 
+There are other similar projects/products. Here are the ones that I'm aware of and why 
 we need yet another one:
 
 Product       Website                                     Why this is not sufficient            Notes
 
-Launch4J      http://launch4j.sourceforge.net             Only generates windows executables    If you only need a windows executable, this one looks really good
-Janel         http://www.redskaper.com/Janel.jsp          Only generates windows executables    - " -
+Launch4J      http://launch4j.sourceforge.net             Only generates windows executables    
+Janel         http://www.redskaper.com/Janel.jsp          Only generates windows executables    
 Caphyon       http://www.advancedinstaller.com/java.html  commercial + win & os-x support only  Generates an installer, the native launcher is just one feature
 Java launcher included in the src.zip of a jdk            Licence does not permit the creation of custom launchers (TODO: check if openJDK has changed this situation). See e.g. http://www.ociweb.com/jnb/jnbJul2004.html
-exe4j         http://www.ej-technologies.com/products/exe4j/overview.html commercial
-JEXECreator   http://www.ucware.com/jexec                 commercial
+exe4j         http://www.ej-technologies.com/products/exe4j/overview.html commercial, windows only
+JEXECreator   http://www.ucware.com/jexec                 commercial, windows only
+JEXEPack      http://www.duckware.com/jexepack/index.html commercial, windows only
 
 
 More information
