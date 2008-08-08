@@ -58,6 +58,9 @@
 #  define dlsym( libraryhandle, funcname ) GetProcAddress( libraryhandle, funcname )
 #  define dlclose( handle ) FreeLibrary( handle )
 
+// for dynamically loading SetDllDirectoryA. See the explanation later in this file.
+typedef BOOL (WINAPI *SetDllDirFunc)( LPCTSTR lpPathname ) ;
+
 #define JAVA_EXECUTABLE "java.exe"
    
 // PATH_MAX is defined when compiling w/ e.g. msys gcc, but not w/ ms cl compiler (the visual studio c compiler)
@@ -249,6 +252,16 @@ extern char* jst_findJavaHome( JstActualParam* processedActualParams ) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+#if defined( _WIN32 )
+
+static SetDllDirFunc getDllDirSetterFunc() {
+  
+  HINSTANCE hKernel32 = GetModuleHandle( "kernel32" ) ;  
+  return hKernel32 ? (SetDllDirFunc)GetProcAddress( hKernel32, "SetDllDirectoryA" )
+                   : NULL ; // should never happen
+}
+
+#endif
 
 /** In case there are errors, the returned struct contains only NULLs. */
 static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSelectStrategy ) {
@@ -257,6 +270,11 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
   static char* potentialPathsToClientJVM[]              = { PATHS_TO_CLIENT_JVM, NULL } ;
   static char* potentialPathsToAnyJVMPreferringServer[] = { PATHS_TO_SERVER_JVM, PATHS_TO_CLIENT_JVM, NULL } ;
   static char* potentialPathsToAnyJVMPreferringClient[] = { PATHS_TO_CLIENT_JVM, PATHS_TO_SERVER_JVM, NULL } ;
+
+#if defined( _WIN32 )
+  static SetDllDirFunc dllDirSetterFunc = NULL ; 
+  char* currentDir = NULL ;
+#endif
   
   char       *path = NULL, 
              *mode ;
@@ -285,6 +303,13 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
     mode = "client or server" ;
     lookupDirs = preferClient ? potentialPathsToAnyJVMPreferringClient : potentialPathsToAnyJVMPreferringServer ;
   }
+
+  if ( !dllDirSetterFunc ) dllDirSetterFunc = getDllDirSetterFunc() ;
+  
+  if ( !dllDirSetterFunc ) {
+    currentDir = jst_strdup( getcwd() ) ;
+    if ( !currentDir ) goto end ;
+  }
   
   for ( i = 0 ; i < 2 ; i++ ) { // try both jdk and jre style paths
     for ( j = 0; ( dynLibFile = lookupDirs[ j ] ) ; j++ ) {
@@ -298,28 +323,28 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
 
       if ( jst_fileExists( path ) ) {
 
-#if !defined( _WIN32_WINNT )
-#  define _WIN32_WINNT 0x0502
-#  define JST_WINNT_VERSION_WAS_UNDEFINED        
-#endif
-#       if defined( _WIN32 ) && ( _WIN32_WINNT >= 0x0502 )
+#       if defined( _WIN32 ) 
         // on some sun jdks (e.g. 1.6.0_06) the jvm.dll depends on msvcr71.dll, which is in the bin dir
         // of java installation, which may not be on PATH and thus the dll is not found if it is 
         // not available in e.g. system dll dirs.
-        
-        // NOTE: SetDllDirectoryA is only available on Win XP sp 1 and later. The native
-        //       launcher can be compiled to run on older windows versions, but then the 
-        //       functionality of automatically adding %JAVA_HOME%\bin to dll search path
-        //       will be missing.
+
+        // For a thorough discussion on this, see http://www.duckware.com/tech/java6msvcr71.html 
+
         char* javaBinDir = jst_append( NULL, NULL, java_home, JST_FILE_SEPARATOR, "bin", NULL ) ;
-        BOOL succeededModifyingDLLSearchPath ;
         if ( !javaBinDir ) goto end ;
-        succeededModifyingDLLSearchPath = SetDllDirectoryA( javaBinDir ) ;
-        jst_free( javaBinDir ) ;
-        if ( !succeededModifyingDLLSearchPath ) {
-          jst_printWinError( GetLastError() ) ;
-          goto end ;
+        
+        if ( dllDirSetterFunc ) {
+          // NOTE: SetDllDirectoryA is only available on Win XP sp 1 and later. For compatibility
+          //       with older windows versions, we dynamically load that function to see if it's available.
+          BOOL succeededModifyingDLLSearchPath = dllDirSetterFunc( javaBinDir ) ;
+          if ( !succeededModifyingDLLSearchPath ) {
+            jst_printWinError( GetLastError() ) ;
+            goto end ;
+          }
+        } else {
+          chdir( javaBinDir ) ;
         }
+        jst_free( javaBinDir ) ;
 #       endif
         
         errno = 0 ;
@@ -364,8 +389,13 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
   }
   
   end:
-# if defined( _WIN32 ) && ( _WIN32_WINNT >= 0x0502 )
-  SetDllDirectoryA( NULL ) ;
+# if defined( _WIN32 ) 
+  if ( dllDirSetterFunc ) { 
+    dllDirSetterFunc( NULL ) ;
+  } else if ( currentDir ) {
+    chdir( currentDir ) ;
+    free( currentDir ) ;
+  }
 # endif
   if ( path ) free( path ) ;
   
