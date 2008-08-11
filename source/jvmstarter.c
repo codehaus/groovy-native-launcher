@@ -274,7 +274,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
 
 #if defined( _WIN32 )
   static SetDllDirFunc dllDirSetterFunc = NULL ; 
-  char* currentDir = NULL ;
+  char currentDir[ PATH_MAX + 1 ] ;
 #endif
   
   char       *path = NULL, 
@@ -290,6 +290,8 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
              allowServer  = ( jvmSelectStrategy & 2 ) ? JNI_TRUE : JNI_FALSE ; // secons bit
   
   assert( allowClient || allowServer ) ;
+  
+  currentDir[ 0 ] = '\0' ;
   
   rval.creatorFunc  = NULL ;
   rval.dynLibHandle = NULL ;
@@ -309,8 +311,6 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
   if ( !dllDirSetterFunc ) dllDirSetterFunc = getDllDirSetterFunc() ;
   
   if ( !dllDirSetterFunc ) {
-    currentDir = jst_malloc( PATH_MAX + 1 ) ;
-    if ( !currentDir ) goto end ;
     if ( !getcwd( currentDir, PATH_MAX + 1 ) ) {
       fprintf( stderr, "error %d: could not figure out current dir: %s\n", errno, strerror( errno ) ) ;
       goto end ;
@@ -399,20 +399,14 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
 # if defined( _WIN32 ) 
   if ( dllDirSetterFunc ) { 
     dllDirSetterFunc( NULL ) ;
-  } else if ( currentDir ) {
+  } else if ( currentDir[ 0 ] ) {
     chdir( currentDir ) ;
-    free( currentDir ) ;
   }
 # endif
   if ( path ) free( path ) ;
   
   return rval ;
 }
-
-#if defined( JST_WINNT_VERSION_WAS_UNDEFINED )
-#  undef JST_WINNT_VERSION_WAS_UNDEFINED
-#  undef _WIN32_WINNT
-#endif
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
