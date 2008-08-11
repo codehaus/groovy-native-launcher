@@ -290,9 +290,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
              allowServer  = ( jvmSelectStrategy & 2 ) ? JNI_TRUE : JNI_FALSE ; // secons bit
   
   assert( allowClient || allowServer ) ;
-  
-  currentDir[ 0 ] = '\0' ;
-  
+    
   rval.creatorFunc  = NULL ;
   rval.dynLibHandle = NULL ;
 
@@ -307,7 +305,9 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
     lookupDirs = preferClient ? potentialPathsToAnyJVMPreferringClient : potentialPathsToAnyJVMPreferringServer ;
   }
 
-#if defined( _WIN32 )  
+#if defined( _WIN32 )
+  currentDir[ 0 ] = '\0' ;
+
   if ( !dllDirSetterFunc ) dllDirSetterFunc = getDllDirSetterFunc() ;
   
   if ( !dllDirSetterFunc ) {
