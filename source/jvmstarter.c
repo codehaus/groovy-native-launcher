@@ -80,8 +80,12 @@ typedef BOOL (WINAPI *SetDllDirFunc)( LPCTSTR lpPathname ) ;
 #    if defined( __i386__ )
 #      define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #      define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
+#    elif defined( __amd64__ )
+// I only know path to server jvm on this platform:
+#      define PATHS_TO_SERVER_JVM "lib/amd64/server/libjvm.so"
+#      define PATHS_TO_CLIENT_JVM "lib/amd64/server/libjvm.so"
 #    else
-#      error "linux on non-x86 hardware not currently supported. Please contact the author to have support added."
+#      error "linux currently supported only on x86 and amd64. Please contact the author to have support added."
 #    endif
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  elif defined( __sun__ ) 
