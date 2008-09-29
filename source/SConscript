@@ -90,14 +90,20 @@ if environment['CC'] == 'cl' :
     # c4706 == assignment in conditional expression
     # this one's disabled as it does not seem very interesting:
     # c4711 == function 'function' selected for inline expansion
+    #
     # the -MD option is important - it is required when using JNI. 
     # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
     #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
-    # the -O1 is there just to reduce the size of the executable - it is not mandatory
+    #
+    # The produced executable is quite small at any rate, so the compiler optimization
+    # options are chosen so that the executable is as fast as possible.
+    #
+    # TODO: once scons supports visual studio 2008, add a conditional so that -Og is only used when visual studio version < 9.0 as in 
+    #       9.0 this option is deprecated. I've only tested on 7.1 and 9.0 and it got deprecated somewhere between...
     environment.Append (
-        CCFLAGS = '-TC -O1 -Wall -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -nologo -c -MD -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN' ,
-        LINKFLAGS = '-nologo -opt:ref -opt:nowin98' ,
-        LIBS = [ 'advapi32' ] )
+        CCFLAGS = '-TC -O2 -Ot -Ox -Og -Wall -Wp64 -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -MD -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN' ,
+        LINKFLAGS = '-opt:ref -opt:nowin98' ,
+        LIBS = [ 'advapi32', 'msvcrt' ] )
     windowsEnvironment = environment.Clone ( )
     windowsEnvironment.Append ( LINKFLAGS = '-subsystem:windows -entry:mainCRTStartup' )
     environment.Append ( LINKFLAGS = '-subsystem:console' )
