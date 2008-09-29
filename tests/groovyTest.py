@@ -48,10 +48,10 @@ class GroovyTestCase ( unittest.TestCase ) :
         self.groovyExecutionTest ( '-Xmx300m -e "println Runtime.runtime.maxMemory ( )"' , None , '312213504' if not supportModule.platform == 'sunos' else '311099392' )
 
     def testServerVM ( self ) :
-        self.groovyExecutionTest ( '-server -e "println System.getProperty ( \'java.vm.name\' )"' , None , 'Java HotSpot(TM) Server VM' )
+        self.groovyExecutionTest ( '-server -e "println System.getProperty ( \'java.vm.name\' )"' , None , re.compile( 'server', re.IGNORECASE ) )
 
     def testClientVM ( self ) :
-        self.groovyExecutionTest ( '-e "println System.getProperty ( \'java.vm.name\' )"' , None , 'Java HotSpot(TM) Client VM' )
+        self.groovyExecutionTest ( '-e "println System.getProperty ( \'java.vm.name\' )"' , None , re.compile( 'client', re.IGNORECASE ) )
 
     def testExitStatus ( self ) :
         self.groovyExecutionTest ( '-e "System.exit ( 123 )"' , 123 , '' )
