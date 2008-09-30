@@ -84,6 +84,7 @@ includeDirectoryName = {
 environment.Append ( CPPFLAGS = ' -I"%s" -I"%s"' % ( os.path.join ( javaHome , 'include'  , includeDirectoryName [ environment[ 'Architecture' ] ] ) , os.path.join ( javaHome , 'include' ) ) )
 if environment['CC'] == 'cl' :
     # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
+    # c4206 == translation unit is empty (if not compiling cygwin compatible binary, jst_cygwincompatibility.c is empty)
     # c4255 == 'function' : no function prototype given: converting '()' to '(void)'
     # c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
     # c4820 == padding added into a struct 
@@ -102,7 +103,7 @@ if environment['CC'] == 'cl' :
     # TODO: once scons supports visual studio 2008, add a conditional so that -Og is only used when visual studio version < 9.0 as in 
     #       9.0 this option is deprecated. I've only tested on 7.1 and 9.0 and it got deprecated somewhere between...
     environment.Append (
-        CCFLAGS = '-TC -O2 -Ot -Ox -Og -Wall -Wp64 -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -MD -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN' ,
+        CCFLAGS = '-TC -O2 -Ot -Ox -Og -Wall -Wp64 -wd4206 -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -MD -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN' ,
         LINKFLAGS = '-opt:ref -opt:nowin98' ,
         LIBS = [ 'advapi32', 'msvcrt' ] )
     windowsEnvironment = environment.Clone ( )
