@@ -34,6 +34,7 @@ if debug :
         print 'Debug mode not set up for compiler' , environment['CC']
         Exit ( 1 )
 else :
+    environment.Append ( CCFLAGS = '-DNDEBUG' )
     if environment['CC'] == 'cl' :
         pass
     elif environment['CC'] == 'gcc' :
