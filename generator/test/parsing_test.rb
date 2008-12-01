@@ -91,9 +91,14 @@ class ParsingTest < Test::Unit::TestCase
 
   def test_compiler_define
     definition = { 
-      'preprocessor filter' => '',
-      
-    } 
+      'preprocessor filter' => '!windows',
+      'value' => "${prepdef:GROOVY_HOME}"
+    }
+    o = ValueEvaluator.create( definition )
+    assert_instance( PreprocessorFilteredValueEvaluator, o )
+    assert_equal( "!defined( _WIN32 )", o.filter )
+    v = o.value
+    assert_instance( TODO, o )
   end
   
 end

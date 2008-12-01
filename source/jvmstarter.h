@@ -1,6 +1,6 @@
 //  A simple library for creating a native launcher for a java app
 //
-//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
+//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 //
 //  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
 //  compliance with the License. You may obtain a copy of the License at
@@ -12,7 +12,7 @@
 //  implied. See the License for the specific language governing permissions and limitations under the
 //  License.
 //
-//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
+//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 //  $Revision$
 //  $Date$
 
@@ -32,23 +32,29 @@
 #  include <Windows.h>
 
    typedef HINSTANCE JstDLHandle ;
-    
+
 #  define JST_FILE_SEPARATOR "\\"
 #  define JST_PATH_SEPARATOR ";"
 
 #else
 
    typedef void* JstDLHandle ;
-   
+
 #  define JST_FILE_SEPARATOR "/"
 #  define JST_PATH_SEPARATOR ":"
 
 #endif
 
+#define __JST_STRINGIZER_HELPER__( arg ) #arg
+
+/** This macro yields its parameter in double quotes, e.g. JST_STRINGIZER( /home/antti => "/home/antti" */
+#define JST_STRINGIZER( str ) __JST_STRINGIZER_HELPER__( str )
+
+
 /** set to true at startup to print debug information about what the launcher is doing to stdout */
-extern jboolean _jst_debug ;    
-    
-typedef enum { 
+extern jboolean _jst_debug ;
+
+typedef enum {
   /** a standalone parameter, such as -v */
   JST_SINGLE_PARAM = 1,
   /** a parameter followed by some additional info, e.g. --endcoding UTF8 */
@@ -59,18 +65,18 @@ typedef enum {
 
 typedef enum {
   /** Ignoring an input parameter means it is not passed to jvm nor to the launched java app. It can
-   * still be used for some logic during the launch process. An example is "-server", which can 
+   * still be used for some logic during the launch process. An example is "-server", which can
    * be used to instruct the launcher to use the server jvm. */
   JST_IGNORE       = 1,
   // both of the next two may be set at the same time, use & operator to find out
   JST_TO_JVM       = 2,
   JST_TO_LAUNCHEE  = 4,
   JST_TERMINATING  = 8,
-  JST_CYGWIN_PATH_CONVERT = 0x10, 
-  JST_CYGWIN_PATHLIST_CONVERT = 0x20, 
-  
+  JST_CYGWIN_PATH_CONVERT = 0x10,
+  JST_CYGWIN_PATHLIST_CONVERT = 0x20,
+
   // the following can't be set as value to ParamInfo.handling (it doesn't make sense)
-  
+
   JST_UNRECOGNIZED = 0x40,
   // this bit will be set on the parameter after which all the parameters are launchee params (and all following params)
   JST_TERMINATING_OR_AFTER = JST_TERMINATING
@@ -78,39 +84,39 @@ typedef enum {
 
 typedef enum {
   JST_CYGWIN_NO_CONVERT          = 0,
-  JST_CYGWIN_PATH_CONVERSION     = JST_CYGWIN_PATH_CONVERT, 
-  JST_CYGWIN_PATHLIST_CONVERSION = JST_CYGWIN_PATHLIST_CONVERT  
+  JST_CYGWIN_PATH_CONVERSION     = JST_CYGWIN_PATH_CONVERT,
+  JST_CYGWIN_PATHLIST_CONVERSION = JST_CYGWIN_PATHLIST_CONVERT
 } CygwinConversionType ;
 
 
 typedef struct {
-  
+
   /** a NULL terminated string array with all the aliases for a certain param. */
   const char **names ;
   JstParamClass type ;
   /** If != 0, the actual parameters followed by this one are passed on to the launchee. */
 //  unsigned char terminating ;
   JstInputParamHandling handling ;
-  
+
 } JstParamInfo ;
 
 // this is to be taken into use after some other refactorings
 typedef struct {
-  
+
   char *param ;
 
   // for twin (double) parameters, only the first will contain a pointer to the corresponding param info
   JstParamInfo* paramDefinition ;
-  
+
   // this is needed so that the cygwin conversions need to be performed only once
   // This is the actual value passed in to the jvm or launchee program. E.g. the two (connected) parameters
   // --classpath /usr/local:/home/antti might have values "--classpath" and "C:\programs\cygwin\usr\local;C:\programs\cygwin\home\antti"
-  // respectively. For sinle params this is "" (as they have no real separate value except for being present). 
-  // For prefix params this contains the prefix. Use jst_getParameterValue to fetch the value w/out the prefix. 
+  // respectively. For sinle params this is "" (as they have no real separate value except for being present).
+  // For prefix params this contains the prefix. Use jst_getParameterValue to fetch the value w/out the prefix.
   char *value ;
-  JstInputParamHandling handling ; 
-    
-} JstActualParam ; 
+  JstInputParamHandling handling ;
+
+} JstActualParam ;
 
 
 /** The strategy to use when selecting between using client and server jvm *if* no explicit -client/-server param. If explicit param
@@ -120,7 +126,7 @@ typedef struct {
  *  010 -> allow using server jvm
  *  100 -> prefer client over server
  * If you're just passing this as a param, you need not worry about the bitwise meaning, it's just an implementation detail. */
-typedef enum { 
+typedef enum {
   JST_CLIENT_FIRST     = 7,
   JST_SERVER_FIRST     = 3,
   JST_TRY_CLIENT_ONLY  = 1,
@@ -135,18 +141,18 @@ typedef enum {
   JST_UNRECOGNIZED_TO_APP = 2
 } JstUnrecognizedParamStrategy ;
 
-/** On some applications putting jars in bootstrap classpath instead of classpath boosts startup performance. 
+/** On some applications putting jars in bootstrap classpath instead of classpath boosts startup performance.
  * See e.g. http://archive.jruby.codehaus.org/dev/481A4453.3060307%40sun.com */
 typedef enum {
   JST_NORMAL_CLASSPATH = 0,
   JST_BOOTSTRAP_CLASSPATH = 1,
   JST_BOOTSTRAP_CLASSPATH_A = 3,
-  JST_BOOTSTRAP_CLASSPATH_P = 5,  
+  JST_BOOTSTRAP_CLASSPATH_P = 5,
 } JstClasspathStrategy ;
 
- /** Note that if you tell that -cp / --classpath and/or -jh / --javahome params are handled automatically. 
-  * If you do not want the user to be able to affect 
-  * javahome, specify these two as double params and their processing is up to you. 
+ /** Note that if you tell that -cp / --classpath and/or -jh / --javahome params are handled automatically.
+  * If you do not want the user to be able to affect
+  * javahome, specify these two as double params and their processing is up to you.
   */
 typedef struct {
   /** May be null. */
@@ -163,7 +169,7 @@ typedef struct {
   JstActualParam* parameters ;
   /** extra params to the jvm (in addition to those extracted from arguments above). */
   JavaVMOption* jvmOptions ;
-  int numJvmOptions; 
+  int numJvmOptions;
   /** parameters to the java class' main method. These are put first before the command line args. */
   char** extraProgramOptions ;
   char*  mainClassName ;
@@ -173,7 +179,7 @@ typedef struct {
   char** jarDirs ;
   char** jars ;
   /** What classpath to put the startup jars and initial classpath into. ATM it is only possible to put everything into
-   * one of the possible classpaths, but finer grain of control may be provided in future implementation if 
+   * one of the possible classpaths, but finer grain of control may be provided in future implementation if
    * it is deemed necessary. */
   JstClasspathStrategy classpathStrategy ;
 } JavaLauncherOptions ;
@@ -185,7 +191,7 @@ typedef struct {
   char* javahome ;
   JavaVM* javavm ;
   JNIEnv* env ;
-  JstDLHandle jvmDynlibHandle ;  
+  JstDLHandle jvmDynlibHandle ;
 } JstJvm ;
 
 // TODO: creation and destroying functions
@@ -211,18 +217,18 @@ int jst_launchJavaApp( JavaLauncherOptions* options ) ;
 // input parameter handling
 
 
-/** returns an array of JstActualParam, the last one of which contains NULL for field param. 
+/** returns an array of JstActualParam, the last one of which contains NULL for field param.
  * All the memory allocated can be freed by freeing the returned pointer.
- * Return NULL on error. 
- * @param cygwinConvertParamsAfterTermination if cygwin compatibility is set in the build & cygwin1.dll is found and loaded, 
+ * Return NULL on error.
+ * @param cygwinConvertParamsAfterTermination if cygwin compatibility is set in the build & cygwin1.dll is found and loaded,
  *                                            the terminating param (the param which w/ all the following params is passed to launchee)
  *                                            and all the following params are cygwin path converted with the given conversion type. */
 JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, const char** terminatingSuffixes, CygwinConversionType cygwinConvertParamsAfterTermination ) ;
 
-/** For single params, returns "" if the param is present, NULL otherwise. Note that you do not 
+/** For single params, returns "" if the param is present, NULL otherwise. Note that you do not
  * need to try out all the aliases for a param - e.g. if -jh and --javahome stand for the same param,
- * you will get the value passed for the param even if you ask just for "-jh". 
- * Note also that you can only query values for recognized params w/ this function, i.e. 
+ * you will get the value passed for the param even if you ask just for "-jh".
+ * Note also that you can only query values for recognized params w/ this function, i.e.
  * values for params that have been defined in the JstParamInfo[] given to jst_processInputParameters func. */
 char* jst_getParameterValue( const JstActualParam* processedParams, const char* paramName ) ;
 
@@ -236,22 +242,22 @@ int jst_isToBePassedToLaunchee( const JstActualParam* processedParam, JstUnrecog
 
 
 /** Tries to find Java home by looking where java command is located on PATH. Freeing the returned value
- * is up to the caller. 
+ * is up to the caller.
  * errno != 0 on error. */
 char* jst_findJavaHomeFromPath() ;
 
 /** First sees if JAVA_HOME is set and points to an existing location (the validity is not checked).
- * Next, windows registry is checked (if on windows) or if on os-x the standard location 
- * /System/Library/Frameworks/JavaVM.framework is checked for existence. 
+ * Next, windows registry is checked (if on windows) or if on os-x the standard location
+ * /System/Library/Frameworks/JavaVM.framework is checked for existence.
  * Last, java is looked up from the PATH.
  * This is just a composite function putting together the ways to search for a java installation
- * in a way that is very coomon. If you want to use a different order, please use the more 
- * specific funtions, e.g. jst_findJavaHomeFromPath().  
+ * in a way that is very coomon. If you want to use a different order, please use the more
+ * specific funtions, e.g. jst_findJavaHomeFromPath().
  * Returns NULL if java home could not be figured out. Freeing the returned value is up to the caller. */
 char* jst_findJavaHome( JstActualParam* processedActualParams ) ;
 
 
-/** As appendArrayItem, but specifically for jvm options. 
+/** As appendArrayItem, but specifically for jvm options.
  * @param extraInfo JavaVMOption.extraInfo. See jni.h or jni documentation (JavaVMOption is defined in jni.h). */
 JavaVMOption* appendJvmOption( JavaVMOption* opts, int index, size_t* optsSize, char* optStr, void* extraInfo ) ;
 

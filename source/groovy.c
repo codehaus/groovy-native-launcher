@@ -1,6 +1,6 @@
 //  Groovy -- A native launcher for Groovy
 //
-//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
+//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 //
 //  Licensed under the Apache License, Version 2.0 (the "License") ; you may not use this file except in
 //  compliance with the License. You may obtain a copy of the License at
@@ -12,7 +12,7 @@
 //  implied. See the License for the specific language governing permissions and limitations under the
 //  License.
 //
-//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
+//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 //  $Revision$
 //  $Date$
 
@@ -58,8 +58,8 @@ int groovyJarSelect( const char* fileName ) {
   int result = strcmp( "groovy-starter.jar", fileName ) == 0 ;
   if ( !result ) {
     size_t fileNameLen = strlen( fileName ) ;
-    // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
-    // aren't available, we'll just check that the char following 
+    // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes
+    // aren't available, we'll just check that the char following
     // groovy- is a digit
     if ( fileNameLen >= 12 ) result = isdigit( fileName[ 7 ] ) ;
   }
@@ -81,8 +81,8 @@ static int isValidGroovyHome( const char* dir ) {
   jboolean rval = JNI_FALSE ;
 
   errno = 0 ;
-  
-  gconfFile = jst_createFileName( dir, "conf", GROOVY_CONF_FILE, NULL ) ; 
+
+  gconfFile = jst_createFileName( dir, "conf", GROOVY_CONF_FILE, NULL ) ;
   if ( gconfFile ) {
     rval = jst_fileExists( gconfFile ) ? JNI_TRUE : JNI_FALSE ;
     free( gconfFile ) ;
@@ -92,19 +92,19 @@ static int isValidGroovyHome( const char* dir ) {
 }
 
 
-/** returns null on error, otherwise pointer to groovy home. 
+/** returns null on error, otherwise pointer to groovy home.
  * First tries to see if the current executable is located in a groovy installation's bin directory. If not, groovy
  * home env var is looked up. If neither succeed, an error msg is printed.
  * freeing the returned pointer must be done by the caller. */
 char* getGroovyHome() {
 
   return jst_getAppHome( JST_USE_PARENT_OF_EXEC_LOCATION_AS_HOME, "GROOVY_HOME", &isValidGroovyHome ) ;
-   
+
 }
 
-// ms visual c++ compiler does not support compound literals 
+// ms visual c++ compiler does not support compound literals
 // ( i.e. defining e.g. arrays inline, e.g. { (char*[]){ "hello", NULL }, 12 } ),
-// so for sake of maximum portability the initialization of all the arrays containing 
+// so for sake of maximum portability the initialization of all the arrays containing
 // the parameter names must be done clumsily here
 
 static const char* groovyLinebylineParam[] = { "-p", NULL } ;
@@ -125,13 +125,13 @@ static const char* groovyClientParam[]     = { "-client", NULL } ;
 static const char* groovyServerParam[]     = { "-server", NULL } ;
 static const char* groovyQuickStartParam[] = { "--quickstart", NULL } ;
 
-// the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf 
+// the parameters accepted by groovy (note that -cp / -classpath / --classpath & --conf
 // are handled separately below
 static const JstParamInfo groovyParameters[] = {
   { groovyLinebylineParam, JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { groovyDefineParam,     JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
+  { groovyDefineParam,     JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
   { groovyAutosplitParam,  JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
-  { groovyCharsetParam,    JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
+  { groovyCharsetParam,    JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
   { groovyDebugParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
   { groovyOnelinerParam,   JST_DOUBLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
   { groovyHelpParam,       JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
@@ -161,14 +161,14 @@ static const char* groovycJointcompParam[]  = { "-j", "--jointCompilation", NULL
 
 static const JstParamInfo groovycParameters[] = {
   { groovycEncodingParam,   JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
-  { groovycFParam,          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
-  { groovycJParam,          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
-  { groovycClassplaceParam, JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
+  { groovycFParam,          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
+  { groovycJParam,          JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
+  { groovycClassplaceParam, JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
   { groovycExceptionParam,  JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { groovycHelpParam,       JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },  
+  { groovycHelpParam,       JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
   { groovycJointcompParam,  JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
   { groovycVersionParam,    JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  
+
   // native launcher supported extra params
   { groovyClasspathParam,   JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATHLIST_CONVERT },
   { groovyJavahomeParam,    JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATH_CONVERT },
@@ -196,7 +196,7 @@ static const char* gantVerboseParam[]     = { "-v", "--verbose",     NULL } ;
 static const JstParamInfo gantParameters[] = {
   { gantUsecacheParam,    JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
   { gantDryrunParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { gantDefineParam,      JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
+  { gantDefineParam,      JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
   { gantClasspathParam,   JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
   { gantTargetsParam,     JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
   { gantVersionParam,     JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
@@ -217,9 +217,9 @@ static const char* groovyshTerminalParam[] = { "-T", "--terminal", NULL } ;
 
 static const JstParamInfo groovyshParameters[] = {
   { groovyshColorParam,    JST_PREFIX_PARAM, JST_TO_LAUNCHEE },
-  { groovyDefineParam,     JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
-  { groovyshTerminalParam, JST_PREFIX_PARAM, JST_TO_LAUNCHEE }, 
-  { gantVersionParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE }, 
+  { groovyDefineParam,     JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
+  { groovyshTerminalParam, JST_PREFIX_PARAM, JST_TO_LAUNCHEE },
+  { gantVersionParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
   { groovyDebugParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
   { groovyHelpParam,       JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
   { gantQuietParam,        JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
@@ -236,34 +236,34 @@ static const JstParamInfo java2groovyParameters[] = {
 } ;
 
 static const JstParamInfo noParameters[] = {
-  { NULL,          0,                0 }    
+  { NULL,          0,                0 }
 } ;
 
- 
+
 // deduce which class name to pass as --main param. In other words, this here supports all different groovy executables.
-static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** parameterInfosOut, jboolean* displayHelpOut ) {  
-  // The execubale acts as a different groovy executable when it's renamed / symlinked to. 
+static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** parameterInfosOut, jboolean* displayHelpOut ) {
+  // The execubale acts as a different groovy executable when it's renamed / symlinked to.
   char *execName = jst_strdup( cmd ),
        *eName,
        *execNameTmp,
        *mainClassName = NULL ;
-  
+
   if ( !( execNameTmp = execName ) ) return NULL ;
-  
+
 #if defined( _WIN32 )
   {
     size_t len = strlen( execName ) ;
-    if ( ( len > 4 ) && 
+    if ( ( len > 4 ) &&
          ( memcmp( execName + len - 4, ".exe", 4 ) == 0 ) ) {
       execName[ len -= 4 ] = '\0' ;
     }
-    if ( len > 0 && 
+    if ( len > 0 &&
          ( execName[ len - 1 ] == 'w' || execName[ len - 1 ] == 'W' ) ) {
       execName[ len - 1 ] = '\0' ;
     }
   }
 #endif
-  
+
   eName = strrchr( execName, JST_FILE_SEPARATOR[ 0 ] ) ;
   if ( eName ) execName = eName + 1 ;
 
@@ -274,18 +274,18 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
     mainClassName = "org.codehaus.groovy.tools.FileSystemCompiler" ;
     *parameterInfosOut = (JstParamInfo*)groovycParameters ;
   } else {
-    
+
     if ( numArgs == 0 ) *displayHelpOut = JNI_FALSE ;
-    
+
     if ( strcmp( execName, "gant" ) == 0 ) {
-      mainClassName = "gant.Gant" ; 
+      mainClassName = "gant.Gant" ;
       *parameterInfosOut = (JstParamInfo*)gantParameters ;
     } else if ( strcmp( execName, "groovysh" ) == 0 ) {
       mainClassName = getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ;
       *parameterInfosOut = (JstParamInfo*)groovyshParameters ;
     } else if ( strcmp( execName, "java2groovy" ) == 0 ) {
       *displayHelpOut = JNI_FALSE ;
-      mainClassName = "org.codehaus.groovy.antlr.java.Java2GroovyMain" ; 
+      mainClassName = "org.codehaus.groovy.antlr.java.Java2GroovyMain" ;
       *parameterInfosOut = (JstParamInfo*)java2groovyParameters ;
     } else if ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) {
       *displayHelpOut = JNI_FALSE ;
@@ -300,13 +300,13 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
       mainClassName = "groovy.ui.GroovyMain" ;
       *parameterInfosOut = (JstParamInfo*)groovyParameters ;
     }
-    
+
   }
-    
+
   free( execNameTmp ) ;
-  
+
   return mainClassName ;
-  
+
 }
 
 #if defined( _WIN32 ) && defined ( _cwcompat )
@@ -317,45 +317,45 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
   static int mainRval ;
   // 2**15
 #  define PAD_SIZE 32768
-  
+
 #if !defined( byte )
   typedef unsigned char byte ;
 #endif
-  
+
   typedef struct {
     void* backup ;
     void* stackbase ;
     void* end ;
-    byte padding[ PAD_SIZE ] ; 
+    byte padding[ PAD_SIZE ] ;
   } CygPadding ;
 
   static CygPadding *g_pad ;
 
 #endif
 
-  
-  
+
+
 int main( int argc, char** argv ) {
 
-// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
-//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 // cygwin compatibility code begin
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
 
 
   // NOTE: This code is experimental and is not compiled into the executable by default.
-  //       When building w/ rant, do 
+  //       When building w/ rant, do
   //       rant clean
   //       rant cygwinc
-  
+
   // Dynamically loading the cygwin dll is a lot more complicated than the loading of an ordinary dll. Please see
   // http://cygwin.com/faq/faq.programming.html#faq.programming.msvs-mingw
   // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/cygwin/how-cygtls-works.txt?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
   // "If you load cygwin1.dll dynamically from a non-cygwin application, it is
   // vital that the bottom CYGTLS_PADSIZE bytes of the stack are not in use
   // before you call cygwin_dll_init()."
-  // See also 
+  // See also
   // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.cc?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
   // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.h?rev=1.2&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
   size_t delta ;
@@ -378,8 +378,8 @@ int main( int argc, char** argv ) {
   #endif
   g_pad->stackbase = sbase ;
 
-  delta = (size_t)g_pad->stackbase - (size_t)g_pad->end ; 
-  
+  delta = (size_t)g_pad->stackbase - (size_t)g_pad->end ;
+
   if ( delta ) {
     g_pad->backup = malloc( delta ) ;
     if( !( g_pad->backup) ) {
@@ -391,76 +391,76 @@ int main( int argc, char** argv ) {
 
   mainRval = rest_of_main( argc, argv ) ;
 
-  // clean up the stack (is it necessary? we are exiting the program anyway...) 
+  // clean up the stack (is it necessary? we are exiting the program anyway...)
   if ( delta ) {
     memcpy( g_pad->end, g_pad->backup, delta ) ;
     free( g_pad->backup ) ;
   }
 
   return mainRval ;
-  
+
 }
 
 int rest_of_main( int argc, char** argv ) {
-  
-#endif 
+
+#endif
 
 // cygwin compatibility end
-//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
-// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
   JavaLauncherOptions options ;
 
   JavaVMOption *extraJvmOptions = NULL ;
-  size_t       extraJvmOptionsCount = 0, 
+  size_t       extraJvmOptionsCount = 0,
                extraJvmOptionsSize  = 5 ;
   JstParamInfo* parameterInfos = NULL ;
-  char *groovyConfFile  = NULL, 
+  char *groovyConfFile  = NULL,
        *groovyDConf     = NULL, // the -Dgroovy.conf=something to pass to the jvm
-       *groovyHome      = NULL, 
+       *groovyHome      = NULL,
        *groovyDHome     = NULL, // the -Dgroovy.home=something to pass to the jvm
-       *classpath       = NULL, 
+       *classpath       = NULL,
        *javaHome        = NULL ;
 
   void** dynReservedPointers = NULL ; // free all reserved pointers at at end of func
   size_t dreservedPtrsSize   = 0 ;
-  
+
 # define MARK_PTR_FOR_FREEING( garbagePtr ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) goto end ;
-        
-  /** terminatingSuffixes contains the suffixes that, if matched, indicate that the matching param and all the rest of the params 
-   * are launcheeParams, e.g. {".groovy", ".gy", NULL}. 
+
+  /** terminatingSuffixes contains the suffixes that, if matched, indicate that the matching param and all the rest of the params
+   * are launcheeParams, e.g. {".groovy", ".gy", NULL}.
    * The significance of this is marginal, as any param w/ no preceding "-" is terminating. So, this is only significant
    * if the terminating option has "-" as prefix, but is not one of the enumerated options. Usually this would be
    * a file name associated w/ the app, e.g. "-foobar.groovy". As file names do not usually begin w/ "-" this is rather unimportant. */
   const char *terminatingSuffixes[] = { ".groovy", ".gvy", ".gy", ".gsh", NULL } ;
-  char *extraProgramOptions[]       = { "--main", "groovy.ui.GroovyMain", "--conf", NULL, "--classpath", ".", NULL }, 
+  char *extraProgramOptions[]       = { "--main", "groovy.ui.GroovyMain", "--conf", NULL, "--classpath", ".", NULL },
        *jars[]                      = { NULL, NULL } ;
 
   int  numArgs = argc - 1 ;
-         
-  int  rval = -1 ; 
+
+  int  rval = -1 ;
 
   JVMSelectStrategy jvmSelectStrategy ;
-  
-  jboolean displayHelp          = ( ( numArgs == 0 )                       ||  
-                                    ( strcmp( argv[ 1 ], "-h"     ) == 0 ) || 
+
+  jboolean displayHelp          = ( ( numArgs == 0 )                       ||
+                                    ( strcmp( argv[ 1 ], "-h"     ) == 0 ) ||
                                     ( strcmp( argv[ 1 ], "--help" ) == 0 )
-                                  ) ? JNI_TRUE : JNI_FALSE ; 
-  
+                                  ) ? JNI_TRUE : JNI_FALSE ;
+
   JstActualParam *processedActualParams = NULL ;
 
-  
-  
+
+
   // _jst_debug is a global debug flag
   if ( getenv( "__JLAUNCHER_DEBUG" ) ) _jst_debug = JNI_TRUE ;
-  
+
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   jst_cygwinInit() ;
 #endif
 
   extraProgramOptions[ 1 ] = jst_figureOutMainClass( argv[ 0 ], numArgs, &parameterInfos, &displayHelp ) ;
   if ( !extraProgramOptions[ 1 ] ) goto end ;
-  
+
   processedActualParams = jst_processInputParameters( argv + 1, argc - 1, parameterInfos, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
 
   MARK_PTR_FOR_FREEING( processedActualParams )
@@ -470,26 +470,26 @@ int rest_of_main( int argc, char** argv ) {
     char *scriptNameIn = jst_getParameterAfterTermination( processedActualParams, 0 ) ;
 
     if ( scriptNameIn ) {
-  
-      char *scriptNameTmp = jst_fullPathName( scriptNameIn ), 
+
+      char *scriptNameTmp = jst_fullPathName( scriptNameIn ),
            *scriptNameDyn ;
-      
+
       if ( !scriptNameTmp ) goto end ;
-      
+
       scriptNameDyn = jst_append( NULL, NULL, "-Dscript.name=", scriptNameTmp, NULL ) ;
       MARK_PTR_FOR_FREEING( scriptNameDyn )
-      
-      if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
-                                                  (int)extraJvmOptionsCount++, 
-                                                  &extraJvmOptionsSize, 
-                                                  scriptNameDyn, 
+
+      if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
+                                                  (int)extraJvmOptionsCount++,
+                                                  &extraJvmOptionsSize,
+                                                  scriptNameDyn,
                                                   NULL ) ) ) goto end ;
-      
+
       if ( scriptNameTmp != scriptNameIn ) jst_free( scriptNameTmp ) ;
-      
-    }    
+
+    }
   }
-  
+
   classpath = jst_getParameterValue( processedActualParams, "-cp" ) ;
   if ( !classpath ) {
     classpath = getenv( "CLASSPATH" ) ;
@@ -497,52 +497,70 @@ int rest_of_main( int argc, char** argv ) {
 
   // add "." to the end of the used classpath. This is what the script launcher also does
   if ( classpath ) {
-    
+
     classpath = jst_append( NULL, NULL, classpath, JST_PATH_SEPARATOR ".", NULL ) ;
     MARK_PTR_FOR_FREEING( classpath )
 
     extraProgramOptions[ 5 ] = classpath ;
-    
-  } 
 
+  }
+
+// FIXME - remove this. Just for simple testing
+// #define GROOVY_HOME /usr/local/something
+
+#if defined( GROOVY_HOME )
+  // TODO: for some reason this won't accept something that begins w a "/"
+  groovyHome = JST_STRINGIZER( GROOVY_HOME ) ;
+  if ( _jst_debug ) fprintf( stderr, "using groovy home set at compile time: %s\n", groovyHome ) ;
+#else
   groovyHome = getGroovyHome() ;
   MARK_PTR_FOR_FREEING( groovyHome )
+#endif
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // find out the groovy conf file to use
-  
-  groovyConfFile = jst_getParameterValue( processedActualParams, "--conf" ) ; 
-  
-  if ( !groovyConfFile  ) groovyConfFile = getenv( "GROOVY_CONF" ) ; 
-  
+
+  groovyConfFile = jst_getParameterValue( processedActualParams, "--conf" ) ;
+
+  if ( !groovyConfFile  ) groovyConfFile = getenv( "GROOVY_CONF" ) ;
+
   if ( !groovyConfFile ) {
-    groovyConfFile = jst_createFileName( groovyHome, "conf", GROOVY_CONF_FILE, NULL ) ;    
+    groovyConfFile = jst_createFileName( groovyHome, "conf", GROOVY_CONF_FILE, NULL ) ;
     MARK_PTR_FOR_FREEING( groovyConfFile )
   }
-  
+
+#if defined( GROOVY_STARTUP_JAR )
+  jars[ 0 ] = JST_STRINGIZER( GROOVY_STARTUP_JAR ) ;
+  if ( _jst_debug ) fprintf( stderr, "using groovy startup jar set at compile time: %s\n", jars[ 0 ] ) ;
+#else
   MARK_PTR_FOR_FREEING( jars[ 0 ] = findGroovyStartupJar( groovyHome ) )
-  
+#endif
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
 
 
   extraProgramOptions[ 3 ] = groovyConfFile ;
 
+#if defined( JAVA_HOME )
+  javaHome = JST_STRINGIZER( JAVA_HOME ) ;
+  if ( _jst_debug ) fprintf( stderr, "using java home set at compile time: %s\n", javaHome ) ;
+#else
   javaHome = jst_findJavaHome( processedActualParams ) ;
   MARK_PTR_FOR_FREEING( javaHome )
+#endif
 
   {
     char* toolsJarFile = jst_createFileName( javaHome, "lib", "tools.jar", NULL ) ;
-    
+
     if ( !toolsJarFile ) goto end ;
     if ( jst_fileExists( toolsJarFile ) ) {
       char* toolsJarD = jst_append( NULL, NULL, "-Dtools.jar=", toolsJarFile, NULL ) ;
-      
-      if ( !toolsJarD || 
+
+      if ( !toolsJarD ||
            !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, toolsJarD ) ||
-           ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
-                                                  (int)extraJvmOptionsCount++, 
-                                                  &extraJvmOptionsSize, 
+           ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
+                                                  (int)extraJvmOptionsCount++,
+                                                  &extraJvmOptionsSize,
                                                   toolsJarD,
                                                   NULL ) ) ) {
         free( toolsJarFile ) ;
@@ -550,46 +568,46 @@ int rest_of_main( int argc, char** argv ) {
       }
 
     }
-    
+
     free( toolsJarFile ) ;
   }
-  
-  groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", groovyConfFile, NULL ) ;  
-  MARK_PTR_FOR_FREEING( groovyDConf ) 
-  
-  
-  if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
-                                              (int)extraJvmOptionsCount++, 
-                                              &extraJvmOptionsSize, 
-                                              groovyDConf, 
+
+  groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", groovyConfFile, NULL ) ;
+  MARK_PTR_FOR_FREEING( groovyDConf )
+
+
+  if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
+                                              (int)extraJvmOptionsCount++,
+                                              &extraJvmOptionsSize,
+                                              groovyDConf,
                                               NULL ) ) ) goto end ;
 
   groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ;
-  MARK_PTR_FOR_FREEING( groovyDHome ) 
+  MARK_PTR_FOR_FREEING( groovyDHome )
 
-  if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
-                                              (int)extraJvmOptionsCount++, 
-                                              &extraJvmOptionsSize, 
-                                              groovyDHome, 
+  if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
+                                              (int)extraJvmOptionsCount++,
+                                              &extraJvmOptionsSize,
+                                              groovyDHome,
                                               NULL ) ) ) goto end ;
-  
+
   MARK_PTR_FOR_FREEING( extraJvmOptions )
-  
-  
+
+
   jvmSelectStrategy = jst_getParameterValue( processedActualParams, "-client" ) ? JST_TRY_CLIENT_ONLY :
                       jst_getParameterValue( processedActualParams, "-server" ) ? JST_TRY_SERVER_ONLY :
-                      // by default, mimic java launcher, which also prefers client vm due to its 
+                      // by default, mimic java launcher, which also prefers client vm due to its
                       // faster startup (despite it running much slower)
                       JST_CLIENT_FIRST ;
-  
-  
+
+
   // populate the startup parameters
   // first, set the memory to 0. This is just a precaution, as NULL (0) is a sensible default value for many options.
   // TODO: remove this, it gives false sense of safety...
   // memset( &options, 0, sizeof( JavaLauncherOptions ) ) ;
-  
-  options.javaHome            = javaHome ; 
-  options.jvmSelectStrategy   = jvmSelectStrategy ; 
+
+  options.javaHome            = javaHome ;
+  options.jvmSelectStrategy   = jvmSelectStrategy ;
   options.javaOptsEnvVar      = "JAVA_OPTS" ;
   options.initialClasspath    = NULL ;
   options.unrecognizedParamStrategy = JST_UNRECOGNIZED_TO_JVM ;
@@ -611,11 +629,11 @@ int rest_of_main( int argc, char** argv ) {
 
   if ( displayHelp ) { // add to the standard groovy help message
     fprintf( stderr, "\n"
-    " -jh,--javahome <path to jdk/jre> makes groovy use the given jdk/jre\n" 
+    " -jh,--javahome <path to jdk/jre> makes groovy use the given jdk/jre\n"
     "                                 instead of the one pointed to by JAVA_HOME\n"
     " --conf <conf file>              use the given groovy conf file\n"
     "\n"
-    " -cp,-classpath,--classpath <user classpath>\n" 
+    " -cp,-classpath,--classpath <user classpath>\n"
     "                                 the classpath to use\n"
     " -client/-server                 to use a client/server VM\n"
     "\n"
@@ -624,11 +642,11 @@ int rest_of_main( int argc, char** argv ) {
     "\n"
     ) ;
   }
-  
+
 end:
-  
+
   jst_freeAll( &dynReservedPointers ) ;
-  
+
   return rval ;
-  
+
 }

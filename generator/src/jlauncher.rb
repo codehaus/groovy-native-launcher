@@ -86,11 +86,13 @@ class ValueEvaluator
         relative_loc = value[ 'relative to executable location' ]
         if prep_filter
           v = value.dup
-          
-        elsif comp_def
-          
+          v.delete( 'preprocessor filter' )
+          inner = ValueEvaluator.create( v ) 
+          PreprocessorFilteredValueEvaluator.new( :filter => prep_filter, :evaluator => inner )
         elsif relative_loc
           PathRelativeToExecutableLocation.new( relative_loc )
+        elsif actual_value
+          #FIXME
         else
           raise "do not know how to handle evaluation for hash #{value.inspect}"
         end
@@ -115,6 +117,8 @@ class PreprocessorFilteredValueEvaluator
     'linux'   => LINUX,
     'solaris' => SOLARIS
   }
+
+  include JLauncherUtils::EasilyInitializable
   
   attr_reader :filter
 

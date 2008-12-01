@@ -4,6 +4,7 @@
 # generating a java launcher might look like. The generator is still
 # vaporware, so this file does not do anything yet. = )
 
+
 # the sequence of actions:
 
 # - evaluate variables not using apphome or javahome
@@ -11,6 +12,8 @@
 # - evaluate variables not using javahome that aren't already evaluated
 # - Figure out javahome 
 # - evaluate the rest of the variables
+#  - maybe generate a dependency graph, chech there are no cycles, and 
+#    start evaluating at the root level (ones w/ no dependencies)
 # - Process input parameters
 #  - classify (where to pass)
 #  - make cygwin conversions where applicable
@@ -99,7 +102,7 @@ xgroovy :
       # You may supply several values for platform specifier, separated by ||. You may also use negation, like below.
       # Other supported platforms are referred to by osx, linux, solaris. 
       # Any other values are included as they are (so you can e.g. write !defined(FOO)  ) 
-      - preprocessor filter : !windows
+      - preprocessor filter : '!windows'
         # this is an example of referencing a preprocessor define
         value : "${prepdef:GROOVY_HOME}"
       # registry values are only defined on windows, so it is unnecessary to supply "platform" here. You may if you want.
@@ -157,11 +160,17 @@ xgroovy :
     # the stack whether it is used or not). 
     # TODO: check if the stack manipulation can be undone if cygwin1.dll is not found.
     cygwin support : true
-    # TODO: How to map params to mean whether to load client / server jvm?
     # mandatory. Possible values : prefer client, prefer server, server only, client only
     # You can google for the differences, but in short, client jvm is better in short running programs where startup time
     # dominates, server jvm does more runtime optimization and is faster in long running programs.
-    jvm select policy : prefer client
+    jvm select policy :
+      case :
+        condition : ${-client}
+        value     : client only
+      case :
+        condition : ${-server}
+        value     : server only
+      default : prefer client
     windows specific :
       #optional 
       icon file : groovy.ico
@@ -178,7 +187,7 @@ xgroovy :
         FileDescription  : groovy binary
         FileVersion      : 1.5
         InternalName     : groovy
-        LegalCopyright   : Copyright (C) 2007
+        LegalCopyright   : Copyright (C) 2008
         OriginalFilename : groovy.rc
         ProductName      : groovy
         ProductVersion   : 1.5
@@ -203,9 +212,8 @@ xgroovy :
     - name : --classpath
       type : separate value
       value alternatives :
+      # note that this will get the value even if it is passed in w/ -classpath/--classpath as it's logically the same parameter
         - ${-cp}
-        - ${-classpath}
-        - ${--classpath}
         - ${CLASSPATH}
   
   # all parameters the program can accept at launch must be defined here
@@ -254,8 +262,8 @@ xgroovy :
       pass to : none
       # TODO: maybe change this to true / false - the conversion can be done w/ the same func as a single path is a special case of path list
       cygwin conversion : path
-      help text : the classpath to use
-      help text value marker : <user classpath>
+      help text : the path to the java installation to use as the java runtime
+      help text value marker : <java home>
     # this can be used to mimic the way many launch scripts allow the user to pass
     # jvm options by preceding the option name w/ e.g. a J, e.g. -JXmx200m. 
     # Useful if you want to mimic the behavior of those build scripts or 
@@ -280,9 +288,9 @@ xgroovy :
           # You can have as many lines of code as you like. Assign the result to variable called includeInClasspath
           filter c code : |
             includeInClasspath = ( strcmp( "groovy-starter.jar", jarName ) == 0 ) || 
-                                 ( jarNameLen >= 8 && memcmp( "groovy-", jarName, 7) && isdigit( jarName[ 7 ] ) ) ;
+                                 ( jarNameLen >= 8 && ( memcmp( "groovy-", jarName, 7 ) == 0 ) && isdigit( jarName[ 7 ] ) ) ;
     java home :
-    # ${apphome} could be used here
+    # ${apphome} could be used here as (part of) the path to java home
       - ${--javahome}
       - ${JAVA_HOME}
       # special value allowed only here
