@@ -34,7 +34,7 @@ import sys
 
 unameResult = platform.uname ( )
 
-#  usemingw option is processed here, the debug and cygwinCompile options are processed in source/SConscript
+#  usemingw and msvsversion options are processed here, other options are processed in source/SConscript
 
 #  There is an issue when using Windows that Visual C++ has precedence of GCC and sometimes you really have
 #  to use GCC even when Visual C++ is present.
@@ -129,4 +129,5 @@ are provided.  compile is the default.  Possible options are:
     cygwinCompile=(True|False)
     usemingw=(True|False)
     msvsversion=(version) (use if several versions are installed)
+    extramacros=<list-of-c-macro-definitions>
 ''' )

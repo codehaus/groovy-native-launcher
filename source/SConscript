@@ -49,6 +49,10 @@ if cygwinCompile :
     if environment['PLATFORM'] in [ 'Windows' , 'mingw' , 'cygwin' ] :
         environment.Append ( CCFLAGS = '-D_cwcompat' )
 
+extraMacrosString = ARGUMENTS.get ( 'extraMacros' , '' )
+for macro in extraMacrosString.split ( ) :
+    environment.Append ( CCFLAGS = '-D' + macro )
+
 try :
     javaHome = os.environ['JAVA_HOME']
 except :
