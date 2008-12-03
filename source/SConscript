@@ -49,7 +49,7 @@ if cygwinCompile :
     if environment['PLATFORM'] in [ 'Windows' , 'mingw' , 'cygwin' ] :
         environment.Append ( CCFLAGS = '-D_cwcompat' )
 
-extraMacrosString = ARGUMENTS.get ( 'extraMacros' , '' )
+extraMacrosString = ARGUMENTS.get ( 'extramacros' , '' )
 for macro in extraMacrosString.split ( ) :
     environment.Append ( CCFLAGS = '-D' + macro )
 

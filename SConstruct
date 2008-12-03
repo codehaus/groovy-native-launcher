@@ -129,5 +129,5 @@ are provided.  compile is the default.  Possible options are:
     cygwinCompile=(True|False)
     usemingw=(True|False)
     msvsversion=(version) (use if several versions are installed)
-    extraMacros=<list-of-c-macro-definitions>
+    extramacros=<list-of-c-macro-definitions>
 ''' )

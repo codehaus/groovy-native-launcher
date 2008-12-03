@@ -511,7 +511,7 @@ int rest_of_main( int argc, char** argv ) {
 #if defined( GROOVY_HOME )
   // TODO: for some reason this won't accept something that begins w a "/"
   groovyHome = JST_STRINGIZER( GROOVY_HOME ) ;
-  if ( _jst_debug ) fprintf( stderr, "using groovy home set at compile time: %s\n", groovyHome ) ;
+  if ( _jst_debug ) fprintf( stderr, "debug: using groovy home set at compile time: %s\n", groovyHome ) ;
 #else
   groovyHome = getGroovyHome() ;
   MARK_PTR_FOR_FREEING( groovyHome )
@@ -531,7 +531,7 @@ int rest_of_main( int argc, char** argv ) {
 
 #if defined( GROOVY_STARTUP_JAR )
   jars[ 0 ] = JST_STRINGIZER( GROOVY_STARTUP_JAR ) ;
-  if ( _jst_debug ) fprintf( stderr, "using groovy startup jar set at compile time: %s\n", jars[ 0 ] ) ;
+  if ( _jst_debug ) fprintf( stderr, "debug: using groovy startup jar set at compile time: %s\n", jars[ 0 ] ) ;
 #else
   MARK_PTR_FOR_FREEING( jars[ 0 ] = findGroovyStartupJar( groovyHome ) )
 #endif
@@ -543,7 +543,7 @@ int rest_of_main( int argc, char** argv ) {
 
 #if defined( JAVA_HOME )
   javaHome = JST_STRINGIZER( JAVA_HOME ) ;
-  if ( _jst_debug ) fprintf( stderr, "using java home set at compile time: %s\n", javaHome ) ;
+  if ( _jst_debug ) fprintf( stderr, "debug: using java home set at compile time: %s\n", javaHome ) ;
 #else
   javaHome = jst_findJavaHome( processedActualParams ) ;
   MARK_PTR_FOR_FREEING( javaHome )
