@@ -31,9 +31,9 @@ import supportModule
 
 class GroovyTestCase ( unittest.TestCase ) :
 
-    def groovyExecutionTest ( self , command , expectedReturnCode , expectedOutput , extraMessage = None ) :
+    def groovyExecutionTest ( self , command , expectedOutput = '' , expectedReturnCode = None , extraMessage = None , prefixCommand = '' ) :
         '''Execute a Groovy command and then test that the return code is right and the output is right.'''
-        ( returnCode , output ) = supportModule.executeCommand ( command )
+        ( returnCode , output ) = supportModule.executeCommand ( command , prefixCommand )
         self.assertEqual ( returnCode , expectedReturnCode )
         if type ( expectedOutput ) == type ( re.compile ( 'a' ) ) :
             assert expectedOutput.search ( output ) != None , 'Failed to match ' + extraMessage
@@ -42,19 +42,19 @@ class GroovyTestCase ( unittest.TestCase ) :
 
     def testVersion ( self ) :
         pattern = 'Groovy Version: .* JVM: '
-        self.groovyExecutionTest ( '-v' , None , re.compile ( pattern ) , pattern )
+        self.groovyExecutionTest ( '-v' , re.compile ( pattern ) , None , pattern )
 
     def testPassingJVMParameter ( self ) :
-        self.groovyExecutionTest ( '-Xmx300m -e "println Runtime.runtime.maxMemory ( )"' , None , '312213504' if not supportModule.platform == 'sunos' else '311099392' )
+        self.groovyExecutionTest ( '-Xmx300m -e "println Runtime.runtime.maxMemory ( )"' , '312213504' if not supportModule.platform == 'sunos' else '311099392' )
 
     def testServerVM ( self ) :
-        self.groovyExecutionTest ( '-server -e "println System.getProperty ( \'java.vm.name\' )"' , None , re.compile( 'server', re.IGNORECASE ) )
+        self.groovyExecutionTest ( '-server -e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'server', re.IGNORECASE ) , prefixCommand = "LD_LIBRARY_PATH='/usr/jdk/latest/jre/lib/sparc/server'" if supportModule.platform == 'sunos' else '' )
 
     def testClientVM ( self ) :
-        self.groovyExecutionTest ( '-e "println System.getProperty ( \'java.vm.name\' )"' , None , re.compile( 'client', re.IGNORECASE ) )
+        self.groovyExecutionTest ( '-e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'client', re.IGNORECASE ) )
 
     def testExitStatus ( self ) :
-        self.groovyExecutionTest ( '-e "System.exit ( 123 )"' , 123 , '' )
+        self.groovyExecutionTest ( '-e "System.exit ( 123 )"' , '' , 123 )
 
     def testLaunchingScript ( self ) :
         #  There is a weird problem with using filenames on MSYS, assume the same is true for Windwoes.
@@ -65,7 +65,7 @@ class GroovyTestCase ( unittest.TestCase ) :
     def launchScriptTest ( self , filename , theFile , extraMessage = None ) :
         theFile.write ( 'println \'hello \' + args[ 0 ]\n' )
         theFile.flush( )
-        self.groovyExecutionTest ( filename + ' world' , None , 'hello world' )
+        self.groovyExecutionTest ( filename + ' world' , 'hello world' )
         theFile.close ( )
 
 #  Class for all the Cygwin tests.
@@ -97,7 +97,7 @@ class CygwinGroovyTestCase ( GroovyTestCase ) :
         bFile = file ( bDirectory + '/B.groovy' , 'w' )
         bFile.write ( 'class B { def sayHello ( ) { println( "hello there" ) } }' )
         bFile.flush ( )
-        self.groovyExecutionTest ( '--classpath ' + aDirectory + ':' + bDirectory + ' -e "new A ( ).b.sayHello ( )"' , None , 'hello there' )
+        self.groovyExecutionTest ( '--classpath ' + aDirectory + ':' + bDirectory + ' -e "new A ( ).b.sayHello ( )"' , 'hello there' )
         os.remove ( aFile.name )
         os.remove ( bFile.name )
         os.rmdir (bDirectory )

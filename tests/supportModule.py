@@ -39,8 +39,8 @@ def javaNameCompatibleTemporaryFile ( ) :
 #  return value is an amalgam of signal and return code.  Fortunately we know that the signal is in the low
 #  byt and the return value in the next byte.
 
-def executeCommand ( command ) :
-    process = os.popen ( executablePath + ' ' + command )
+def executeCommand ( command , prefixCommand = '' ) :
+    process = os.popen ( ( prefixCommand + ' ' if prefixCommand else '' ) +  executablePath + ' ' + command )
     output = process.read ( ).strip ( )
     returnCode = process.close ( )
     if returnCode != None :
