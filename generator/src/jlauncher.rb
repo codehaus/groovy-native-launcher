@@ -306,6 +306,15 @@ class DynString
     [ type, index, has_following_value ]
   end
   
+  def DynString.flush_parsed( parts, s )
+    if s.length > 0
+      parts << s
+      ''
+    else 
+      s
+    end    
+  end
+  
   # returns an array of evaluable parts and the index from which to continue parsing
   def DynString.parse_recursively( definition, startindex = 0, continue_to_end_of_string = true )
     raise "bug: illegal param type #{definition.class.name}" unless definition.respond_to? :to_str
@@ -333,6 +342,8 @@ class DynString
             if ( definition.length > i + 1 ) && # this is not the last character 
                ( definition[ i + 1 ] == ?{ ) # next char is {
 
+              s = flush_parsed( parts, s )
+              
               dstring_type, i, has_following_value = extract_dynstring_type( definition, i + 2 )
               
               parts << 
@@ -349,17 +360,11 @@ class DynString
               i += 1
             end
           when ?/
-            if s.length > 0
-              parts << s
-              s = ''
-            end
+            s = flush_parsed( parts, s )
             parts << FileSeparator.instance
             i += 1
           when ?: 
-            if s.length > 0
-              parts << s
-              s = ''
-            end
+            s = flush_parsed( parts, s )
             parts << PathSeparator.instance
             i += 1
           when ?}
