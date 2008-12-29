@@ -67,7 +67,7 @@ class Variable
     self.value_alternatives = [ val ]
   end
   def value_alternatives=( values )
-    @value_alternatives = values.collect { |v| DynString.new( v ) }
+    @value_alternatives = values.collect { |v| DynString.parse( v ) }
   end
 end
 
@@ -81,7 +81,7 @@ class ValueEvaluator
         VariableAccess.create( value )
       when Hash
         actual_value = value[ 'value' ] 
-        actual_val_d = DynString.new( actual_value ) if actual_value
+        actual_val_d = DynString.parse( actual_value ) if actual_value
         prep_filter  = value[ 'preprocessor filter' ]
         relative_loc = value[ 'relative to executable location' ]
         if prep_filter
@@ -137,19 +137,17 @@ class VariableAccess < ValueEvaluator
   include JLauncherUtils::EasilyInitializable
   attr_accessor :name
   
-  def VariableAccess.create( name )
-    if name =~ /\A[A-Z_]+\Z/
-      EnvVarAccess.new( :name => name )
-    elsif name =~ /\A-/
-      InputParamAccess.new( :name => name )
-    elsif name =~ /\Aprepdef:/
-      PreProcessorDefineAccess.new( :name => name[ 8...(name.length) ] )
-    elsif name =~ /\Areg:/
-      s = name[ 4...(name.length) ] 
-      WindowsRegistryAccess.new( :definition => s )
+  def VariableAccess.create( id, value = nil )
+    if id =~ /\A[A-Z_]+\Z/
+      EnvVarAccess.new( :name => id )
+    elsif id =~ /\A-/
+      InputParamAccess.new( :name => id )
+    elsif id == 'prepdef'
+      PreProcessorDefineAccess.new( :name => value )
+    elsif id == 'reg'
+      WindowsRegistryAccess.new( :definition => value )
     else
-      realname = ( name =~ /\Avar:/ ) ? name[ 4...(name.length) ] : name
-      VariableAccess.new( :name => realname )
+      VariableAccess.new( :name => id )
     end
   end
   
@@ -188,12 +186,16 @@ class WindowsRegistryAccess < VariableAccess
 
   attr_reader :main_key, :sub_key, :value_id
   
-  def definition=( defi )
-    defin = DynString.new( defi )
+  def definition=( defin )
+
     first = defin.first
     last  = defin.last
-    raise "the name of the main key must ATM be constant. If this is a problem, please file a change request" unless
-      String === first 
+    unless String === first
+      #puts "\n eka " + first.to_s
+      #puts "\n toka " + last.to_s
+      raise "the name of the main key must ATM be constant. If this is a problem, please file a change request. Expression #{defin}"
+    end
+       
     raise "main key could not be figured out from #{defi}" unless first =~ /\A\\\\([A-Z_]+)\\/
     @main_key = $1
     first = first[ (@main_key.size + 3)...(first.size) ]
@@ -261,91 +263,119 @@ end
 # \/. This should not be a problem. If it turns out to be one, we can add support, although for
 # backwards compatibility (if needed at that stage) it may need to be a special hash key.
 class DynString
-  def initialize( definition )
-    raise "bug: illegal param type #{definition.class.name}" unless definition.respond_to? :to_str    
+
+  def initialize( parts )
+    @parts = parts
+  end
+  
+
+  def DynString.parse( definition )
+    parts, index = parse_recursively( definition )
+    raise "bug: string not parsed correctly, end index #{index}/#{definition.length}" unless index == definition.length
+    
+    DynString.new( parts )
+  end
+
+  # returns type, index where to continue parsing and whether the first returned value is
+  # a type identifier (such as 'reg' or 'var') and there is thus a value part to parse, 
+  # or whether it is a self sufficient value (e.g. 'MYAPP_HOME')
+  def DynString.extract_dynstring_type( str, index )
+    type = ''
+    startindex = index
+    has_following_value = false
+    
+    while true
+      if str.length > index
+        c = str[ index ]
+        if c == ?: || c == ?}
+          index += 1
+          has_following_value = c == ?:
+          break
+        else
+          #raise "illegal character #{c.chr} for identifier at #{index} in #{str}" unless ((?a)..(?z)) === c
+          type << c
+        end
+      else 
+        raise "out of bounds when looking for end of identifier at index #{startindex} in #{str}"
+      end
+      index += 1
+    end
+    
+    raise "no type indentifier provided at #{index} in #{str}" if type.empty?
+    
+    [ type, index, has_following_value ]
+  end
+  
+  # returns an array of evaluable parts and the index from which to continue parsing
+  def DynString.parse_recursively( definition, startindex = 0, continue_to_end_of_string = true )
+    raise "bug: illegal param type #{definition.class.name}" unless definition.respond_to? :to_str
     definition = definition.to_str
+
     parts = []
+    i = startindex
     if definition.size > 0
-      i = 0
       s = ''
       
       while i < definition.length
         
         c = definition[ i ]
-        if c == ?\\ 
-          if ( i + 1 <= definition.length - 1 ) # && [ ?/, ?$ ].include?( definition[ i + 1 ] ) 
-            s << definition[ i + 1 ]
-            i += 2
-          else
-            s << ?\\ if definition.escaped?( i )
-            i += 1
-          end
-          next
-        end
         
-        if [ ?/, ?$ ].include?( c )
-
-          case c
-            when ?$
-              begin_index = i + 2
-              if ( definition.length - 1 > begin_index ) && # this is not the last character 
-                 ( definition[ i + 1 ] == ?{ ) # next char is {
-                 
-                end_index = 
-                if ( definition.length - 1 > begin_index + 5 ) && ( definition[ begin_index..( begin_index + 3 ) ] == 'reg:' )
-                  # handle registry entry
-                  end_i = nil
-                  # look for ending {
-                  # take into account that registry entry values can be nested (one level) and contain any references
-                  nesting = 0
-                  for j in (begin_index + 6)...(definition.length)
-                    ch = definition[ j ]
-                    if ch == ?$ && !definition.escaped?( j ) && j < definition.length - 1 && definition[ j + 1 ] == ?{
-                      nesting += 1
-                      #raise "too deep nesting in " + definition if nesting > 1
-                    elsif ch == ?}
-                      if nesting > 0 && definition[ j - 1 ] != ?\\ 
-                        nesting -= 1
-                      else 
-                        end_i = j
-                        break
-                      end
-                    end
-                  end
-                  end_i
-                else
-                  definition.index( '}', begin_index )
-                end
-                raise "unterminated variable reference in #{definition}" unless end_index
-                if s.length > 0
-                  parts << s
-                  s = ''
-                end
-                varref = definition[ begin_index...end_index ]
-                
-                parts << ValueEvaluator.create( varref )
-                
-                i = end_index + 1
-              else
-                s << definition[ i ]
-                i += 1
-              end
-            when ?/
-              if s.length > 0
-                parts << s
-                s = ''
-              end
-              parts << FileSeparator.instance
+        case c
+          when ?\\
+            if ( i + 1 <= definition.length - 1 ) 
+              s << definition[ i + 1 ]
+              i += 2
+            else
+              s << ?\\ if definition.escaped?( i )
               i += 1
-            when ?:
-              # TODO
-          end
-          
-        else
-          s << definition[ i ]
-          i += 1
+            end
+          when ?$
+            if ( definition.length > i + 1 ) && # this is not the last character 
+               ( definition[ i + 1 ] == ?{ ) # next char is {
+
+              dstring_type, i, has_following_value = extract_dynstring_type( definition, i + 2 )
+              
+              parts << 
+              if has_following_value
+                innerparts, i = parse_recursively( definition, i, false )
+                #puts "rekursio lopetettu #{i}/#{definition.length} : #{definition}"
+                VariableAccess.create( dstring_type, DynString.new( innerparts ) )
+              else
+                VariableAccess.create( dstring_type )
+              end
+                                
+            else
+              s << definition[ i ]
+              i += 1
+            end
+          when ?/
+            if s.length > 0
+              parts << s
+              s = ''
+            end
+            parts << FileSeparator.instance
+            i += 1
+          when ?: 
+            if s.length > 0
+              parts << s
+              s = ''
+            end
+            parts << PathSeparator.instance
+            i += 1
+          when ?}
+            if continue_to_end_of_string
+              raise "unmatched } at index #{i} in #{definition}"
+            else 
+              i += 1
+              break
+            end
+          else
+            s << definition[ i ]
+            i += 1
         end
-                
+          
+        raise "unterminated expression in #{definition}" if !continue_to_end_of_string && i >= definition.length
+                          
       end # while
       
       if s.length > 0
@@ -356,10 +386,16 @@ class DynString
       parts << ''
     end
 
-    @parts = parts
     #puts "analysoitu " + definition
     #parts.each { |p| puts "  " + p.to_s }
-  end # initialize()
+    [ parts, i ]
+  end # parse_recursively
+  
+  class << self
+    private :parse_recursively
+  end
+ 
+   
   
   def method_missing( sym, *args, &block )
     if @parts.respond_to?( sym )
