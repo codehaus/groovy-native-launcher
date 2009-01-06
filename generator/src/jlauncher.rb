@@ -140,6 +140,8 @@ class VariableAccess < ValueEvaluator
   def VariableAccess.create( id, value = nil )
     if id =~ /\A[A-Z_]+\Z/
       EnvVarAccess.new( :name => id )
+    elsif id == 'env'
+      EnvVarAccess.new( :name => value )
     elsif id =~ /\A-/
       InputParamAccess.new( :name => id )
     elsif id == 'prepdef'
