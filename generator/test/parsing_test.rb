@@ -89,7 +89,7 @@ class ParsingTest < Test::Unit::TestCase
     assert_equal( ?\\, s[ 0 ] )
   end
 
-  def no_test_compiler_define
+  def test_compiler_define
     definition = { 
       'preprocessor filter' => '!windows',
       'value' => "${prepdef:GROOVY_HOME}"
@@ -97,9 +97,23 @@ class ParsingTest < Test::Unit::TestCase
     o = ValueEvaluator.create( definition )
     assert_instance_of( PreprocessorFilteredValueEvaluator, o )
     assert_equal( "!defined( _WIN32 )", o.filter )
-    # TODO
-    v = o.value
-    assert_instance( TODO, o )
+
+    v = o.evaluator
+    
+    assert_instance_of( DynString, v )
+    
+    assert_equal( 1, v.size )
+    
+    assert_instance_of( PreProcessorDefineAccess, v[ 0 ] )
+
+    inner_str = v[ 0 ].name
+    
+    assert_instance_of DynString, inner_str
+    
+    assert_equal 1, inner_str.size 
+    
+    assert_equal 'GROOVY_HOME', inner_str[ 0 ]
+    
   end
   
 end

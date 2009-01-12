@@ -92,7 +92,7 @@ class ValueEvaluator
         elsif relative_loc
           PathRelativeToExecutableLocation.new( relative_loc )
         elsif actual_value
-          #FIXME
+          DynString.parse( actual_value )
         else
           raise "do not know how to handle evaluation for hash #{value.inspect}"
         end
