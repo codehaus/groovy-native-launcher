@@ -1,16 +1,20 @@
-# Copyright Antti Karanta <Antti dot Karanta at iki dot fi>, all rights reserved.
+# Copyright Antti Karanta <Antti dot Karanta at hornankuusi dot fi>, all rights reserved.
 
 module JLauncherUtils
 
 # provides a constructor that accepts a hash containing string/symbol => value pairs
 # that are used for setting object properties.
 module EasilyInitializable
+  
   def initialize( sym_to_value_hash = nil )
     # puts "initializing w/ " + sym_to_value_hash.to_s 
     self.init_attrs( sym_to_value_hash )
   end
+  
   def init_attrs( sym_to_value_hash = nil )
+    
     if sym_to_value_hash
+      
       sym_to_value_hash.each_pair { |k,v|
         setter_name = k.to_s.gsub( /\s/, '_' ) + '='
         if self.respond_to?( setter_name )
@@ -20,7 +24,9 @@ module EasilyInitializable
         end
       }
     end
+    
   end
+  
 end
 
 end # module JLauncherUtils
@@ -29,7 +35,7 @@ class Array
   
   # returns the first index for which the given block (mandatory) returns true (meaning not nil nor false)
   # nil if none found
-  def index_of( &block )
+  def index_of &block 
     raise "block must be given" unless block_given?
     max = self.size
     index = 
@@ -39,7 +45,7 @@ class Array
     end
     index.respond_to?( :to_int ) ? index : nil
   end
-  
+
   def last=( value )
     if self.empty?
       self << value

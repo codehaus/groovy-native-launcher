@@ -1,4 +1,4 @@
-# Copyright Antti Karanta <Antti dot Karanta at iki dot fi>, all rights reserved.
+# Copyright Antti Karanta <Antti dot Karanta at hornankuusi dot fi>, all rights reserved.
 
 # TODO: rename to Jaijutsu or Jaido, mimicking http://en.wikipedia.org/wiki/Iaijutsu
 #       See also http://en.wikipedia.org/wiki/Battōjutsu and
@@ -9,37 +9,6 @@ require 'jlauncher_utils'
 require 'singleton'
 
 module Jlaunchgenerator
-
-# returns a list of Executables as defined in the given yaml file
-def Jlaunchgenerator.load_file( yaml_file )
-  rawdata = File.open( yaml_file ) { |f|
-    YAML::load( f )  
-  }
-  
-  executables = []
-  
-  # read the yaml into more usable form
-  rawdata.each_pair { | execname, execdata |
-  
-    exec = Executable.new( :name => execname )
-    executables << exec
-    
-    variables = execdata[ 'variables' ]
-    if variables
-      exec.variables = variables.collect { |varname, data|
-        v = Variable.new( data )
-        v.name = varname
-      }
-    end
-  
-    general = execdata[ 'general' ]
-    raise "part 'general' missing for executable #{exec.name} in the spec yaml file " + yaml_file unless general
-    exec.init_attrs( general )
-  }
-
-  return executables
-end
-
 
 # represents an executable we are generating sources for
 class Executable  
@@ -63,7 +32,7 @@ end
 class Variable
   include JLauncherUtils::EasilyInitializable
   attr_accessor :name, :cygwin_conversion, :value_alternatives
-  def value=( val )
+  def value= val 
     self.value_alternatives = [ val ]
   end
   def value_alternatives=( values )
@@ -351,7 +320,7 @@ class DynString
               parts << 
               if has_following_value
                 innerparts, i = parse_recursively( definition, i, false )
-                #puts "rekursio lopetettu #{i}/#{definition.length} : #{definition}"
+
                 VariableAccess.create( dstring_type, DynString.new( innerparts ) )
               else
                 VariableAccess.create( dstring_type )

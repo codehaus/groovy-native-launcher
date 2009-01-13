@@ -1,4 +1,4 @@
-# Copyright Antti Karanta <Antti dot Karanta at iki dot fi>, all rights reserved.
+# Copyright Antti Karanta <Antti dot Karanta at hornankuusi dot fi>, all rights reserved.
 
 $: << File.basename( __FILE__, '.*' ) + '/../src'
 
