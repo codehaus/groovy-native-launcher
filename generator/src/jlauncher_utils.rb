@@ -74,3 +74,20 @@ class String
   
   
 end   
+
+module Kernel
+  
+  # defines a setter that can take a single string or a list of strings that are turned into ValueEvaluators 
+  def value_evaluator_accessor( *names )
+    names.each { |name|
+      attr_reader name
+      define_method( "#{name}=" ) { |values|
+      # FIXME - these aren't necessarily dynstrings, they may be hashes, in which case ValueEvaluator is more appropriate
+      # TODO: check unit tests for dynstring that they handle creating valueevaluators correctly
+        vals = Array === values ? values.collect { |v| Jlaunchgenerator::ValueEvaluator.create( v ) } : Jlaunchgenerator::ValueEvaluator.create( values )
+        instance_variable_set( "@#{name}", vals )
+      }
+    }
+  end
+  
+end

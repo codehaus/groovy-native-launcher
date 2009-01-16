@@ -36,6 +36,19 @@ class YamlLoadTest < Test::Unit::TestCase
     assert_instance_of Jlaunchgenerator::FileSeparator,    values[ 2 ][ 1 ]
     
   end
-  
+
+  def test_apphome
+    
+    homes = @sampleapp.application_home
+    assert_equal 3, homes.size
+    
+  end
+
+  def test_main_class
+    main_class_ds = @sampleapp.main_class
+    assert_equal 1, main_class_ds.size
+    assert_equal 'org.codehaus.groovy.tools.GroovyStarter', main_class_ds[ 0 ] 
+  end
+
 end
 

@@ -10,17 +10,19 @@ require 'singleton'
 
 module Jlaunchgenerator
 
+
 # represents an executable we are generating sources for
 class Executable  
   include JLauncherUtils::EasilyInitializable
   
-  attr_reader :name
+  attr_reader :name #, :apphome_alternatives
   attr_accessor :variables
+  value_evaluator_accessor :application_home
+  value_evaluator_accessor :main_class
   
-  def application_home=( value )
-    @apphome_alternatives = 
-    ( ( Array === value ) ? value : [ value ] ).collect { |v| ValueEvaluator.create( v ) }
-  end
+#  def application_home=( value )
+#    @apphome_alternatives = ValueEvaluator.strings_to_value_evaluators( value )
+#  end
   
   def generate_c_source( dir, filename = self.name + '.c' )
     # TODO
@@ -44,10 +46,18 @@ end
 # evaluates to a (char*) value
 class ValueEvaluator
 
-  def ValueEvaluator.create( value )
+  # value may be a single string or a list of strings
+  # if message is provided, value may not be nil and message is included in the raised exception if it is
+  def self.strings_to_value_evaluators( value, message = nil )
+    raise message if message && !value
+     ( ( Array === value ) ? value : [ value ] ).collect { |v| ValueEvaluator.create( v ) }
+  end
+
+
+  def self.create( value )
     case value
       when String
-        VariableAccess.create( value )
+        DynString.parse( value )
       when Hash
         actual_value = value[ 'value' ] 
         actual_val_d = DynString.parse( actual_value ) if actual_value

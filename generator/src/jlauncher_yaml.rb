@@ -20,11 +20,14 @@ module Jlaunchgenerator::YAMLHandling
     
       exec = Executable.new( :name => execname )
       
-      YAMLHandling.handle_variable_definitions(execdata, exec)
-    
+      YAMLHandling.handle_variable_definitions( exec, execdata )
+          
       general = execdata[ 'general' ]
       raise "part 'general' missing for executable #{exec.name} in the spec yaml file " + yaml_file unless general
-      exec.init_attrs( general )
+      
+      exec.application_home = general[ 'application home' ]
+      
+      exec.main_class = general[ 'main class' ]
       
       executables << exec
     }
@@ -34,8 +37,8 @@ module Jlaunchgenerator::YAMLHandling
   end
 
   
-  def self.handle_variable_definitions execdata, exec
-    variables = execdata['variables']
+  def self.handle_variable_definitions( exec, execdata )
+    variables = execdata[ 'variables' ]
     if variables
       exec.variables = variables.collect do |varname, data|
         v = Variable.new data
@@ -44,6 +47,6 @@ module Jlaunchgenerator::YAMLHandling
       end
     end
   end
-    
+
   
 end # Jlaunchgenerator::YAMLHandling
