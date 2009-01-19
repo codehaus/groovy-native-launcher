@@ -88,6 +88,8 @@ static int isValidGroovyHome( const char* dir ) {
     free( gconfFile ) ;
   }
 
+  if ( _jst_debug ) fprintf( stderr, "debug: %s is %sa valid groovy installation\n", dir, rval ? "" : "not " ) ;
+
   return rval ;
 }
 

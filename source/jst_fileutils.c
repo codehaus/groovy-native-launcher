@@ -531,7 +531,10 @@ extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* env
         jst_free( appHome ) ;
         return NULL ;
       }
-      if ( !isvalid ) jst_free( appHome ) ;
+
+      if ( !isvalid ) {
+        jst_free( appHome ) ;
+      }
     }
 
     if ( appHome ) {
@@ -573,6 +576,8 @@ extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* env
       if ( appHome ) appHome = jst_strdup( appHome ) ;
 #endif
 
+      if ( _jst_debug ) fprintf( stderr, "debug: obtained app home %s from env var %s\n", envVarName, appHome ) ;
+
     }
   }
 
@@ -582,7 +587,8 @@ extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* env
     if ( execLocAndEnvVar )                                  fprintf( stderr, "either " ) ;
     if ( appHomeStrategy != JST_INGORE_EXECUTABLE_LOCATION ) fprintf( stderr, "place the executable in the appropriate directory " ) ;
     if ( execLocAndEnvVar )                                  fprintf( stderr, "or " ) ;
-    if ( envVarName )                                        fprintf( stderr, "set the environment variable %s\n", envVarName ) ;
+    if ( envVarName )                                        fprintf( stderr, "set the environment variable %s", envVarName ) ;
+    fprintf( stderr, "\n" ) ;
   }
 
   return appHome ;
