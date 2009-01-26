@@ -150,6 +150,15 @@ typedef enum {
   JST_BOOTSTRAP_CLASSPATH_P = 5,
 } JstClasspathStrategy ;
 
+typedef struct {
+  /** relative to apphome */
+  char *name ;
+  // FIXME - not supported yet
+  jboolean fetchRecursively ;
+  /** May be null. The dirname parameter is there so one can differentiate between folders when fetching recursively.  */
+  int (*filter)( const char* dirname, const char* filename ) ;
+} JarDirSpecification ;
+
  /** Note that if you tell that -cp / --classpath and/or -jh / --javahome params are handled automatically.
   * If you do not want the user to be able to affect
   * javahome, specify these two as double params and their processing is up to you.
@@ -175,8 +184,8 @@ typedef struct {
   char*  mainClassName ;
   /** Defaults to "main" */
   char*  mainMethodName ;
-  /** The directories from which add all jars from to the startup classpath. NULL terminates the list. */
-  char** jarDirs ;
+  /** The directories from which add all jars from to the startup classpath. NULL (in the name field) terminates the list. */
+  JarDirSpecification* jarDirs ;
   char** jars ;
   /** What classpath to put the startup jars and initial classpath into. ATM it is only possible to put everything into
    * one of the possible classpaths, but finer grain of control may be provided in future implementation if

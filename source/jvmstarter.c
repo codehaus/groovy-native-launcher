@@ -324,12 +324,13 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
   for ( i = 0 ; i < 2 ; i++ ) { // try both jdk and jre style paths
     for ( j = 0; ( dynLibFile = lookupDirs[ j ] ) ; j++ ) {
       if ( path ) path[ 0 ] = '\0' ;
-      if ( !( path = jst_append( path, &pathSize, java_home,
-                                                  JST_FILE_SEPARATOR,
-                                                  // on a jdk, we need to add jre at this point of the path
-                                                  ( i == 0 ) ? "jre" JST_FILE_SEPARATOR : "",
-                                                  dynLibFile,
-                                                  NULL ) ) ) goto end ;
+      path = jst_append( path, &pathSize, java_home,
+                                          JST_FILE_SEPARATOR,
+                                          // on a jdk, we need to add jre at this point of the path
+                                          ( i == 0 ) ? "jre" JST_FILE_SEPARATOR : "",
+                                          dynLibFile,
+                                          NULL ) ;
+      if ( !path ) goto end ;
 
       if ( jst_fileExists( path ) ) {
 
@@ -424,6 +425,8 @@ static void clearException( JNIEnv* env ) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+// TODO: move jni utilities to a separate source file (for clarity)
+
 
 extern JavaVMOption* appendJvmOption( JavaVMOption* opts, int indx, size_t* optsSize, char* optStr, void* extraInfo ) {
   JavaVMOption tmp ;
@@ -461,23 +464,32 @@ static char* appendCPEntry(char* cp, size_t* cpsize, const char* entry) {
 
 
 /** returns != 0 on failure. May change the target to point to a new location */
-static jboolean appendJarsFromDir( char* dirName, char** target, size_t* targetSize ) {
+static jboolean appendJarsFromDir( JarDirSpecification* dirSpec, char** target, size_t* targetSize ) {
 
+  char *dirName = dirSpec->name ;
   char **jarNames = jst_getFileNames( dirName, NULL, ".jar", NULL ),
        *s ;
   int i = 0 ;
-  jboolean dirNameEndsWithSeparator = ( strcmp( dirName + strlen( dirName ) - strlen( JST_FILE_SEPARATOR ), JST_FILE_SEPARATOR ) == 0 ) ? JNI_TRUE : JNI_FALSE,
+  jboolean dirNameEndsWithSeparator = jst_dirNameEndsWithSeparator( dirName ),
            errorOccurred = JNI_FALSE ;
 
   if ( !jarNames ) return JNI_TRUE ;
 
   while ( ( s = jarNames[ i++ ] ) ) {
-    if(    !( *target = appendCPEntry( *target, targetSize, dirName ) )
-        || !( *target = jst_append( *target, targetSize, dirNameEndsWithSeparator ? "" : JST_FILE_SEPARATOR, s, NULL ) )
-      ) {
-      errorOccurred = JNI_TRUE ;
-      goto end ;
+    if ( !dirSpec->filter || dirSpec->filter( dirName, s ) ) {
+      if(    !( *target = appendCPEntry( *target, targetSize, dirName ) )
+          || !( *target = jst_append( *target, targetSize, dirNameEndsWithSeparator ? "" : JST_FILE_SEPARATOR, s, NULL ) )
+        ) {
+        errorOccurred = JNI_TRUE ;
+        goto end ;
+      }
     }
+  }
+
+  if ( dirSpec->fetchRecursively ) {
+    // FIXME - implement this behavior
+    fprintf( stderr, "error: adding jars recursively from a directory not supported yet\n" ) ;
+    errorOccurred = JNI_TRUE ;
   }
 
   end:
@@ -524,11 +536,9 @@ typedef struct {
 
 } JSTJVMOptionHolder ;
 
-/** @param initialCP may be NULL */
-static char* constructClasspath( char* initialCP, char** jarDirs, char** jars, JstClasspathStrategy classpathStrategy ) {
-  size_t cpsize    = 255 ; // just an initial guess for classpath length, will be expanded as necessary
-  char*  classpath = NULL ;
-  char*  cpPrefix ;
+static char* selectClasspathType( JstClasspathStrategy classpathStrategy ) {
+
+  char* cpPrefix ;
 
   switch ( classpathStrategy ) {
     case JST_NORMAL_CLASSPATH :
@@ -545,8 +555,19 @@ static char* constructClasspath( char* initialCP, char** jarDirs, char** jars, J
       break ;
     default :
       fprintf( stderr, "error: unrecognized classpath strategy %d\n", classpathStrategy ) ;
-      return NULL ;
+      cpPrefix = NULL ;
+      break ;
   }
+  return cpPrefix ;
+}
+
+/** @param initialCP may be NULL */
+static char* constructClasspath( char* initialCP, JarDirSpecification* jarDirs, char** jars, JstClasspathStrategy classpathStrategy ) {
+  size_t cpsize    = 255 ; // just an initial guess for classpath length, will be expanded as necessary
+  char*  classpath = NULL ;
+  char*  cpPrefix  = selectClasspathType( classpathStrategy ) ;
+
+  if ( !cpPrefix ) goto end ;
 
   if ( !( classpath = jst_append( NULL, &cpsize, cpPrefix, NULL ) ) ) goto end ;
 
@@ -556,9 +577,9 @@ static char* constructClasspath( char* initialCP, char** jarDirs, char** jars, J
 
   // add the jars from the given dirs
   if ( jarDirs ) {
-
-    while ( *jarDirs  ) {
-      if ( appendJarsFromDir( *jarDirs++, &classpath, &cpsize ) ) goto end ; // error msg already printed
+    int i ;
+    for ( i = 0 ; jarDirs[ i ].name ; i++ ) {
+      if ( appendJarsFromDir( &(jarDirs[ i ]), &classpath, &cpsize ) ) goto end ; // error msg already printed
     }
 
   }

@@ -1,6 +1,6 @@
 //  Groovy -- A native launcher for Groovy
 //
-//  Copyright (c) 2008 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
+//  Copyright (c) 2008 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 //
 //  Licensed under the Apache License, Version 2.0 (the "License") ; you may not use this file except in
 //  compliance with the License. You may obtain a copy of the License at
@@ -12,7 +12,7 @@
 //  implied. See the License for the specific language governing permissions and limitations under the
 //  License.
 //
-//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
+//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 //  $Revision$
 //  $Date$
 
@@ -44,7 +44,7 @@
 #  define GROOVY_EXECUTABLE "groovy.exe"
 #  define ANT_EXECUTABLE    "ant.exe"
 #else
-#  define GROOVY_EXECUTABLE "groovy"  
+#  define GROOVY_EXECUTABLE "groovy"
 #  define ANT_EXECUTABLE    "ant"
 #endif
 
@@ -62,11 +62,11 @@
 #define GANT_CONF_FILE "gant-starter.conf"
 
 
-int gantJarSelect( const char* fileName ) {
+int gantJarSelect( const char* dirName, const char* fileName ) {
   int result = JNI_FALSE ;
   size_t fileNameLen = strlen( fileName ) ;
-  // we are looking for gant-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
-  // aren't available, we'll just check that the char following 
+  // we are looking for gant-[0-9]+\.+[0-9]+.*\.jar. As tegexes
+  // aren't available, we'll just check that the char following
   // gant- is a digit
   if ( fileNameLen >= 9 ) result = isdigit( fileName[ 5 ] ) ;
 
@@ -78,15 +78,15 @@ int groovyJarSelect( const char* fileName ) {
   if ( !result ) result = memcmp( "groovy-all-", fileName, 11 ) == 0 ;
   if ( !result ) {
     size_t fileNameLen = strlen( fileName ) ;
-    // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes 
-    // aren't available, we'll just check that the char following 
+    // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes
+    // aren't available, we'll just check that the char following
     // groovy- is a digit
     if ( fileNameLen >= 12 ) result = isdigit( fileName[ 7 ] ) ;
   }
   return result ;
 }
 
-/** 
+/**
  * @return NULL on error, otherwise dynallocated string (which caller must free). */
 static char* findGantStartupJar( const char* gantHome ) {
   char *gantStartupJar = findStartupJar( gantHome, "lib", "gant-", "gant", &gantJarSelect ) ;
@@ -96,9 +96,9 @@ static char* findGantStartupJar( const char* gantHome ) {
 
 static char* findGroovyStartupJar( const char* groovyHome, jboolean errorMsgOnFailure ) {
   char *groovyStartupJar = findStartupJar( groovyHome, "lib", "groovy-", errorMsgOnFailure ? "groovy" : NULL, &groovyJarSelect ) ;
-    
+
   return groovyStartupJar ;
-  
+
 }
 
 /** Checks that the given dir is a valid groovy dir.
@@ -108,8 +108,8 @@ static int isValidGantHome( const char* dir ) {
   jboolean rval = JNI_FALSE ;
 
   errno = 0 ;
-  
-  gconfFile = jst_createFileName( dir, "conf", GANT_CONF_FILE, NULL ) ; 
+
+  gconfFile = jst_createFileName( dir, "conf", GANT_CONF_FILE, NULL ) ;
   if ( gconfFile ) {
     rval = jst_fileExists( gconfFile ) ? JNI_TRUE : JNI_FALSE ;
     free( gconfFile ) ;
@@ -119,19 +119,19 @@ static int isValidGantHome( const char* dir ) {
 }
 
 
-/** returns null on error, otherwise pointer to gant home. 
- * First tries to see if the current executable is located in a gant installation's bin directory. If not, 
+/** returns null on error, otherwise pointer to gant home.
+ * First tries to see if the current executable is located in a gant installation's bin directory. If not,
  * GANT_HOME env var is looked up. If neither succeed, an error msg is printed.
  * freeing the returned pointer must be done by the caller. */
 char* getGantHome() {
 
   return jst_getAppHome( JST_USE_PARENT_OF_EXEC_LOCATION_AS_HOME, "GANT_HOME", &isValidGantHome ) ;
-   
+
 }
 
-// ms visual c++ compiler does not support compound literals 
+// ms visual c++ compiler does not support compound literals
 // ( i.e. defining e.g. arrays inline, e.g. { (char*[]){ "hello", NULL }, 12 } ),
-// so for sake of maximum portability the initialization of all the arrays containing 
+// so for sake of maximum portability the initialization of all the arrays containing
 // the parameter names must be done clumsily here
 
 static const char* gantUsecacheParam[]    = { "-c", "--usecache", NULL } ;
@@ -152,7 +152,7 @@ static const char* gantVerboseParam[]     = { "-v", "--verbose",     NULL } ;
 static const JstParamInfo gantParameters[] = {
   { gantUsecacheParam,    JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
   { gantDryrunParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
-  { gantDefineParam,      JST_DOUBLE_PARAM, JST_TO_LAUNCHEE }, 
+  { gantDefineParam,      JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
   { gantClasspathParam,   JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
   { gantTargetsParam,     JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
   { gantVersionParam,     JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
@@ -178,45 +178,45 @@ static const JstParamInfo gantParameters[] = {
   static int mainRval ;
   // 2**15
 #  define PAD_SIZE 32768
-  
+
 #if !defined( byte )
   typedef unsigned char byte ;
 #endif
-  
+
   typedef struct {
     void* backup ;
     void* stackbase ;
     void* end ;
-    byte padding[ PAD_SIZE ] ; 
+    byte padding[ PAD_SIZE ] ;
   } CygPadding ;
 
   static CygPadding *g_pad ;
 
 #endif
 
-  
-  
+
+
 int main( int argc, char** argv ) {
 
-// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
-//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 // cygwin compatibility code begin
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
 
 
   // NOTE: This code is experimental and is not compiled into the executable by default.
-  //       When building w/ rant, do 
+  //       When building w/ rant, do
   //       rant clean
   //       rant cygwinc
-  
+
   // Dynamically loading the cygwin dll is a lot more complicated than the loading of an ordinary dll. Please see
   // http://cygwin.com/faq/faq.programming.html#faq.programming.msvs-mingw
   // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/cygwin/how-cygtls-works.txt?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
   // "If you load cygwin1.dll dynamically from a non-cygwin application, it is
   // vital that the bottom CYGTLS_PADSIZE bytes of the stack are not in use
   // before you call cygwin_dll_init()."
-  // See also 
+  // See also
   // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.cc?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
   // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.h?rev=1.2&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
   size_t delta ;
@@ -239,8 +239,8 @@ int main( int argc, char** argv ) {
   #endif
   g_pad->stackbase = sbase ;
 
-  delta = (size_t)g_pad->stackbase - (size_t)g_pad->end ; 
-  
+  delta = (size_t)g_pad->stackbase - (size_t)g_pad->end ;
+
   if ( delta ) {
     g_pad->backup = malloc( delta ) ;
     if( !( g_pad->backup) ) {
@@ -252,57 +252,57 @@ int main( int argc, char** argv ) {
 
   mainRval = rest_of_main( argc, argv ) ;
 
-  // clean up the stack (is it necessary? we are exiting the program anyway...) 
+  // clean up the stack (is it necessary? we are exiting the program anyway...)
   if ( delta ) {
     memcpy( g_pad->end, g_pad->backup, delta ) ;
     free( g_pad->backup ) ;
   }
 
   return mainRval ;
-  
+
 }
 
 int rest_of_main( int argc, char** argv ) {
-  
-#endif 
+
+#endif
 
 // cygwin compatibility end
-//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
-// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =  
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
   JavaLauncherOptions options ;
 
   JavaVMOption *extraJvmOptions = NULL ;
-  size_t       extraJvmOptionsCount = 0, 
+  size_t       extraJvmOptionsCount = 0,
                extraJvmOptionsSize  = 5 ;
-  char *gantConfFile  = NULL, 
-       *gantHome      = NULL, 
+  char *gantConfFile  = NULL,
+       *gantHome      = NULL,
        *gantDHome     = NULL, // the -Dgroovy.home=something to pass to the jvm
-       *classpath     = NULL, 
+       *classpath     = NULL,
        *javaHome      = NULL ;
 
   void** dynReservedPointers = NULL ; // free all reserved pointers at at end of func
   size_t dreservedPtrsSize   = 0 ;
-  
+
 # define MARK_PTR_FOR_FREEING( garbagePtr ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) goto end ;
-        
+
   const char *terminatingSuffixes[] = { ".gant", NULL } ;
-  char *extraProgramOptions[]       = { "--main", "gant.Gant", "--conf", NULL, "--classpath", ".", NULL }, 
+  char *extraProgramOptions[]       = { "--main", "gant.Gant", "--conf", NULL, "--classpath", ".", NULL },
        *jars[]                      = { NULL, NULL, NULL } ;
-         
-  int  rval = -1 ; 
+
+  int  rval = -1 ;
 
   JstActualParam *processedActualParams ;
 
-  
-  
+
+
   // _jst_debug is a global debug flag
   if ( getenv( "__JLAUNCHER_DEBUG" ) ) _jst_debug = JNI_TRUE ;
-  
+
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   jst_cygwinInit() ;
 #endif
-  
+
   processedActualParams = jst_processInputParameters( argv + 1, argc - 1, (JstParamInfo*)gantParameters, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
 
   MARK_PTR_FOR_FREEING( processedActualParams )
@@ -311,41 +311,41 @@ int rest_of_main( int argc, char** argv ) {
 
   // add "." to the end of the used classpath. This is what the script launcher also does
   if ( classpath ) {
-    
+
     classpath = jst_append( NULL, NULL, classpath, JST_PATH_SEPARATOR ".", NULL ) ;
     MARK_PTR_FOR_FREEING( classpath )
 
     extraProgramOptions[ 5 ] = classpath ;
-    
-  } 
+
+  }
 
   gantHome = getGantHome() ;
   MARK_PTR_FOR_FREEING( gantHome )
 
   MARK_PTR_FOR_FREEING( jars[ 0 ] = findGantStartupJar( gantHome ) )
 
-  
+
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // find out the groovy conf file to use
-  
-  gantConfFile = getenv( "GANT_CONF" ) ; 
-  
+
+  gantConfFile = getenv( "GANT_CONF" ) ;
+
   if ( !gantConfFile ) {
-    gantConfFile = jst_createFileName( gantHome, "conf", GANT_CONF_FILE, NULL ) ;    
+    gantConfFile = jst_createFileName( gantHome, "conf", GANT_CONF_FILE, NULL ) ;
     MARK_PTR_FOR_FREEING( gantConfFile )
   }
 
   extraProgramOptions[ 3 ] = gantConfFile ;
 
   {
-    char *groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", gantConfFile, NULL ) ;  
-    MARK_PTR_FOR_FREEING( groovyDConf ) 
-    
-    
-    if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
-                                                (int)extraJvmOptionsCount++, 
-                                                &extraJvmOptionsSize, 
-                                                groovyDConf, 
+    char *groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", gantConfFile, NULL ) ;
+    MARK_PTR_FOR_FREEING( groovyDConf )
+
+
+    if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
+                                                (int)extraJvmOptionsCount++,
+                                                &extraJvmOptionsSize,
+                                                groovyDConf,
                                                 NULL ) ) ) goto end ;
   }
 
@@ -356,16 +356,16 @@ int rest_of_main( int argc, char** argv ) {
 
   {
     char* toolsJarFile = jst_createFileName( javaHome, "lib", "tools.jar", NULL ) ;
-    
+
     if ( !toolsJarFile ) goto end ;
     if ( jst_fileExists( toolsJarFile ) ) {
       char* toolsJarD = jst_append( NULL, NULL, "-Dtools.jar=", toolsJarFile, NULL ) ;
-      
-      if ( !toolsJarD || 
+
+      if ( !toolsJarD ||
            !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, toolsJarD ) ||
-           ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
-                                                  (int)extraJvmOptionsCount++, 
-                                                  &extraJvmOptionsSize, 
+           ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
+                                                  (int)extraJvmOptionsCount++,
+                                                  &extraJvmOptionsSize,
                                                   toolsJarD,
                                                   NULL ) ) ) {
         free( toolsJarFile ) ;
@@ -373,27 +373,27 @@ int rest_of_main( int argc, char** argv ) {
       }
 
     }
-    
+
     free( toolsJarFile ) ;
   }
-    
-  
-  gantDHome = jst_append( NULL, NULL, "-Dgant.home=", gantHome, NULL ) ;
-  MARK_PTR_FOR_FREEING( gantDHome ) 
 
-  if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
-                                              (int)extraJvmOptionsCount++, 
-                                              &extraJvmOptionsSize, 
-                                              gantDHome, 
+
+  gantDHome = jst_append( NULL, NULL, "-Dgant.home=", gantHome, NULL ) ;
+  MARK_PTR_FOR_FREEING( gantDHome )
+
+  if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
+                                              (int)extraJvmOptionsCount++,
+                                              &extraJvmOptionsSize,
+                                              gantDHome,
                                               NULL ) ) ) goto end ;
-  
-  
-  
+
+
+
   {
-    char *groovyHome  = NULL,  
+    char *groovyHome  = NULL,
          *groovyDHome = NULL ;
     jars[ 1 ] = findGroovyStartupJar( gantHome, JNI_FALSE ) ;
-    
+
     if ( !jars[ 1 ] ) {
       groovyHome = getenv( "GROOVY_HOME" ) ;
       if ( !groovyHome ) {
@@ -409,24 +409,24 @@ int rest_of_main( int argc, char** argv ) {
       }
       if ( groovyHome ) jars[ 1 ] = findGroovyStartupJar( groovyHome, JNI_FALSE ) ;
     }
-    
-    MARK_PTR_FOR_FREEING( jars[ 1 ] )    
-    
+
+    MARK_PTR_FOR_FREEING( jars[ 1 ] )
+
     groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome ? groovyHome : gantHome, NULL ) ;
-    MARK_PTR_FOR_FREEING( groovyDHome ) 
-    
-    if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
-                                                (int)extraJvmOptionsCount++, 
-                                                &extraJvmOptionsSize, 
-                                                groovyDHome, 
+    MARK_PTR_FOR_FREEING( groovyDHome )
+
+    if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
+                                                (int)extraJvmOptionsCount++,
+                                                &extraJvmOptionsSize,
+                                                groovyDHome,
                                                 NULL ) ) ) goto end ;
 
   }
-  
-  
+
+
 // FIXME - these two are essentially the same (handling groovy home and gant home). Refactor out the duplicate code.
   {
-    char *antHome  = getenv( "ANT_HOME" ), 
+    char *antHome  = getenv( "ANT_HOME" ),
          *antDHome = NULL ;
     if ( !antHome ) {
       antHome = jst_findFromPath( ANT_EXECUTABLE, "bin", JNI_TRUE ) ;
@@ -437,30 +437,30 @@ int rest_of_main( int argc, char** argv ) {
         if ( errno ) goto end ;
       }
 #endif
-      if ( antHome ) { MARK_PTR_FOR_FREEING( antHome ) }      
+      if ( antHome ) { MARK_PTR_FOR_FREEING( antHome ) }
     }
-    
+
     if ( !antHome ) { fprintf( stderr, "error: could not locate ant installation\n" ) ; goto end ; }
-  
+
     antDHome = jst_append( NULL, NULL, "-Dant.home=", antHome, NULL ) ;
-    MARK_PTR_FOR_FREEING( antDHome ) 
-    
-    if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions, 
-                                                (int)extraJvmOptionsCount++, 
-                                                &extraJvmOptionsSize, 
-                                                antDHome, 
+    MARK_PTR_FOR_FREEING( antDHome )
+
+    if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
+                                                (int)extraJvmOptionsCount++,
+                                                &extraJvmOptionsSize,
+                                                antDHome,
                                                 NULL ) ) ) goto end ;
-    
+
   }
-  
-  
+
+
   MARK_PTR_FOR_FREEING( extraJvmOptions )
 
-  
+
   // populate the startup parameters
-  
-  options.javaHome            = javaHome ; 
-  options.jvmSelectStrategy   = JST_CLIENT_FIRST ; 
+
+  options.javaHome            = javaHome ;
+  options.jvmSelectStrategy   = JST_CLIENT_FIRST ;
   options.javaOptsEnvVar      = "JAVA_OPTS" ;
   options.initialClasspath    = NULL ;
   options.unrecognizedParamStrategy = JST_UNRECOGNIZED_TO_JVM ;
@@ -480,11 +480,11 @@ int rest_of_main( int argc, char** argv ) {
 
   rval = jst_launchJavaApp( &options ) ;
 
-  
+
 end:
-  
+
   jst_freeAll( &dynReservedPointers ) ;
-  
+
   return rval ;
-  
+
 }

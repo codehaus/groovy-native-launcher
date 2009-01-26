@@ -54,13 +54,14 @@
 #define GROOVY_CONF_FILE "groovy-starter.conf"
 
 
-int groovyJarSelect( const char* fileName ) {
+int groovyJarSelect( const char* dirName, const char* fileName ) {
   int result = strcmp( "groovy-starter.jar", fileName ) == 0 ;
   if ( !result ) {
     size_t fileNameLen = strlen( fileName ) ;
     // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes
     // aren't available, we'll just check that the char following
     // groovy- is a digit
+    // note that having && ( memcmp( "groovy-", fileName, 7 ) == 0 ) in the condition is unnecessary as that is taken care of in findGroovyStartupJar
     if ( fileNameLen >= 12 ) result = isdigit( fileName[ 7 ] ) ;
   }
   return result ;
@@ -487,7 +488,9 @@ int rest_of_main( int argc, char** argv ) {
                                                   scriptNameDyn,
                                                   NULL ) ) ) goto end ;
 
-      if ( scriptNameTmp != scriptNameIn ) jst_free( scriptNameTmp ) ;
+      if ( scriptNameTmp != scriptNameIn ) {
+        jst_free( scriptNameTmp ) ;
+      }
 
     }
   }

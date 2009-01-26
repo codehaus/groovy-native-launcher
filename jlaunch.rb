@@ -25,7 +25,7 @@ raise "input file #{yaml_file} does not exist" unless File.exists?( yaml_file )
 output_dir = ( ARGV.size == 2 ) ? ARGV[ 1 ] : File.dirname( yaml_file )
 
 
-execs = Jlaunchgenerator.load_file( yaml_file )
+execs = Jlaunchgenerator.load_yaml_file( yaml_file )
 
 execs.each { |exec|
   exec.generate_c_source( output_dir )

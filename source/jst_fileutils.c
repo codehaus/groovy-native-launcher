@@ -77,14 +77,17 @@ extern int jst_fileExists( const char* fileName ) {
 
 extern int jst_isDir( const char* fileName ) {
   struct stat buf ;
-  int i = stat( fileName, &buf ) ;
+#if !defined( NDEBUG )
+  int i =
+#endif
+  stat( fileName, &buf ) ;
   assert( i == 0 ) ;
   return ( buf.st_mode & S_IFDIR ) ? 1 : 0 ;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static jboolean jst_dirNameEndsWithSeparator( const char* dirName ) {
+extern jboolean jst_dirNameEndsWithSeparator( const char* dirName ) {
   return ( strcmp( dirName + strlen( dirName ) - ( sizeof( JST_FILE_SEPARATOR ) - 1 ), JST_FILE_SEPARATOR ) == 0 ) ? JNI_TRUE : JNI_FALSE ;
 }
 
@@ -113,7 +116,7 @@ extern char* jst_pathToParentDir( char* path ) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix, int (*selector)( const char* filename ) ) {
+extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix, int (*selector)( const char* dirname, const char* filename ) ) {
   char     **tempResult ;
   size_t   resultSize = 30 ;
   jboolean errorOccurred = JNI_FALSE ;
@@ -169,7 +172,7 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
         int okToInclude = JNI_TRUE ;
         if ( selector ) {
           errno = 0 ;
-          okToInclude = selector( fdata.cFileName ) ;
+          okToInclude = selector( dirName, fdata.cFileName ) ;
           if ( errno ) { errorOccurred = JNI_TRUE; goto end ; }
         }
 
@@ -469,7 +472,7 @@ extern char* jst_fullPathName( const char* fileOrDirName ) {
 
 }
 
-extern char* findStartupJar( const char* basedir, const char* subdir, const char* prefix, const char* progname, int (*selector)( const char* filename ) ) {
+extern char* findStartupJar( const char* basedir, const char* subdir, const char* prefix, const char* progname, int (*selector)( const char* dirname, const char* filename ) ) {
   char *startupJar = NULL,
        *libDir     = NULL,
        **jarNames  = NULL ;
@@ -576,7 +579,7 @@ extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* env
       if ( appHome ) appHome = jst_strdup( appHome ) ;
 #endif
 
-      if ( _jst_debug ) fprintf( stderr, "debug: obtained app home %s from env var %s\n", envVarName, appHome ) ;
+      if ( _jst_debug ) fprintf( stderr, "debug: obtained app home from env var  %s, value: %s\n", envVarName, appHome ) ;
 
     }
   }
