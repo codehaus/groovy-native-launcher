@@ -226,7 +226,7 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
         int okToInclude = JNI_TRUE ;
         if ( selector ) {
           errno = 0 ;
-          okToInclude = selector( fileName ) ;
+          okToInclude = selector( dirName, fileName ) ;
           if ( errno ) { errorOccurred = JNI_TRUE; goto end ; }
         }
 
