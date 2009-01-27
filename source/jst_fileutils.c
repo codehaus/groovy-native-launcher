@@ -116,6 +116,81 @@ extern char* jst_pathToParentDir( char* path ) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+#if defined( _WIN32 )
+
+/** returns true if there is an error, changes value of errorOccurred accordingly */
+static jboolean checkForInvalidFileHandle( HANDLE fileHandle, const char* dirName, jboolean* errorOccurred ) {
+
+  if ( fileHandle == INVALID_HANDLE_VALUE ) {
+    DWORD lastError = GetLastError() ;
+    if ( lastError != ERROR_FILE_NOT_FOUND ) {
+      fprintf( stderr, "error: opening directory %s failed\n", dirName ) ;
+      jst_printWinError( lastError ) ;
+      *errorOccurred = JNI_TRUE ;
+    }
+  }
+  return *errorOccurred ;
+
+}
+
+#endif
+
+/** adds filename to list, return true on error and changes the value of errorOccurred accordingly. */
+static jboolean addFileToList( char ***tempResult, int *indx, size_t *resultSize, char* dirName, char* fileName, int (*selector)( const char* dirname, const char* filename ), jboolean *errorOccurred ) {
+
+  int okToInclude = JNI_TRUE ;
+
+  if ( selector ) {
+    errno = 0 ;
+    okToInclude = selector( dirName, fileName ) ;
+    if ( errno ) { *errorOccurred = JNI_TRUE; goto end ; }
+  }
+
+  if ( okToInclude ) {
+    char* temp = jst_strdup( fileName ) ;
+    if ( !temp ||
+         !( *tempResult = jst_appendArrayItem( *tempResult, (*indx)++, resultSize, &temp, sizeof( char* ) ) ) ) {
+      *errorOccurred = JNI_TRUE ;
+      goto end ;
+    }
+  }
+
+  end:
+  return *errorOccurred ;
+}
+
+
+static void changeEmptyPrefixAndSuffixToNULL( char** fileNamePrefix, char** fileNameSuffix ) {
+
+  if ( *fileNamePrefix && !**fileNamePrefix ) *fileNamePrefix = NULL ; // replace empty str w/ NULL
+  if ( *fileNameSuffix ) {
+    if ( !**fileNameSuffix ) {
+      *fileNameSuffix = NULL ;
+    } else {
+      assert( (*fileNameSuffix)[ 0 ] == '.' ) ; // file name suffix must begin with a .
+    }
+  }
+
+}
+
+/** Checks that the given file name has the given prefix and suffix. Give NULL to match anything. fileName may not be NULL */
+static jboolean matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* suffix ) {
+  jboolean match = JNI_FALSE ;
+
+  if ( !prefix || !*prefix || memcmp( prefix, fileName, strlen( prefix ) ) == 0 ) match = JNI_TRUE ;
+
+  if ( match ) {
+    size_t suffixlen   = suffix ? strlen( suffix ) : 0,
+           fileNameLen = strlen( fileName ) ;
+
+    match = !suffix || !*suffix || memcmp( suffix, fileName + fileNameLen - suffixlen, suffixlen ) == 0 ;
+
+  }
+
+  return match ;
+
+}
+
 extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix, int (*selector)( const char* dirname, const char* filename ) ) {
   char     **tempResult ;
   size_t   resultSize = 30 ;
@@ -124,14 +199,7 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
 
   if ( !( tempResult = jst_calloc( resultSize, sizeof( char* ) ) ) ) return NULL ;
 
-  if ( fileNamePrefix && !*fileNamePrefix ) fileNamePrefix = NULL ; // replace empty str w/ NULL
-  if ( fileNameSuffix ) {
-    if ( !*fileNameSuffix ) {
-      fileNameSuffix = NULL ;
-    } else {
-      assert( fileNameSuffix[ 0 ] == '.' ) ; // file name suffix must begin with a .
-    }
-  }
+  changeEmptyPrefixAndSuffixToNULL( &fileNamePrefix, &fileNameSuffix ) ;
 
   {
 
@@ -154,36 +222,18 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
     }
 
     SetLastError( 0 ) ;
+
     fileHandle = FindFirstFile( fileSpecifier, &fdata ) ;
 
-    if ( fileHandle == INVALID_HANDLE_VALUE ) {
-      lastError = GetLastError() ;
-      if ( lastError != ERROR_FILE_NOT_FOUND ) {
-        fprintf( stderr, "error: opening directory %s failed\n", dirName ) ;
-        jst_printWinError( lastError ) ;
-        errorOccurred = JNI_TRUE ;
-      }
-      goto end ;
-    }
+    if ( checkForInvalidFileHandle( fileHandle, dirName, &errorOccurred ) ) goto end ;
+
 
     if ( !( lastError = GetLastError() ) ) {
 
       do {
-        int okToInclude = JNI_TRUE ;
-        if ( selector ) {
-          errno = 0 ;
-          okToInclude = selector( dirName, fdata.cFileName ) ;
-          if ( errno ) { errorOccurred = JNI_TRUE; goto end ; }
-        }
 
-        if ( okToInclude ) {
-          char* temp = jst_strdup( fdata.cFileName ) ;
-          if ( !temp ||
-               !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
-            errorOccurred = JNI_TRUE ;
-            goto end ;
-          }
-        }
+        if ( addFileToList( &tempResult, &indx, &resultSize, dirName, fdata.cFileName, selector, &errorOccurred ) ) goto end ;
+
       } while ( FindNextFile( fileHandle, &fdata ) ) ;
 
     }
@@ -218,26 +268,14 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
       char   *fileName = entry->d_name ;
       size_t len       = strlen( fileName ) ;
 
+      // TODO: check if this can be moved
       if ( len < prefixlen || len < suffixlen ||
            ( strcmp( ".", fileName ) == 0 ) || ( strcmp( "..", fileName ) == 0 ) ) continue ;
 
-      if ( ( !fileNamePrefix || memcmp( fileNamePrefix, fileName, prefixlen ) == 0 ) &&
-           ( !fileNameSuffix || memcmp( fileNameSuffix, fileName + len - suffixlen, suffixlen ) == 0 ) ) {
-        int okToInclude = JNI_TRUE ;
-        if ( selector ) {
-          errno = 0 ;
-          okToInclude = selector( dirName, fileName ) ;
-          if ( errno ) { errorOccurred = JNI_TRUE; goto end ; }
-        }
+      if ( matchPrefixAndSuffixToFileName( fileName, fileNamePrefix, fileNameSuffix ) ) {
 
-        if ( okToInclude ) {
-          char* temp = jst_strdup( fileName ) ;
-          if ( !temp ||
-               !( tempResult = jst_appendArrayItem( tempResult, indx++, &resultSize, &temp, sizeof( char* ) ) ) ) {
-            errorOccurred = JNI_TRUE ;
-            goto end ;
-          }
-        }
+        if ( addFileToList( &tempResult, &indx, &resultSize, dirName, fileName, selector, &errorOccurred ) ) goto end ;
+
       }
     }
 
