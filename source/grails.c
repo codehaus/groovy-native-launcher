@@ -57,7 +57,8 @@
 static int grailsJarSelect( const char* dirname, const char* fileName ) {
   int result = memcmp( "groovy-all-", fileName, 11 ) == 0 ;
   if ( !result ) {
-    result = memcmp( "grails-bootstrap-", fileName, 17 ) == 0 ;
+    result = memcmp( "grails-bootstrap-", fileName, 17 ) == 0 || // grails 1.1.x-
+             memcmp( "grails-cli-",       fileName, 11 ) == 0 ;  // grails 1.0.x
   }
   return result ;
 }
@@ -227,8 +228,6 @@ int rest_of_main( int argc, char** argv ) {
   size_t       extraJvmOptionsCount = 0,
                extraJvmOptionsSize  = 5 ;
 
-  JstParamInfo* parameterInfos = NULL ;
-
   char *grailsHome      = NULL,
        *javaHome        = NULL ;
 
@@ -253,7 +252,7 @@ int rest_of_main( int argc, char** argv ) {
 
   JstActualParam *processedActualParams = NULL ;
 
-  JarDirSpecification jardirs[ 2 ] ;
+  JarDirSpecification jardirs[ 3 ] ;
 
 
   // _jst_debug is a global debug flag
@@ -269,7 +268,7 @@ int rest_of_main( int argc, char** argv ) {
   jst_cygwinInit() ;
 #endif
 
-  processedActualParams = jst_processInputParameters( argv + 1, argc - 1, parameterInfos, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
+  processedActualParams = jst_processInputParameters( argv + 1, argc - 1, (JstParamInfo*)grailsParameters, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
 
   MARK_PTR_FOR_FREEING( processedActualParams )
 
@@ -328,6 +327,7 @@ int rest_of_main( int argc, char** argv ) {
 
   MARK_PTR_FOR_FREEING( extraJvmOptions )
 
+  // TODO: extract setting the jar lookup into a separate func?
   {
     char* jardir = jst_createFileName( grailsHome, "lib", NULL ) ;
     if ( !jardir ) goto end ;
@@ -336,7 +336,18 @@ int rest_of_main( int argc, char** argv ) {
   }
   jardirs[ 0 ].fetchRecursively = JNI_FALSE ;
   jardirs[ 0 ].filter = &grailsJarSelect ;
-  jardirs[ 1 ].name = NULL ;
+
+  {
+    char* jardir = jst_createFileName( grailsHome, "dist", NULL ) ;
+    if ( !jardir ) goto end ;
+    jardirs[ 1 ].name = jardir ;
+    MARK_PTR_FOR_FREEING( jardir )
+  }
+  jardirs[ 1 ].fetchRecursively = JNI_FALSE ;
+  // TODO: make separate grails jar select and groovy jar select
+  jardirs[ 1 ].filter = &grailsJarSelect ;
+
+  jardirs[ 2 ].name = NULL ;
 
 
   jvmSelectStrategy = jst_getParameterValue( processedActualParams, "-client" ) ? JST_TRY_CLIENT_ONLY :

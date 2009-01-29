@@ -73,7 +73,7 @@ int gantJarSelect( const char* dirName, const char* fileName ) {
   return result ;
 }
 
-int groovyJarSelect( const char* fileName ) {
+int groovyJarSelect( const char* dirName, const char* fileName ) {
   int result = strcmp( "groovy-starter.jar", fileName ) == 0 ;
   if ( !result ) result = memcmp( "groovy-all-", fileName, 11 ) == 0 ;
   if ( !result ) {

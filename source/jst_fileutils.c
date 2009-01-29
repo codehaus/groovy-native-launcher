@@ -27,26 +27,37 @@
 #include <ctype.h>
 
 #if defined( _WIN32 )
+
 #  include <Windows.h>
 #  if !defined( PATH_MAX )
 #    define PATH_MAX MAX_PATH
 #  endif
+
 #else
+
 #  include <dirent.h>
 #  include <unistd.h>
 #  if defined( __APPLE__ )
 #    include <CoreFoundation/CFBundle.h>
 
-#  include <TargetConditionals.h>
+#    include <TargetConditionals.h>
 
 /*
  *  The Mac OS X Leopard version of jni_md.h (Java SE 5 JDK) is broken in that it tests the value of
  *  __LP64__ instead of the presence of _LP64 as happens in Sun's Java 6.0 JDK.  To prevent spurious
  *  warnings define this with a false value.
  */
-#define __LP64__ 0
+#    define __LP64__ 0
 
 #  endif
+
+#  if defined( __linux__ )
+      // /proc/{pid}/exe is a symbolic link to the executable
+#    define JST_SYMLINK_TO_EXECUTABLE_STR_TEMPLATE "/proc/%d/exe"
+#  elif defined( __sun__ )
+#    define JST_SYMLINK_TO_EXECUTABLE_STR_TEMPLATE "/proc/%d/path/a.out"
+#  endif
+
 #endif
 
 
@@ -122,13 +133,16 @@ extern char* jst_pathToParentDir( char* path ) {
 static jboolean checkForInvalidFileHandle( HANDLE fileHandle, const char* dirName, jboolean* errorOccurred ) {
 
   if ( fileHandle == INVALID_HANDLE_VALUE ) {
+
     DWORD lastError = GetLastError() ;
+
     if ( lastError != ERROR_FILE_NOT_FOUND ) {
       fprintf( stderr, "error: opening directory %s failed\n", dirName ) ;
       jst_printWinError( lastError ) ;
       *errorOccurred = JNI_TRUE ;
     }
   }
+
   return *errorOccurred ;
 
 }
@@ -173,8 +187,7 @@ static void changeEmptyPrefixAndSuffixToNULL( char** fileNamePrefix, char** file
 
 }
 
-/** Checks that the given file name has the given prefix and suffix. Give NULL to match anything. fileName may not be NULL */
-static jboolean matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* suffix ) {
+extern jboolean matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* suffix ) {
   jboolean match = JNI_FALSE ;
 
   if ( !prefix || !*prefix || memcmp( prefix, fileName, strlen( prefix ) ) == 0 ) match = JNI_TRUE ;
@@ -183,7 +196,8 @@ static jboolean matchPrefixAndSuffixToFileName( char* fileName, char* prefix, ch
     size_t suffixlen   = suffix ? strlen( suffix ) : 0,
            fileNameLen = strlen( fileName ) ;
 
-    match = !suffix || !*suffix || memcmp( suffix, fileName + fileNameLen - suffixlen, suffixlen ) == 0 ;
+    match = ( fileNameLen > suffixlen ) &&
+            ( suffixlen == 0 || memcmp( suffix, fileName + fileNameLen - suffixlen, suffixlen ) == 0  ) ;
 
   }
 
@@ -240,7 +254,7 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
 
     if ( !lastError ) lastError = GetLastError() ;
     if ( lastError != ERROR_NO_MORE_FILES ) {
-      fprintf( stderr, "error: error occurred when finding jars from %s\n", dirName ) ;
+      fprintf( stderr, "error: error occurred reading directory %s\n", dirName ) ;
       jst_printWinError( lastError ) ;
       errorOccurred = JNI_TRUE ;
     }
@@ -254,23 +268,18 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
 
     DIR           *dir ;
     struct dirent *entry ;
-    size_t        prefixlen = fileNamePrefix ? strlen( fileNamePrefix ) : 0,
-                  suffixlen = fileNameSuffix ? strlen( fileNameSuffix ) : 0 ;
 
     dir = opendir( dirName ) ;
     if ( !dir ) {
-      fprintf( stderr, "error: could not read directory %s to append jar files from\n%s", dirName, strerror( errno ) ) ;
+      fprintf( stderr, "error: could not open directory %s\n%s", dirName, strerror( errno ) ) ;
       errorOccurred = JNI_TRUE ;
       goto end ;
     }
 
     while( ( entry = readdir( dir ) ) ) {
       char   *fileName = entry->d_name ;
-      size_t len       = strlen( fileName ) ;
 
-      // TODO: check if this can be moved
-      if ( len < prefixlen || len < suffixlen ||
-           ( strcmp( ".", fileName ) == 0 ) || ( strcmp( "..", fileName ) == 0 ) ) continue ;
+      if ( ( strcmp( ".", fileName ) == 0 ) || ( strcmp( "..", fileName ) == 0 ) ) continue ;
 
       if ( matchPrefixAndSuffixToFileName( fileName, fileNamePrefix, fileNameSuffix ) ) {
 
@@ -358,16 +367,7 @@ extern char* jst_getExecutableHome() {
       return NULL ;
     }
 
-    sprintf( procSymlink,
-#     if defined( __linux__ )
-        // /proc/{pid}/exe is a symbolic link to the executable
-        "/proc/%d/exe"
-#     elif defined( __sun__ )
-        // see above
-        "/proc/%d/path/a.out"
-#     endif
-        , (int)getpid()
-    ) ;
+    sprintf( procSymlink, JST_SYMLINK_TO_EXECUTABLE_STR_TEMPLATE, (int)getpid() ) ;
 
 #  elif defined( __APPLE__ )
     {
