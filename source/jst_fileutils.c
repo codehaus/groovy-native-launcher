@@ -64,6 +64,7 @@
 #include "jvmstarter.h"
 #include "jst_dynmem.h"
 #include "jst_fileutils.h"
+#include "jst_stringutils.h"
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
 #include "jst_cygwin_compatibility.h"
@@ -188,20 +189,8 @@ static void changeEmptyPrefixAndSuffixToNULL( char** fileNamePrefix, char** file
 }
 
 extern jboolean matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* suffix ) {
-  jboolean match = JNI_FALSE ;
 
-  if ( !prefix || !*prefix || memcmp( prefix, fileName, strlen( prefix ) ) == 0 ) match = JNI_TRUE ;
-
-  if ( match ) {
-    size_t suffixlen   = suffix ? strlen( suffix ) : 0,
-           fileNameLen = strlen( fileName ) ;
-
-    match = ( fileNameLen > suffixlen ) &&
-            ( suffixlen == 0 || memcmp( suffix, fileName + fileNameLen - suffixlen, suffixlen ) == 0  ) ;
-
-  }
-
-  return match ;
+  return jst_startsWith( fileName, prefix ) && jst_endsWith( fileName, suffix ) ;
 
 }
 

@@ -34,18 +34,22 @@ import sys
 
 unameResult = platform.uname ( )
 
-#  usemingw and msvsversion options are processed here, other options are processed in source/SConscript
+#  toolchain and msvsversion options are processed here, other options are processed in source/SConscript
+#  These have effects that need to be taken into account when creating Environment
 
 #  There is an issue when using Windows that Visual C++ has precedence of GCC and sometimes you really have
 #  to use GCC even when Visual C++ is present.
 
-useMinGW    = eval ( ARGUMENTS.get ( 'usemingw' , 'False' ) )
+toolchain   = ARGUMENTS.get ( 'toolchain' , False ) 
+
 msvsVersion = ARGUMENTS.get ( 'msvsversion' , False ) 
-if ( unameResult[0] == 'Windows' and ( useMinGW or msvsVersion ) ) :
-    if ( useMinGW ) :
-        environment = Environment ( tools = [ 'mingw' ] )
+if ( toolchain ) :
+    if msvsVersion :
+        environment = Environment ( tools = [ toolchain ], MSVS_VERSION = msvsVersion )
     else :
-        environment = Environment ( MSVS_VERSION = msvsVersion )
+        environment = Environment ( tools = [ toolchain ] )
+elif msvsVersion :
+    environment = Environment ( MSVS_VERSION = msvsVersion )
 else :
     environment = Environment ( )
 
@@ -125,9 +129,9 @@ Help ( '''The targets:
 
 are provided.  compile is the default.  Possible options are:
 
-    debug=(True|False)
-    cygwinCompile=(True|False)
-    usemingw=(True|False)
-    msvsversion=(version) (use if several versions are installed)
+    debug=<True|*False*>
+    cygwinCompile=<True|*False*>
+    toolchain=mingw (to use mingw even if msvs is installed)
+    msvsversion=<version> (to use specific version if several versions are installed)
     extramacros=<list-of-c-macro-definitions>
 ''' )

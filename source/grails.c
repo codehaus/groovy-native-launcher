@@ -46,6 +46,7 @@
 #include "jvmstarter.h"
 #include "jst_dynmem.h"
 #include "jst_fileutils.h"
+#include "jst_stringutils.h"
 
 #if defined( _WIN32 ) && defined( _cwcompat )
 #  include "jst_cygwin_compatibility.h"
@@ -55,10 +56,10 @@
 
 
 static int grailsJarSelect( const char* dirname, const char* fileName ) {
-  int result = memcmp( "groovy-all-", fileName, 11 ) == 0 ;
+  int result = jst_startsWith( fileName, "groovy-all-" ) ;
   if ( !result ) {
-    result = memcmp( "grails-bootstrap-", fileName, 17 ) == 0 || // grails 1.1.x-
-             memcmp( "grails-cli-",       fileName, 11 ) == 0 ;  // grails 1.0.x
+    result = jst_startsWith( fileName, "grails-bootstrap-" ) || // grails 1.1.x-
+             jst_startsWith( fileName, "grails-cli-" ) ;  // grails 1.0.x
   }
   return result ;
 }
@@ -87,7 +88,7 @@ static int isValidGrailsHome( const char* dir ) {
  * First tries to see if the current executable is located in a grails installation's bin directory. If not, grails
  * home env var is looked up. If neither succeed, an error msg is printed.
  * freeing the returned pointer must be done by the caller. */
-char* getGrailsHome() {
+static char* getGrailsHome() {
 
   return jst_getAppHome( JST_USE_PARENT_OF_EXEC_LOCATION_AS_HOME, "GRAILS_HOME", &isValidGrailsHome ) ;
 
@@ -98,16 +99,12 @@ char* getGrailsHome() {
 // so for sake of maximum portability the initialization of all the arrays containing
 // the parameter names must be done clumsily here
 
-static const char* grailsHelpParam[]       = { "-h", "--help", NULL } ;
-static const char* grailsVersionParam[]    = { "-v", "--version", NULL } ;
 static const char* grailsJavahomeParam[]   = { "-jh", "--javahome", NULL } ;
 static const char* grailsClientParam[]     = { "-client", NULL } ;
 static const char* grailsServerParam[]     = { "-server", NULL } ;
 
 // the parameters accepted by grails
 static const JstParamInfo grailsParameters[] = {
-  { grailsHelpParam,       JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
-  { grailsVersionParam,    JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
   // native launcher supported extra params
   { grailsJavahomeParam,   JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATH_CONVERT },
   { grailsClientParam,     JST_SINGLE_PARAM, JST_IGNORE },

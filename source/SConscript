@@ -26,8 +26,8 @@ Import ( 'environment' )
 
 debug = eval ( ARGUMENTS.get ( 'debug' , 'False' ) )
 if debug :
-    if environment['CC'] == 'cl' :
-        environment.Append ( CCFLAGS = '-Zi' )
+    if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
+        environment.Append ( CCFLAGS = '-MDd -Zi' )
     elif environment['CC'] == 'gcc' :
         environment.Append ( CCFLAGS = '-g' )
     else :
@@ -35,8 +35,12 @@ if debug :
         Exit ( 1 )
 else :
     environment.Append ( CCFLAGS = '-DNDEBUG' )
-    if environment['CC'] == 'cl' :
-        pass
+    if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
+        # the -MD option is important - it is required when using JNI. 
+        # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
+        #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
+        #
+        environment.Append ( CCFLAGS = '-MD -O2 -Ot -Ox -Og' )
     elif environment['CC'] == 'gcc' :
         #  The Mac OS X ld does not understand long options, and only allows stripping on 32-bit builds.
         #  The Solaris GCC appears to use the Sun ld if present rathe than the ld in binutils.
@@ -86,7 +90,7 @@ includeDirectoryName = {
     }
 
 environment.Append ( CPPFLAGS = ' -I"%s" -I"%s"' % ( os.path.join ( javaHome , 'include'  , includeDirectoryName [ environment[ 'Architecture' ] ] ) , os.path.join ( javaHome , 'include' ) ) )
-if environment['CC'] == 'cl' :
+if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
     # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
     # c4206 == translation unit is empty (if not compiling cygwin compatible binary, jst_cygwincompatibility.c is empty)
     # c4255 == 'function' : no function prototype given: converting '()' to '(void)'
@@ -97,17 +101,10 @@ if environment['CC'] == 'cl' :
     # this one's disabled as it does not seem very interesting:
     # c4711 == function 'function' selected for inline expansion
     #
-    # the -MD option is important - it is required when using JNI. 
-    # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
-    #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
-    #
-    # The produced executable is quite small at any rate, so the compiler optimization
-    # options are chosen so that the executable is as fast as possible.
-    #
     # TODO: once scons supports visual studio 2008, add a conditional so that -Og is only used when visual studio version < 9.0 as in 
     #       9.0 this option is deprecated. I've only tested on 7.1 and 9.0 and it got deprecated somewhere between...
     environment.Append (
-        CCFLAGS = '-TC -O2 -Ot -Ox -Og -Wall -Wp64 -wd4206 -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -MD -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN' ,
+        CCFLAGS = '-TC -Wall -Wp64 -wd4206 -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN' ,
         LINKFLAGS = '-opt:ref -opt:nowin98' ,
         LIBS = [ 'advapi32', 'msvcrt' ] )
     windowsEnvironment = environment.Clone ( )

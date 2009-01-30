@@ -54,6 +54,7 @@
 #include "jvmstarter.h"
 #include "jst_dynmem.h"
 #include "jst_fileutils.h"
+#include "jst_stringutils.h"
 
 #if defined( _WIN32 ) && defined( _cwcompat )
 #  include "jst_cygwin_compatibility.h"
@@ -62,7 +63,7 @@
 #define GANT_CONF_FILE "gant-starter.conf"
 
 
-int gantJarSelect( const char* dirName, const char* fileName ) {
+static int gantJarSelect( const char* dirName, const char* fileName ) {
   int result = JNI_FALSE ;
   size_t fileNameLen = strlen( fileName ) ;
   // we are looking for gant-[0-9]+\.+[0-9]+.*\.jar. As tegexes
@@ -73,9 +74,9 @@ int gantJarSelect( const char* dirName, const char* fileName ) {
   return result ;
 }
 
-int groovyJarSelect( const char* dirName, const char* fileName ) {
+static int groovyJarSelect( const char* dirName, const char* fileName ) {
   int result = strcmp( "groovy-starter.jar", fileName ) == 0 ;
-  if ( !result ) result = memcmp( "groovy-all-", fileName, 11 ) == 0 ;
+  if ( !result ) result = jst_startsWith( fileName, "groovy-all-" ) ;
   if ( !result ) {
     size_t fileNameLen = strlen( fileName ) ;
     // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes

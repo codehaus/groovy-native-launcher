@@ -46,6 +46,7 @@
 #include "jvmstarter.h"
 #include "jst_dynmem.h"
 #include "jst_fileutils.h"
+#include "jst_stringutils.h"
 
 #if defined( _WIN32 ) && defined( _cwcompat )
 #  include "jst_cygwin_compatibility.h"
@@ -54,7 +55,7 @@
 #define GROOVY_CONF_FILE "groovy-starter.conf"
 
 
-int groovyJarSelect( const char* dirName, const char* fileName ) {
+static int groovyJarSelect( const char* dirName, const char* fileName ) {
   int result = strcmp( "groovy-starter.jar", fileName ) == 0 ;
   if ( !result ) {
     size_t fileNameLen = strlen( fileName ) ;
@@ -256,8 +257,7 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
 #if defined( _WIN32 )
   {
     size_t len = strlen( execName ) ;
-    if ( ( len > 4 ) &&
-         ( memcmp( execName + len - 4, ".exe", 4 ) == 0 ) ) {
+    if ( jst_endsWith( execName, ".exe" ) ) {
       execName[ len -= 4 ] = '\0' ;
     }
     if ( len > 0 &&

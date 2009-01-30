@@ -1,6 +1,6 @@
 //  A library for easy creation of a native launcher for Java applications.
 //
-//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
+//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 //
 //  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
 //  compliance with the License. You may obtain a copy of the License at
@@ -12,7 +12,7 @@
 //  implied. See the License for the specific language governing permissions and limitations under the
 //  License.
 //
-//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
+//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 //  $Revision$
 //  $Date$
 
@@ -36,6 +36,7 @@
 
 #include "jvmstarter.h"
 #include "jst_dynmem.h"
+#include "jst_stringutils.h"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -49,7 +50,7 @@ extern void* jst_malloc( size_t size ) {
 extern void* jst_calloc( size_t nelem, size_t elsize ) {
   void* rval = calloc( nelem, elsize ) ;
   if ( !rval ) fprintf( stderr, "error %d in calloc: %s", errno, strerror( errno ) ) ;
-  return rval ;  
+  return rval ;
 }
 
 extern void* jst_realloc( void* ptr, size_t size ) {
@@ -72,7 +73,7 @@ extern char* jst_strdup( const char* s ) {
 #define DYNAMIC_ARRAY_LENGTH_INCREMENT 5
 
 extern void* jst_appendArrayItem( void* array, int indx, size_t* arlen, void* item, int item_size_in_bytes ) {
-  // Note that ansi-c has no data type byte. However, by definition sizeof( char ) == 1, i.e. it is one byte in size.  
+  // Note that ansi-c has no data type byte. However, by definition sizeof( char ) == 1, i.e. it is one byte in size.
 
   // allocate array if requested
   if ( !array ) {
@@ -80,19 +81,19 @@ extern void* jst_appendArrayItem( void* array, int indx, size_t* arlen, void* it
     if ( ! ( array = jst_calloc( size, item_size_in_bytes ) ) ) return NULL ;
   } else if ( ((size_t)indx) >= *arlen ) { // ensure there is enough space
     size_t previousSize = *arlen ;
-    
+
     if ( !( array = jst_realloc( array, ( *arlen += DYNAMIC_ARRAY_LENGTH_INCREMENT ) * item_size_in_bytes ) ) ) return NULL ;
-    
+
     memset( ((char*)array) + previousSize * item_size_in_bytes, 0, ( *arlen - previousSize ) * item_size_in_bytes ) ;
   }
-  
-  // append the new item. 
+
+  // append the new item.
   if ( item ) {
     memcpy( ((char*)array) + indx * item_size_in_bytes, item, item_size_in_bytes ) ;
   } else {
     memset( ((char*)array) + indx * item_size_in_bytes, 0,    item_size_in_bytes ) ;
   }
-  
+
   return array ;
 }
 
@@ -100,27 +101,27 @@ extern void* jst_appendArrayItem( void* array, int indx, size_t* arlen, void* it
 
 extern char** jst_packStringArray( char** nullTerminatedStringArray ) {
   size_t totalByteSize = sizeof( char* ) ; // space for the terminating NULL
-  char   *s, 
-         **rval, 
+  char   *s,
+         **rval,
          *temp ;
   int    i = 0 ;
-  
+
   while ( ( s = nullTerminatedStringArray[ i++ ] ) ) {
     totalByteSize += sizeof( char* ) + strlen( s ) + 1 ;
   }
-  
+
   if ( !( rval = jst_malloc( totalByteSize ) ) ) return NULL ;
 
   // make temp point to the position after the char*, i.e. where the contents of the strings starts
   // NOTE: i now equals the string count + 1, i.e. the number of char* to be stored (including the terminating NULL)
   temp = (char*)( rval + i ) ;
-  
+
   for ( i = 0 ; ( s = nullTerminatedStringArray[ i ] ) ; i++ ) {
     rval[ i ] = temp ;
     while ( ( *temp++ = *s++ ) ) ;
   }
   rval[ i ] = NULL ;
-  
+
   return rval ;
 }
 
@@ -130,13 +131,13 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
   size_t targetlen = ( target ? strlen( target ) : 0 ),
          numArgs   = 10 ; // the size of the buffer we are storing the param strings into. Enlarged as necessary.
   size_t totalSize = targetlen + 1 ; // 1 for the terminating nul char
-  char   *s, 
+  char   *s,
          *t,
          **stringsToAppend = NULL ;
   int    i = 0 ;
-  
+
   errno = 0 ;
-  stringsToAppend = jst_malloc( numArgs * sizeof( char* ) ) ;  
+  stringsToAppend = jst_malloc( numArgs * sizeof( char* ) ) ;
   if ( !stringsToAppend ) goto end ;
 
   va_start( args, bufsize ) ;
@@ -148,11 +149,11 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
   }
   // s = NULL ; // s is now NULL, no need to assign
   if ( !( stringsToAppend = jst_appendArrayItem( stringsToAppend, i, &numArgs, &s, sizeof( char* ) ) ) ) goto end ;
-  
+
   if ( !target || *bufsize < totalSize ) {
     // if taget == NULL and bufsize is given, it means we should reserve the given amount of space
     if ( !target && bufsize && ( *bufsize > totalSize ) ) totalSize = *bufsize ;
-    target = target ? jst_realloc( target, totalSize * sizeof( char ) ) : 
+    target = target ? jst_realloc( target, totalSize * sizeof( char ) ) :
                       jst_malloc( totalSize * sizeof( char ) ) ;
     if ( !target ) goto end ;
     if ( bufsize ) *bufsize = totalSize ; // in case target == NULL, bufsize may also be NULL
@@ -166,27 +167,27 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
     // or shorter:
     while ( *t ) *s++ = *t++ ;
   }
-  
+
   *s = '\0' ;
 
-  
+
   end:
-  
+
   va_end( args ) ;
 
   if ( errno ) target = NULL ;
   if ( stringsToAppend ) free( stringsToAppend ) ;
   return target ;
-  
+
 }
 
 /** Appends the given pointer to the given null terminated pointer array.
- * given pointer to array may point to NULL, in which case a new array is created. 
+ * given pointer to array may point to NULL, in which case a new array is created.
  * Returns NULL on error. */
 extern void** jst_appendPointer( void*** pointerToNullTerminatedPointerArray, size_t* arrSize, void* item ) {
 
   if ( !item ) return NULL ;
-  
+
   if ( !*pointerToNullTerminatedPointerArray ) {
 	if ( !*arrSize ) {
       *arrSize = DYNAMIC_ARRAY_LENGTH_INCREMENT ;
@@ -195,18 +196,18 @@ extern void** jst_appendPointer( void*** pointerToNullTerminatedPointerArray, si
     **pointerToNullTerminatedPointerArray = item ;
     return *pointerToNullTerminatedPointerArray ;
   } else {
-    size_t count = 0 ; 
-    
+    size_t count = 0 ;
+
     while ( (*pointerToNullTerminatedPointerArray)[ count ] ) count++ ;
     if ( *arrSize <= count + 1 ) { // 1 for terminating null
       *arrSize = count + DYNAMIC_ARRAY_LENGTH_INCREMENT ;
-      if ( !( *pointerToNullTerminatedPointerArray = jst_realloc( *pointerToNullTerminatedPointerArray, *arrSize * sizeof( void* ) ) ) ) return NULL ;      
+      if ( !( *pointerToNullTerminatedPointerArray = jst_realloc( *pointerToNullTerminatedPointerArray, *arrSize * sizeof( void* ) ) ) ) return NULL ;
     }
     (*pointerToNullTerminatedPointerArray)[ count ]     = item ;
     (*pointerToNullTerminatedPointerArray)[ count + 1 ] = NULL ;
     return *pointerToNullTerminatedPointerArray ;
   }
-  
+
 }
 
 extern void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) {
@@ -244,48 +245,44 @@ extern char* jst_concatenateStrArray( char** nullTerminatedStringArray ) {
          *t,
          *rval ;
   int i = 0 ;
-  
+
   while ( ( s = nullTerminatedStringArray[ i++ ] ) ) totalSize += strlen( s ) ;
-  
+
   if ( !( rval = jst_malloc( totalSize ) ) ) return NULL ;
-  
+
   t = rval ;
   for ( i = 0 ; ( s = nullTerminatedStringArray[ i++ ] ) ; ) {
     while ( *s ) *t++ = *s++ ;
   }
   *t = '\0' ;
-  
+
   return rval ;
 }
 
 extern int jst_arrayContainsString( const char** nullTerminatedArray, const char* searchString, SearchMode mode ) {
-  int    i ;
-  size_t sslen, len ;
-  const char *str ;
+  int         i   ;
+  const char* str ;
 
   if ( nullTerminatedArray ) {
     switch ( mode ) {
-      case PREFIX_SEARCH : 
-        len = strlen( searchString ) ;
+      case PREFIX_SEARCH :
         for ( i = 0 ; ( str = nullTerminatedArray[ i ] ) ; i++ ) {
-          if ( memcmp( str, searchString, len ) == 0 ) return i ;
+          if ( jst_startsWith( str, searchString ) ) return i ;
         }
         break ;
-      case SUFFIX_SEARCH : 
-        sslen = strlen( searchString ) ;        
+      case SUFFIX_SEARCH :
         for ( i = 0 ; ( str = nullTerminatedArray[ i ] ) ; i++ ) {
-          len = strlen( str ) ;
-          if ( len >= sslen && memcmp( searchString, str + len - sslen, sslen ) == 0 ) return i ;
+          if ( jst_endsWith( str, searchString ) ) return i ;
         }
         break ;
-      case EXACT_SEARCH : 
-        for ( i = 0 ; ( str = nullTerminatedArray[ i ] ); i++ ) {
+      case EXACT_SEARCH :
+        for ( i = 0 ; ( str = nullTerminatedArray[ i ] ) ; i++ ) {
           if ( strcmp( str, searchString ) == 0 ) return i ;
         }
         break ;
     }
   }
-  
+
   return -1 ;
 }
 
@@ -298,17 +295,18 @@ extern int jst_pointerArrayLen( void** nullTerminatedPointerArray ) {
 }
 
 /** Returns the size of any array whose end is marked by the first element has as its first
- * part a NULL pointer. 
+ * part a NULL pointer.
  * @param array may not be NULL */
 extern int jst_nullTerminatedArrayLen( void* array, size_t elementSizeInBytes ) {
   int len = 0 ;
   unsigned char* ptr = array ;
-  
+
   while ( ptr ) {
     len++ ;
     ptr += elementSizeInBytes ;
   }
-  
+
   return len ;
-  
+
 }
+
