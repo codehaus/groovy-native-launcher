@@ -33,6 +33,6 @@ extern int jst_endsWith( const char* str, const char* suffix ) {
   if ( !suffix || !*suffix ) return 1 ;
   suffixLen = strlen( suffix ) ;
   strLength = strlen( str ) ;
-  return memcmp( str + strLength - suffixLen, suffix, suffixLen ) == 0 ;
+  return strLength >= suffixLen && memcmp( str + strLength - suffixLen, suffix, suffixLen ) == 0 ;
 }
 

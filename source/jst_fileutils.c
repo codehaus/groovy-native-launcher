@@ -624,6 +624,32 @@ extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* env
   return appHome ;
 }
 
+static void printPathLookupDebugMessage( const char* location ) {
+  if ( location ) {
+    fprintf( stderr, "debug: java home found on PATH: %s\n", location ) ;
+  } else {
+    fprintf( stderr, "debug: java home not found on PATH\n" ) ;
+  }
+}
+
+/** Appends filename + a file separator if necessary to dirname and writes the result in buffer (which must be dynallocated).
+ * Returns buffer, possibly reallocated. Buffer may be initially NULL. */
+static char* createPathToFile( char* buffer, size_t *bufSize, const char* dirname, const char* filename ) {
+  if ( buffer ) buffer[ 0 ] = '\0' ;
+
+  return jst_append( buffer, bufSize, dirname,
+                                      jst_dirNameEndsWithSeparator( dirname ) ? "" : JST_FILE_SEPARATOR,
+                                      filename, NULL ) ;
+}
+
+/** Dups the contents of env var PATH. On error errno will be set. Note: may return NULL if PATH not set. */
+static char* dupPATH() {
+
+  char *path = getenv( "PATH" ) ;
+  return path ? jst_strdup( path ) : NULL ;
+
+}
+
 
 /** Tries to find the given executable from PATH. Freeing the returned value
  * is up to the caller. NULL is returned if not found.
@@ -634,8 +660,8 @@ extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* env
 extern char* jst_findFromPath( const char* execName, const char* lastDirOnExecPath, jboolean removeLastDir ) {
 
   char     *path = NULL,
-           *p,
-           *executablePath = NULL ;
+           *executablePath = NULL,
+           *dirname ;
   size_t   execPathBufSize = 100 ;
   int      lastDirLen = ( lastDirOnExecPath && lastDirOnExecPath[ 0 ] ) ? (int)strlen( lastDirOnExecPath ) : -1 ;
   jboolean firstTime = JNI_TRUE,
@@ -643,25 +669,16 @@ extern char* jst_findFromPath( const char* execName, const char* lastDirOnExecPa
 
   errno = 0 ;
 
-  p = getenv( "PATH" ) ;
-  if ( !p ) goto end ; // PATH not defined. Should never happen, but is not really an error if it does.
+  path = dupPATH() ;
+  if ( !path ) goto end ; // PATH not defined. Should never happen, but is not really an error if it does.
 
-  if ( !( path = jst_strdup( p ) ) ) goto end ;
+  for ( ; ( dirname = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
+    if ( !*dirname ) continue ;
 
-  for ( ; ( p = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
-    size_t len = strlen( p ) ;
-    if ( len == 0 ) continue ;
-
-    if ( executablePath ) executablePath[ 0 ] = '\0' ;
-
-    if ( !( executablePath = jst_append( executablePath, &execPathBufSize, p, NULL ) ) ) goto end ;
-
-    executablePath = jst_append( executablePath, &execPathBufSize,
-                           ( executablePath[ len - 1 ] != JST_FILE_SEPARATOR[ 0 ] ) ? JST_FILE_SEPARATOR : "",
-                           execName, NULL ) ;
-
+    executablePath = createPathToFile( executablePath, &execPathBufSize, dirname, execName ) ;
     if ( !executablePath ) goto end ;
 
+    // TODO: extract function
     if ( jst_fileExists( executablePath ) ) {
       char* lastFileSep ;
       char* realFile = jst_fullPathName( executablePath ) ;
@@ -678,7 +695,7 @@ extern char* jst_findFromPath( const char* execName, const char* lastDirOnExecPa
       lastFileSep = strrchr( executablePath, JST_FILE_SEPARATOR[ 0 ] ) ;
       if ( lastFileSep ) {
         *lastFileSep = '\0' ;
-        len = strlen( executablePath ) ;
+        size_t len = strlen( executablePath ) ;
         if ( lastDirLen != -1 ) {
           if ( ( (int)len >= lastDirLen + 1 ) &&
                ( strcmp( executablePath + len - lastDirLen, lastDirOnExecPath ) == 0 ) ) {
@@ -700,13 +717,7 @@ extern char* jst_findFromPath( const char* execName, const char* lastDirOnExecPa
     jst_free( executablePath ) ;
   }
 
-  if ( _jst_debug ) {
-    if ( executablePath ) {
-      fprintf( stderr, "debug: java home found on PATH: %s\n", executablePath ) ;
-    } else {
-      fprintf( stderr, "debug: java home not found on PATH\n" ) ;
-    }
-  }
+  if ( _jst_debug ) printPathLookupDebugMessage( executablePath ) ;
 
   return executablePath ;
 

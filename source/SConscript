@@ -42,6 +42,7 @@ else :
         #
         environment.Append ( CCFLAGS = '-MD -O2 -Ot -Ox -Og' )
     elif environment['CC'] == 'gcc' :
+        environment.Append ( CCFLAGS = '-O3' ) 
         #  The Mac OS X ld does not understand long options, and only allows stripping on 32-bit builds.
         #  The Solaris GCC appears to use the Sun ld if present rathe than the ld in binutils.
         environment.Append ( LINKFLAGS = '-Wl,-s' )
@@ -112,7 +113,7 @@ if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
     environment.Append ( LINKFLAGS = '-subsystem:console' )
 elif environment['CC'] == 'gcc' :
     #  Cygwin specific options were set earlier.
-    environment.Append ( CCFLAGS = ' -O3 -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls' )
+    environment.Append ( CCFLAGS = ' -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls' )
     if environment['PLATFORM'] == 'win32' :
         # TODO:  Find out what the right options are here for the MinGW GCC.
         windowsEnvironment = environment.Clone ( )
