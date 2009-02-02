@@ -615,8 +615,8 @@ static char* handleJVMOptsString( const char* userOpts, JavaVMOption** jvmOption
 
   if ( !( jvmOptsS = jst_strdup( userOpts ) ) ) return NULL ;
 
-  while ( ( s = strtok( firstTime ? jvmOptsS : NULL, " " ) ) ) {
-    firstTime = JNI_FALSE ;
+  for ( ; ( s = strtok( firstTime ? jvmOptsS : NULL, " " ) ) ; firstTime = JNI_FALSE ) {
+
     if ( ! ( *jvmOptions = appendJvmOption( *jvmOptions,
                                             (*jvmOptionsCount)++,
                                             jvmOptionsSize,
@@ -870,6 +870,8 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
                                         classpath,
                                         NULL ) ) ) goto end ;
 
+
+  // FIXME - extract function => move setting jvm starup options to a separate func
 
   // the order in which jvm options are handled is significant: if the same option is given more than once, the last one is the one
   // that stands. That's why we here set first the jvm opts set programmatically, then the ones from user env var

@@ -245,8 +245,6 @@ int rest_of_main( int argc, char** argv ) {
 
   JVMSelectStrategy jvmSelectStrategy ;
 
-  jboolean displayHelp = JNI_FALSE ;
-
   JstActualParam *processedActualParams = NULL ;
 
   JarDirSpecification jardirs[ 3 ] ;
@@ -255,11 +253,6 @@ int rest_of_main( int argc, char** argv ) {
   // _jst_debug is a global debug flag
   if ( getenv( "__JLAUNCHER_DEBUG" ) ) _jst_debug = JNI_TRUE ;
 
-  if ( argc > 1 ) {
-    displayHelp = ( ( strcmp( argv[ 1 ], "-h"     ) == 0 ) ||
-                    ( strcmp( argv[ 1 ], "--help" ) == 0 )
-                  ) ? JNI_TRUE : JNI_FALSE ;
-  }
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   jst_cygwinInit() ;
@@ -380,17 +373,6 @@ int rest_of_main( int argc, char** argv ) {
 
   rval = jst_launchJavaApp( &options ) ;
 
-  if ( displayHelp ) { // add to the standard groovy help message
-    fprintf( stderr, "\n"
-    " -jh,--javahome <path to jdk/jre> makes groovy use the given jdk/jre\n"
-    "                                 instead of the one pointed to by JAVA_HOME\n"
-    " -client/-server                 to use a client/server VM\n"
-    "\n"
-    "In addition, you can give any parameters accepted by the jvm you are using, e.g.\n"
-    "-Xmx<size> (see java -help and java -X for details)\n"
-    "\n"
-    ) ;
-  }
 
 end:
 

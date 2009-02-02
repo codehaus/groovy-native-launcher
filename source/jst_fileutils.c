@@ -188,7 +188,7 @@ static void changeEmptyPrefixAndSuffixToNULL( char** fileNamePrefix, char** file
 
 }
 
-extern jboolean matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* suffix ) {
+extern int matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* suffix ) {
 
   return jst_startsWith( fileName, prefix ) && jst_endsWith( fileName, suffix ) ;
 
@@ -694,11 +694,12 @@ extern char* jst_findFromPath( const char* execName, const char* lastDirOnExecPa
 
       lastFileSep = strrchr( executablePath, JST_FILE_SEPARATOR[ 0 ] ) ;
       if ( lastFileSep ) {
+        size_t len ;
         *lastFileSep = '\0' ;
-        size_t len = strlen( executablePath ) ;
+        len = strlen( executablePath ) ;
         if ( lastDirLen != -1 ) {
           if ( ( (int)len >= lastDirLen + 1 ) &&
-               ( strcmp( executablePath + len - lastDirLen, lastDirOnExecPath ) == 0 ) ) {
+               jst_endsWith( executablePath, lastDirOnExecPath ) ) {
             if ( removeLastDir ) executablePath[ len -= lastDirLen + 1 ] = '\0' ;
             found = JNI_TRUE ;
             break ;

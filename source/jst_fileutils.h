@@ -103,7 +103,7 @@ jboolean jst_dirNameEndsWithSeparator( const char* dirName ) ;
 
 /** Checks that the given file name has the given prefix and suffix. Give NULL to match anything. fileName may not be NULL.
  * Returns true if the given prefix and suffix match. */
-jboolean matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* suffix ) ;
+int matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* suffix ) ;
 
 #if defined( __cplusplus )
   } // end extern "C"
