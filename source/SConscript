@@ -27,7 +27,7 @@ Import ( 'environment' )
 debug = eval ( ARGUMENTS.get ( 'debug' , 'False' ) )
 if debug :
     if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
-        environment.Append ( CCFLAGS = '-MDd -Zi' )
+        environment.Append ( CCFLAGS   = '-MDd -Od -Zi -RTCcsu -D_CRTDBG_MAP_ALLOC' )
     elif environment['CC'] == 'gcc' :
         environment.Append ( CCFLAGS = '-g' )
     else :
@@ -40,7 +40,8 @@ else :
         # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
         #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
         #
-        environment.Append ( CCFLAGS = '-MD -O2 -Ot -Ox -Og' )
+        environment.Append ( CCFLAGS   = '-MD -Ox',
+                             LINKFLAGS = '-opt:ref -opt:nowin98' )
     elif environment['CC'] == 'gcc' :
         environment.Append ( CCFLAGS = '-O3' ) 
         #  The Mac OS X ld does not understand long options, and only allows stripping on 32-bit builds.
@@ -102,12 +103,9 @@ if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
     # this one's disabled as it does not seem very interesting:
     # c4711 == function 'function' selected for inline expansion
     #
-    # TODO: once scons supports visual studio 2008, add a conditional so that -Og is only used when visual studio version < 9.0 as in 
-    #       9.0 this option is deprecated. I've only tested on 7.1 and 9.0 and it got deprecated somewhere between...
     environment.Append (
         CCFLAGS = '-TC -Wall -Wp64 -wd4206 -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN' ,
-        LINKFLAGS = '-opt:ref -opt:nowin98' ,
-        LIBS = [ 'advapi32', 'msvcrt' ] )
+        LIBS = [ 'advapi32' ] )
     windowsEnvironment = environment.Clone ( )
     windowsEnvironment.Append ( LINKFLAGS = '-subsystem:windows -entry:mainCRTStartup' )
     environment.Append ( LINKFLAGS = '-subsystem:console' )
