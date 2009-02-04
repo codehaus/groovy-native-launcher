@@ -27,7 +27,8 @@ Import ( 'environment' )
 debug = eval ( ARGUMENTS.get ( 'debug' , 'False' ) )
 if debug :
     if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
-        environment.Append ( CCFLAGS   = '-MDd -Od -Zi -RTCcsu -D_CRTDBG_MAP_ALLOC' )
+        environment.Append ( CCFLAGS   = '-MDd -Od -Zi -RTCcsu -D_CRTDBG_MAP_ALLOC',
+                             LINKFLAGS = '-debug -fixed:no' )
     elif environment['CC'] == 'gcc' :
         environment.Append ( CCFLAGS = '-g' )
     else :
