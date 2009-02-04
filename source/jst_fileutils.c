@@ -499,6 +499,52 @@ extern char* jst_fullPathName( const char* fileOrDirName ) {
 
 }
 
+extern char* jst_fullPathNameToBuffer( const char* fileOrDirName, char* buffer, size_t *bufsize ) {
+
+  char* realFile = jst_fullPathName( fileOrDirName ) ;
+  int   dynallocated ;
+
+  if ( !realFile ) {
+    if ( buffer ) free( buffer ) ;
+    return NULL ;
+  }
+
+  dynallocated = realFile != fileOrDirName ;
+
+  buffer = jst_append( buffer, bufsize, realFile, NULL ) ;
+
+  if ( dynallocated ) {
+    jst_free( realFile ) ;
+  }
+
+  return buffer ;
+
+}
+
+extern char* jst_overwriteWithFullPathName( char* buffer, size_t *bufsize ) {
+
+  char* realFile = jst_fullPathName( buffer ) ;
+  int   dynallocated ;
+
+  if ( !realFile ) {
+    free( buffer ) ;
+    return NULL ;
+  }
+
+  dynallocated = realFile != buffer ;
+
+  if ( dynallocated ) {
+    buffer[ 0 ] = '\0' ;
+    buffer = jst_append( buffer, bufsize, realFile, NULL ) ;
+    jst_free( realFile ) ;
+  }
+
+  return buffer ;
+
+}
+
+
+
 extern char* findStartupJar( const char* basedir, const char* subdir, const char* prefix, const char* progname, int (*selector)( const char* dirname, const char* filename ) ) {
   char *startupJar = NULL,
        *libDir     = NULL,
@@ -536,6 +582,7 @@ extern char* findStartupJar( const char* basedir, const char* subdir, const char
   return startupJar ;
 
 }
+
 
 extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* envVarName, int (*validator)( const char* dirname ) ) {
 
@@ -650,6 +697,36 @@ static char* dupPATH() {
 
 }
 
+/** Does all the following:
+ * - removes the exec name from the given path
+ * - checks that the given "last dir" is actually the last dir on the given path (may be NULL)
+ * - removes that last dir from the given filepath if required */
+static int stripExecNameAndLastDirFromPath( char* executablePath, const char* lastDirOnExecPath, jboolean removeLastDir ) {
+  int   found       = JNI_FALSE ;
+  char* lastFileSep = strrchr( executablePath, JST_FILE_SEPARATOR[ 0 ] ) ;
+
+  if ( lastFileSep ) {
+    size_t lastDirLen = lastDirOnExecPath ? strlen( lastDirOnExecPath ) : 0 ;
+    *lastFileSep = '\0' ;
+
+    if ( lastDirLen ) {
+      size_t len = strlen( executablePath ) ;
+
+      if ( ( (int)len >= lastDirLen + 1 ) &&
+           jst_endsWith( executablePath, lastDirOnExecPath ) ) {
+
+        found = JNI_TRUE ;
+        if ( removeLastDir ) executablePath[ len -= lastDirLen + 1 ] = '\0' ;
+
+      }
+
+    } else {
+      found = JNI_TRUE ;
+    }
+  }
+
+  return found ;
+}
 
 /** Tries to find the given executable from PATH. Freeing the returned value
  * is up to the caller. NULL is returned if not found.
@@ -663,9 +740,8 @@ extern char* jst_findFromPath( const char* execName, const char* lastDirOnExecPa
            *executablePath = NULL,
            *dirname ;
   size_t   execPathBufSize = 100 ;
-  int      lastDirLen = ( lastDirOnExecPath && lastDirOnExecPath[ 0 ] ) ? (int)strlen( lastDirOnExecPath ) : -1 ;
-  jboolean firstTime = JNI_TRUE,
-           found     = JNI_FALSE ;
+  jboolean firstTime = JNI_TRUE ;
+  int      found     = JNI_FALSE ;
 
   errno = 0 ;
 
@@ -673,43 +749,22 @@ extern char* jst_findFromPath( const char* execName, const char* lastDirOnExecPa
   if ( !path ) goto end ; // PATH not defined. Should never happen, but is not really an error if it does.
 
   for ( ; ( dirname = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
+
     if ( !*dirname ) continue ;
 
     executablePath = createPathToFile( executablePath, &execPathBufSize, dirname, execName ) ;
     if ( !executablePath ) goto end ;
 
-    // TODO: extract function
     if ( jst_fileExists( executablePath ) ) {
-      char* lastFileSep ;
-      char* realFile = jst_fullPathName( executablePath ) ;
 
-      if ( !realFile ) goto end ;
+      executablePath = jst_overwriteWithFullPathName( executablePath, &execPathBufSize ) ;
+      if ( !executablePath ) goto end ;
 
-      if ( realFile != executablePath ) { // if true, what we got was either not full path or behind a symlnk
-        executablePath[ 0 ] = '\0' ;
-        executablePath = jst_append( executablePath, &execPathBufSize, realFile, NULL ) ;
-        jst_free( realFile ) ;
-        if ( !executablePath ) goto end ;
-      }
+      found = stripExecNameAndLastDirFromPath( executablePath, lastDirOnExecPath, removeLastDir ) ;
+      if ( found ) break ;
 
-      lastFileSep = strrchr( executablePath, JST_FILE_SEPARATOR[ 0 ] ) ;
-      if ( lastFileSep ) {
-        size_t len ;
-        *lastFileSep = '\0' ;
-        len = strlen( executablePath ) ;
-        if ( lastDirLen != -1 ) {
-          if ( ( (int)len >= lastDirLen + 1 ) &&
-               jst_endsWith( executablePath, lastDirOnExecPath ) ) {
-            if ( removeLastDir ) executablePath[ len -= lastDirLen + 1 ] = '\0' ;
-            found = JNI_TRUE ;
-            break ;
-          }
-        } else {
-          found = JNI_TRUE ;
-          break ;
-        }
-      }
     }
+
   }
 
   end:

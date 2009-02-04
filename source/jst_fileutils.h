@@ -67,6 +67,13 @@ char* jst_getExecutableHome() ;
  * @return NULL on error */
 char* jst_fullPathName( const char* fileOrDirName ) ;
 
+/** Same as jst_fullPathName, but writes the result to the given buffer, expanding it if necessary (it must be
+ * dynallocated). Returns the buffer or NULL on error. In case of error the given buffer has been freed. */
+char* jst_fullPathNameToBuffer( const char* fileOrDirName, char* buffer, size_t *bufsize ) ;
+
+/** Same as jst_fullPathName, but writes the full path name on top of the original, expanding the buffer if necessary. */
+char* jst_overwriteWithFullPathName( char* buffer, size_t *bufsize ) ;
+
 /**
  * @param subdir may be NULL or empty
  * @param progname if != NULL, will be used in possible error msgs. If NULL, no error msg will be printed.
