@@ -583,16 +583,17 @@ extern char* findStartupJar( const char* basedir, const char* subdir, const char
 
 }
 
-
-extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* envVarName, int (*validator)( const char* dirname ) ) {
-
-  // FIXME - this func is a bit too complex - refactor
+/** returns apphome if valid by validator. On error errno will be set. */
+static char* getAppHomeBasedOnExecutableLocation( JstAppHomeStrategy appHomeStrategy, int (*validator)( const char* dirname ) ) {
 
   char *appHome = NULL ;
 
   if ( appHomeStrategy != JST_INGORE_EXECUTABLE_LOCATION ) {
     appHome = jst_getExecutableHome() ;
-    if ( !appHome ) return NULL ;
+    if ( !appHome ) {
+      if ( !errno ) errno = 1 ;
+      return NULL ;
+    }
 
     if ( appHomeStrategy == JST_USE_PARENT_OF_EXEC_LOCATION_AS_HOME ) {
       if ( !jst_pathToParentDir( appHome ) ) {
@@ -621,44 +622,57 @@ extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* env
 
   }
 
-  if ( !appHome && envVarName ) {
-    appHome = getenv( envVarName ) ;
-    if ( appHome ) {
+  return appHome ;
+
+}
+
+/** returns the app home or NULL if the env var is set (or set to invalid location). On error errno will be set. */
+static char* getAppHomeFromEnvVar( const char* envVarName, int (*validator)( const char* dirname ) ) {
+
+  char* appHome = getenv( envVarName ) ;
+
+  if ( appHome ) {
 #if defined( _WIN32 ) && defined( _cwcompat )
-      if ( CYGWIN_LOADED ) {
-        char convertedPath[ PATH_MAX + 1 ] ;
-        cygwin_posix2win_path( appHome, convertedPath ) ;
-        appHome = jst_strdup( convertedPath ) ;
+    if ( CYGWIN_LOADED ) {
+      char convertedPath[ PATH_MAX + 1 ] ;
+      cygwin_posix2win_path( appHome, convertedPath ) ;
+      appHome = jst_strdup( convertedPath ) ;
+    }
+#endif
+    if ( validator ) {
+      int isvalid ;
+      errno = 0 ;
+      isvalid = validator( appHome ) ;
+      if ( errno ) {
+#if defined( _WIN32 ) && defined( _cwcompat )
+        if ( CYGWIN_LOADED ) free( appHome ) ;
+#endif
+        return NULL ;
       }
-#endif
-      if ( validator ) {
-        int isvalid ;
-        errno = 0 ;
-        isvalid = validator( appHome ) ;
-        if ( errno ) {
+      if ( !isvalid ) {
 #if defined( _WIN32 ) && defined( _cwcompat )
-          if ( CYGWIN_LOADED ) free( appHome ) ;
+        if ( CYGWIN_LOADED ) free( appHome ) ;
 #endif
-          return NULL ;
-        }
-        if ( !isvalid ) {
-#if defined( _WIN32 ) && defined( _cwcompat )
-          if ( CYGWIN_LOADED ) free( appHome ) ;
-#endif
-          appHome = NULL ;
-        }
+        appHome = NULL ;
       }
+    }
 
 #if !( defined( _WIN32 ) && defined( _cwcompat ) )
-      if ( appHome ) appHome = jst_strdup( appHome ) ;
+    if ( appHome ) appHome = jst_strdup( appHome ) ;
 #endif
 
-      if ( _jst_debug ) fprintf( stderr, "debug: obtained app home from env var  %s, value: %s\n", envVarName, appHome ) ;
+    if ( appHome && _jst_debug ) fprintf( stderr, "debug: obtained app home from env var  %s, value: %s\n", envVarName, appHome ) ;
 
-    }
   }
 
-  if ( !appHome ) {
+  return appHome ;
+
+}
+
+
+
+static void printAppHomeFindingErrorMessage( JstAppHomeStrategy appHomeStrategy, const char* envVarName ) {
+
     int execLocAndEnvVar = ( appHomeStrategy != JST_INGORE_EXECUTABLE_LOCATION ) && envVarName ;
     fprintf( stderr, "error: could not locate app home\nplease " ) ;
     if ( execLocAndEnvVar )                                  fprintf( stderr, "either " ) ;
@@ -666,9 +680,25 @@ extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* env
     if ( execLocAndEnvVar )                                  fprintf( stderr, "or " ) ;
     if ( envVarName )                                        fprintf( stderr, "set the environment variable %s", envVarName ) ;
     fprintf( stderr, "\n" ) ;
+
+}
+
+extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* envVarName, int (*validator)( const char* dirname ) ) {
+
+  char *appHome = NULL ;
+
+  errno = 0 ;
+
+  appHome = getAppHomeBasedOnExecutableLocation( appHomeStrategy, validator ) ;
+
+  if ( !errno && !appHome && envVarName ) {
+    appHome = getAppHomeFromEnvVar( envVarName, validator ) ;
   }
 
+  if ( !appHome ) printAppHomeFindingErrorMessage( appHomeStrategy, envVarName ) ;
+
   return appHome ;
+
 }
 
 static void printPathLookupDebugMessage( const char* location ) {
@@ -727,6 +757,12 @@ static int stripExecNameAndLastDirFromPath( char* executablePath, const char* la
 
   return found ;
 }
+
+/** Returns (dynallocated) path entry containing the given file AND (if given) accepted by the validator. On error errno will be set. */
+//static char* findPathEntryContainingFile( const char* path, const char* file, int (*validator)( const char* dirname, const char* filename ) ) {
+//  // TODO
+//  return NULL ;
+//}
 
 /** Tries to find the given executable from PATH. Freeing the returned value
  * is up to the caller. NULL is returned if not found.
