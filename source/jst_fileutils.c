@@ -303,118 +303,143 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
 
 }
 
-extern char* jst_getExecutableHome() {
+#if defined( __linux__ ) || defined( __sun__ ) || defined( __APPLE__ )
 
-  char   *execHome = NULL ;
+#endif
 
-  size_t len ;
+#if defined( _WIN32 )
 
-# if defined( _WIN32 )
-  {
-    size_t currentBufSize = 0 ;
+static char* getFullPathToExecutableFileOnWindows() {
 
-    do {
-      if ( currentBufSize == 0 ) {
-        currentBufSize = PATH_MAX + 1 ;
-        execHome = jst_malloc( currentBufSize * sizeof( char ) ) ;
-      } else {
-        execHome = jst_realloc( execHome, (currentBufSize += 100) * sizeof( char ) ) ;
-      }
+  char   *execFile      = NULL ;
+  size_t currentBufSize = 0 ;
+  size_t len            = 0 ;
 
-      if ( !execHome ) return NULL ;
+  do {
+    if ( currentBufSize == 0 ) {
+      currentBufSize = PATH_MAX + 1 ;
+      execFile = jst_malloc( currentBufSize * sizeof( char ) ) ;
+    } else {
+      execFile = jst_realloc( execFile, (currentBufSize += 100) * sizeof( char ) ) ;
+    }
+
+    if ( !execFile ) return NULL ;
 
 
-      // reset the error state, just in case it has been left dangling somewhere and
-      // GetModuleFileNameA does not reset it (its docs don't tell).
-      // GetModuleFileName docs: http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dllproc/base/getmodulefilename.asp
-      SetLastError( 0 ) ;
-      len = GetModuleFileNameA( NULL, execHome, (DWORD)currentBufSize ) ;
-    } while ( GetLastError() == ERROR_INSUFFICIENT_BUFFER ) ;
-    // this works equally well but is a bit less readable
-    // } while(len == currentBufSize);
-  }
+    // reset the error state, just in case it has been left dangling somewhere and
+    // GetModuleFileNameA does not reset it (its docs don't tell).
+    // GetModuleFileName docs: http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dllproc/base/getmodulefilename.asp
+    SetLastError( 0 ) ;
+    len = GetModuleFileNameA( NULL, execFile, (DWORD)currentBufSize ) ;
+  } while ( GetLastError() == ERROR_INSUFFICIENT_BUFFER ) ;
+  // this works equally well but is a bit less readable
+  // } while(len == currentBufSize);
+
 
   if ( len == 0 ) {
     fprintf( stderr, "error: finding out executable location failed\n" ) ;
     jst_printWinError( GetLastError() ) ;
-    free( execHome ) ;
+    jst_free( execFile ) ;
+  }
+
+  return execFile ;
+
+}
+
+#elif defined( __linux__ ) || defined( __sun__ )
+
+static char* getFullPathToExecutableFileOnLinuxOrSolaris() {
+  char execFile[ MAX_PATH + 1 ],
+       procSymlink[ MAX_PATH + 1 ] ;
+
+  sprintf( procSymlink, JST_SYMLINK_TO_EXECUTABLE_STR_TEMPLATE, (int)getpid() ) ;
+
+  assert( jst_fileExists( procSymlink ) ; // should never fail
+
+   if ( !realpath( procSymlink, execFile ) ) {
+     fprintf( stderr, "could not get realpath to file %s\n%s\n", procSymlink, strerror( errno ) ) ;
+     return NULL ;
+   }
+
+   return jst_strdup( execFile ) ;
+}
+
+#elif defined( __APPLE__ )
+
+static char* getFullPathToExecutableFileOnOSX() {
+
+  char execFile[ MAX_PATH + 1 ],
+       *procSymlink = NULL ;
+
+  jboolean appleError = JNI_FALSE ;
+  const CFBundleRef bundle = CFBundleGetMainBundle() ;
+
+  if ( !bundle ) { // should never happen (?)
+
+    fprintf( stderr, "error: failed to get main bundle\n" ) ;
     return NULL ;
-  }
 
-# elif defined( __linux__ ) || defined( __sun__ ) || defined( __APPLE__ )
-  {
-    char   *procSymlink ;
+  } else {
 
-    if ( !( execHome = jst_malloc( ( PATH_MAX + 1 ) * sizeof( char ) ) ) ) return NULL ;
+    const CFURLRef    executableURL  = CFBundleCopyExecutableURL( bundle ) ;
+    const CFStringRef executablePath = CFURLCopyFileSystemPath( executableURL , kCFURLPOSIXPathStyle ) ;
+    const CFIndex     maxLength      = CFStringGetMaximumSizeOfFileSystemRepresentation( executablePath ) ;
 
-   // getting the symlink varies by platform
-#  if defined( __linux__ ) || defined( __sun__ )
-    // TODO - reserve space for this from the stack, not dynamically
-    procSymlink = jst_malloc( 40 * sizeof( char ) ) ; // big enough
-    if ( !procSymlink ) {
-      jst_free( execHome ) ;
-      return NULL ;
+    if ( !( procSymlink = jst_malloc( maxLength * sizeof( char ) ) ) ||
+         !CFStringGetFileSystemRepresentation( executablePath, procSymlink , maxLength ) ) {
+      appleError = JNI_TRUE ;
     }
 
-    sprintf( procSymlink, JST_SYMLINK_TO_EXECUTABLE_STR_TEMPLATE, (int)getpid() ) ;
+    CFRelease ( executablePath ) ;
+    CFRelease ( executableURL  ) ;
 
+    if ( appleError ) {
+      if ( procSymlink ) free( procSymlink ) ;
+      fprintf( stderr, "error: error occurred when using bundle api to find executable home directory\n" ) ;
+      return NULL ;
+    }
+  }
+
+  assert( jst_fileExists( procSymlink ) ; // should never fail
+
+  if ( !realpath( procSymlink, execFile ) ) {
+   fprintf( stderr, "could not get realpath to file %s\n%s\n", procSymlink, strerror( errno ) ) ;
+   free( procSymlink ) ;
+   return NULL ;
+  }
+
+  free( procSymlink ) ;
+
+  return jst_strdup( execFile ) ;
+
+}
+
+#endif
+
+extern char* jst_getExecutableHome() {
+
+  char *execHome = NULL ;
+
+# if defined( _WIN32 )
+  execHome = getFullPathToExecutableFileOnWindows() ;
+# elif defined( __linux__ ) || defined( __sun__ )
+  execHome = getFullPathToExecutableFileOnLinuxOrSolaris() ;
 #  elif defined( __APPLE__ )
-    {
-      jboolean appleError = JNI_FALSE ;
-      const CFBundleRef bundle = CFBundleGetMainBundle() ;
-      if ( !bundle ) {
-        fprintf( stderr, "error: failed to get main bundle\n" ) ;
-        jst_free( execHome ) ;
-        return NULL ;
-      } else {
-        const CFURLRef    executableURL  = CFBundleCopyExecutableURL( bundle ) ;
-        const CFStringRef executablePath = CFURLCopyFileSystemPath( executableURL , kCFURLPOSIXPathStyle ) ;
-        const CFIndex     maxLength      = CFStringGetMaximumSizeOfFileSystemRepresentation( executablePath ) ;
-
-        if ( !( procSymlink = jst_malloc( maxLength * sizeof( char ) ) ) ||
-             !CFStringGetFileSystemRepresentation( executablePath, procSymlink , maxLength ) ) {
-          appleError = JNI_TRUE ;
-        }
-
-        CFRelease ( executablePath ) ;
-        CFRelease ( executableURL  ) ;
-        if ( appleError ) {
-          free( execHome ) ;
-          if ( procSymlink ) free( procSymlink ) ;
-          fprintf( stderr, "error: error occurred when using bundle api to find executable home directory\n" ) ;
-          return NULL ;
-        }
-      }
-    }
-
-#  endif
-
-    if ( !jst_fileExists( procSymlink ) ) { // should never happen
-      fprintf( stderr, "error: symlink or file %s does not exist\n", procSymlink ) ;
-      free( procSymlink ) ;
-      free( execHome ) ;
-      return NULL ;
-    }
-
-    if ( !realpath( procSymlink, execHome ) ) {
-      fprintf( stderr, strerror( errno ) ) ;
-      free( procSymlink ) ;
-      free( execHome    ) ;
-      return NULL ;
-    }
-
-    free( procSymlink ) ;
-  }
-
+  execHome = getFullPathToExecutableFileOnOSX() ;
 # else
 #  error "looking up executable location has not been implemented on your platform"
 # endif
 
-  // cut off the executable name and the trailing file separator
-  *(strrchr( execHome, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;
-  len = strlen( execHome ) ;
-  execHome = jst_realloc( execHome, len + 1 ) ; // should not fail as we are shrinking the buffer
-  assert( execHome ) ;
+
+  if ( execHome ) {
+    size_t len ;
+    // cut off the executable name and the trailing file separator
+    *(strrchr( execHome, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;
+    len = strlen( execHome ) ;
+    execHome = jst_realloc( execHome, len + 1 ) ; // should not fail as we are shrinking the buffer
+    assert( execHome ) ;
+  }
+
   return execHome ;
 
 }
