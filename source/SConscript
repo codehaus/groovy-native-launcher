@@ -24,11 +24,19 @@ import re
 
 Import ( 'environment' )
 
-debug = eval ( ARGUMENTS.get ( 'debug' , 'False' ) )
+debug   = eval ( ARGUMENTS.get ( 'debug' ,   'False' ) )
+profile = eval ( ARGUMENTS.get ( 'profile' , 'False' ) )
+
+if debug and profile : raise Exception , 'Profiling should be done on optimized executable, not debug version.'
+
+if profile and environment['CC'] == 'cl' : 
+    environment.Append ( CCFLAGS   = '-Zi', 
+                         LINKFLAGS = '-debug -fixed:no' ) 
+
 if debug :
     if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
         environment.Append ( CCFLAGS   = '-MDd -Od -Zi -RTCcsu -D_CRTDBG_MAP_ALLOC',
-                             LINKFLAGS = '-debug -fixed:no' )
+                             LINKFLAGS = '-debug' )
     elif environment['CC'] == 'gcc' :
         environment.Append ( CCFLAGS = '-g' )
     else :
@@ -42,7 +50,7 @@ else :
         #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
         #
         environment.Append ( CCFLAGS   = '-MD -Ox',
-                             LINKFLAGS = '-opt:ref -opt:nowin98' )
+                             LINKFLAGS = '-opt:ref -opt:nowin98 -incremental:no' )
     elif environment['CC'] == 'gcc' :
         environment.Append ( CCFLAGS = '-O3' ) 
         #  The Mac OS X ld does not understand long options, and only allows stripping on 32-bit builds.
