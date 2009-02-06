@@ -349,12 +349,12 @@ static char* getFullPathToExecutableFileOnWindows() {
 #elif defined( __linux__ ) || defined( __sun__ )
 
 static char* getFullPathToExecutableFileOnLinuxOrSolaris() {
-  char execFile[ MAX_PATH + 1 ],
-       procSymlink[ MAX_PATH + 1 ] ;
+  char execFile[    PATH_MAX + 1 ],
+       procSymlink[ PATH_MAX + 1 ] ;
 
   sprintf( procSymlink, JST_SYMLINK_TO_EXECUTABLE_STR_TEMPLATE, (int)getpid() ) ;
 
-  assert( jst_fileExists( procSymlink ) ; // should never fail
+  assert( jst_fileExists( procSymlink ) ) ; // should never fail
 
    if ( !realpath( procSymlink, execFile ) ) {
      fprintf( stderr, "could not get realpath to file %s\n%s\n", procSymlink, strerror( errno ) ) ;
@@ -368,7 +368,7 @@ static char* getFullPathToExecutableFileOnLinuxOrSolaris() {
 
 static char* getFullPathToExecutableFileOnOSX() {
 
-  char execFile[ MAX_PATH + 1 ],
+  char execFile[ PATH_MAX + 1 ],
        *procSymlink = NULL ;
 
   jboolean appleError = JNI_FALSE ;
@@ -400,7 +400,7 @@ static char* getFullPathToExecutableFileOnOSX() {
     }
   }
 
-  assert( jst_fileExists( procSymlink ) ; // should never fail
+  assert( jst_fileExists( procSymlink ) ) ; // should never fail
 
   if ( !realpath( procSymlink, execFile ) ) {
    fprintf( stderr, "could not get realpath to file %s\n%s\n", procSymlink, strerror( errno ) ) ;

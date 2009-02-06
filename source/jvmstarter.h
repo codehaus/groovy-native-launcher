@@ -268,7 +268,7 @@ char* jst_findJavaHome( JstActualParam* processedActualParams ) ;
 
 /** As appendArrayItem, but specifically for jvm options.
  * @param extraInfo JavaVMOption.extraInfo. See jni.h or jni documentation (JavaVMOption is defined in jni.h). */
-JavaVMOption* appendJvmOption( JavaVMOption* opts, int index, size_t* optsSize, char* optStr, void* extraInfo ) ;
+JavaVMOption* appendJvmOption( JavaVMOption* opts, int indx, size_t* optsSize, char* optStr, void* extraInfo ) ;
 
 #if defined( __cplusplus )
   } // end extern "C"
