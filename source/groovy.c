@@ -1,6 +1,6 @@
 //  Groovy -- A native launcher for Groovy
 //
-//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
+//  Copyright (c) 2006,2009 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 //
 //  Licensed under the Apache License, Version 2.0 (the "License") ; you may not use this file except in
 //  compliance with the License. You may obtain a copy of the License at
@@ -626,11 +626,17 @@ int rest_of_main( int argc, char** argv ) {
   options.jars                = jars ;
   options.classpathStrategy   = jst_getParameterValue( processedActualParams, "--quickstart" ) ? JST_BOOTSTRAP_CLASSPATH_A : JST_NORMAL_CLASSPATH ;
 
+  // In GROOVY-3340, SimonS reports that things do not work properly if Cygwin is released before the JVM is
+  // launched, but things are fine the other way around.  This ordering doesn't matter except in the Cygwin
+  // case, so it seems safe to make the change as requested.
+
+  rval = jst_launchJavaApp( &options ) ;
+
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   jst_cygwinRelease() ;
 #endif
 
-  rval = jst_launchJavaApp( &options ) ;
+  //rval = jst_launchJavaApp( &options ) ;
 
   if ( displayHelp ) { // add to the standard groovy help message
     fprintf( stderr, "\n"
