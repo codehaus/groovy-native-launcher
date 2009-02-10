@@ -76,7 +76,7 @@ char* jst_strdup( const char* s ) ;
 #  include <malloc.h>
 #  define jst_malloca( size ) _malloca( size )
 #  define jst_freea( ptr ) _freea( ptr )
-#elif defined( __linux__ ) || define( __sun__ ) || defined( __APPLE__ )
+#elif defined( __linux__ ) || defined( __sun__ ) || defined( __APPLE__ )
 #  include <alloca.h>
 #  define jst_malloca( size ) alloca( size )
 #  define jst_freea( ptr )
