@@ -940,6 +940,10 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   if ( !( launcheeMainClassHandle = findMainClassAndMethod( env, launchOptions->mainClassName, launchOptions->mainMethodName, &launcheeMainMethodID ) ) ) goto end ;
 
 
+  if ( _jst_debug ) {
+    fprintf( stderr, "DEBUG: invoking %s.%s\n", launchOptions->mainClassName, launchOptions->mainMethodName ) ;
+  }
+
   // finally: launch the java application!
   (*env)->CallStaticVoidMethod( env, launcheeMainClassHandle, launcheeMainMethodID, launcheeJOptions ) ;
 

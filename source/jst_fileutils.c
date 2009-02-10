@@ -72,6 +72,7 @@
 
 /** Returns != 0 if the given file exists. In case of error, errno != 0 */
 extern int jst_fileExists( const char* fileName ) {
+
   struct stat buf ;
   int i ;
 
@@ -83,7 +84,7 @@ extern int jst_fileExists( const char* fileName ) {
 
   if ( errno == ENOENT ) errno = 0 ;
 
-  return ( i == 0 ) ;
+  return i == 0 ;
 
 }
 
@@ -112,7 +113,11 @@ extern char* jst_pathToParentDir( char* path ) {
 #if defined( _WIN32 )
   if ( ( len == 0 ) ||
        ( len == 1 && path[ 0 ] == JST_FILE_SEPARATOR[ 0 ] ) ||
-       ( len == 3 && isalpha( path[ 0 ] ) && path[ 1 ] == ':' && path[ 2 ] == JST_FILE_SEPARATOR[ 0 ] )
+       ( ( len == 3 ) &&
+         isalpha( path[ 0 ] ) &&
+         ( path[ 1 ] == ':' ) &&
+         ( path[ 2 ] == JST_FILE_SEPARATOR[ 0 ] )
+       )
      ) return NULL ;
 #else
   if ( len <= 1 ) return NULL ;
@@ -121,7 +126,9 @@ extern char* jst_pathToParentDir( char* path ) {
   if ( pathEndsWithSeparator ) {
     path[ len - 1 ] = '\0' ;
   }
+
   *(strrchr( path, JST_FILE_SEPARATOR[ 0 ] ) ) = '\0' ;
+
   return path ;
 
 }
@@ -151,33 +158,32 @@ static jboolean checkForInvalidFileHandle( HANDLE fileHandle, const char* dirNam
 #endif
 
 /** adds filename to list, return true on error and changes the value of errorOccurred accordingly. */
-static jboolean addFileToList( char ***tempResult, int *indx, size_t *resultSize, char* dirName, char* fileName, int (*selector)( const char* dirname, const char* filename ), jboolean *errorOccurred ) {
+static jboolean addFileToList( char ***fileNames, int *fileNameCount, size_t *resultSize, char* dirName, char* fileName, int (*selector)( const char* dirname, const char* filename ), jboolean *errorOccurred ) {
 
   int okToInclude = JNI_TRUE ;
 
   if ( selector ) {
     errno = 0 ;
     okToInclude = selector( dirName, fileName ) ;
-    if ( errno ) { *errorOccurred = JNI_TRUE; goto end ; }
+    if ( errno ) *errorOccurred = JNI_TRUE;
   }
 
-  if ( okToInclude ) {
+  if ( !*errorOccurred && okToInclude ) {
     char* temp = jst_strdup( fileName ) ;
     if ( !temp ||
-         !( *tempResult = jst_appendArrayItem( *tempResult, (*indx)++, resultSize, &temp, sizeof( char* ) ) ) ) {
+         !( *fileNames = jst_appendArrayItem( *fileNames, (*fileNameCount)++, resultSize, &temp, sizeof( char* ) ) ) ) {
       *errorOccurred = JNI_TRUE ;
-      goto end ;
     }
   }
 
-  end:
   return *errorOccurred ;
 }
 
 
 static void changeEmptyPrefixAndSuffixToNULL( char** fileNamePrefix, char** fileNameSuffix ) {
 
-  if ( *fileNamePrefix && !**fileNamePrefix ) *fileNamePrefix = NULL ; // replace empty str w/ NULL
+  if ( *fileNamePrefix && !**fileNamePrefix ) *fileNamePrefix = NULL ;
+
   if ( *fileNameSuffix ) {
     if ( !**fileNameSuffix ) {
       *fileNameSuffix = NULL ;
@@ -194,108 +200,128 @@ extern int matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* s
 
 }
 
-extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix, int (*selector)( const char* dirname, const char* filename ) ) {
-  char     **tempResult ;
-  size_t   resultSize = 30 ;
-  jboolean errorOccurred = JNI_FALSE ;
-  int      indx = 0 ;
+#if defined( _WIN32 )
 
-  if ( !( tempResult = jst_calloc( resultSize, sizeof( char* ) ) ) ) return NULL ;
+/** Inserts the names of files matching the given criteria into the given (dynallocated) string array. returns true on error */
+static jboolean getFileNamesToArray( char* dirName, char* fileNamePrefix, char* fileNameSuffix, char*** fileNamesOut, size_t* fileNamesSize, int* fileNameCount, int (*selector)( const char* dirname, const char* filename ) ) {
+
+  // windows does not have dirent.h, it does things different from other os'es
+
+  jboolean        dirNameEndsWithSeparator = jst_dirNameEndsWithSeparator( dirName ),
+                  errorOccurred            = JNI_FALSE ;
+  HANDLE          fileHandle               = INVALID_HANDLE_VALUE ;
+  WIN32_FIND_DATA fdata ;
+  DWORD           lastError ;
+  char*           fileSpecifier ;
+
 
   changeEmptyPrefixAndSuffixToNULL( &fileNamePrefix, &fileNameSuffix ) ;
 
-  {
-
-#  if defined( _WIN32 )
-  // windows does not have dirent.h, it does things different from other os'es
-
-    jboolean        dirNameEndsWithSeparator = jst_dirNameEndsWithSeparator( dirName ) ;
-    HANDLE          fileHandle               = INVALID_HANDLE_VALUE ;
-    WIN32_FIND_DATA fdata ;
-    DWORD           lastError ;
-    char*           fileSpecifier = jst_append( NULL, NULL, dirName,
-                                                            dirNameEndsWithSeparator ? "" : JST_FILE_SEPARATOR,
-                                                            fileNamePrefix ? fileNamePrefix : "",
-                                                            "*",
-                                                            fileNameSuffix ? fileNameSuffix : ".*",
-                                                            NULL ) ;
-    if ( !fileSpecifier ) {
-      errorOccurred = JNI_TRUE ;
-      goto end ;
-    }
-
-    SetLastError( 0 ) ;
-
-    fileHandle = FindFirstFile( fileSpecifier, &fdata ) ;
-
-    if ( checkForInvalidFileHandle( fileHandle, dirName, &errorOccurred ) ) goto end ;
-
-
-    if ( !( lastError = GetLastError() ) ) {
-
-      do {
-
-        if ( addFileToList( &tempResult, &indx, &resultSize, dirName, fdata.cFileName, selector, &errorOccurred ) ) goto end ;
-
-      } while ( FindNextFile( fileHandle, &fdata ) ) ;
-
-    }
-
-    if ( !lastError ) lastError = GetLastError() ;
-    if ( lastError != ERROR_NO_MORE_FILES ) {
-      fprintf( stderr, "error: error occurred reading directory %s\n", dirName ) ;
-      jst_printWinError( lastError ) ;
-      errorOccurred = JNI_TRUE ;
-    }
-
-    end:
-
-    if ( fileHandle != INVALID_HANDLE_VALUE ) FindClose( fileHandle ) ;
-    if ( fileSpecifier ) free( fileSpecifier ) ;
-
-#  else
-
-    DIR           *dir ;
-    struct dirent *entry ;
-
-    dir = opendir( dirName ) ;
-    if ( !dir ) {
-      fprintf( stderr, "error: could not open directory %s\n%s", dirName, strerror( errno ) ) ;
-      errorOccurred = JNI_TRUE ;
-      goto end ;
-    }
-
-    while( ( entry = readdir( dir ) ) ) {
-      char   *fileName = entry->d_name ;
-
-      if ( ( strcmp( ".", fileName ) == 0 ) || ( strcmp( "..", fileName ) == 0 ) ) continue ;
-
-      if ( matchPrefixAndSuffixToFileName( fileName, fileNamePrefix, fileNameSuffix ) ) {
-
-        if ( addFileToList( &tempResult, &indx, &resultSize, dirName, fileName, selector, &errorOccurred ) ) goto end ;
-
-      }
-    }
-
-
-    end:
-
-    if ( dir ) closedir( dir ) ;
-
-#  endif
+  fileSpecifier = jst_append( NULL, NULL, dirName,
+                                          dirNameEndsWithSeparator ? "" : JST_FILE_SEPARATOR,
+                                          fileNamePrefix ? fileNamePrefix : "",
+                                          "*",
+                                          fileNameSuffix ? fileNameSuffix : ".*",
+                                          NULL ) ;
+  if ( !fileSpecifier ) {
+    return JNI_TRUE ;
   }
 
-  if ( tempResult ) {
-    tempResult = jst_appendArrayItem( tempResult, indx, &resultSize, NULL, sizeof( char* ) ) ;
-    if ( !tempResult ) errorOccurred = JNI_TRUE ;
+  SetLastError( 0 ) ;
+
+  fileHandle = FindFirstFile( fileSpecifier, &fdata ) ;
+
+  if ( checkForInvalidFileHandle( fileHandle, dirName, &errorOccurred ) ) goto end ;
+
+
+  if ( !( lastError = GetLastError() ) ) {
+
+    do {
+
+      if ( addFileToList( fileNamesOut, fileNameCount, fileNamesSize, dirName, fdata.cFileName, selector, &errorOccurred ) ) goto end ;
+
+    } while ( FindNextFile( fileHandle, &fdata ) ) ;
+
+  }
+
+  if ( !lastError ) lastError = GetLastError() ;
+  if ( lastError != ERROR_NO_MORE_FILES ) {
+    fprintf( stderr, "error: error occurred reading directory %s\n", dirName ) ;
+    jst_printWinError( lastError ) ;
+    errorOccurred = JNI_TRUE ;
+  }
+
+  end:
+
+  if ( fileHandle != INVALID_HANDLE_VALUE ) FindClose( fileHandle ) ;
+  if ( fileSpecifier ) free( fileSpecifier ) ;
+
+  return errorOccurred ;
+
+}
+
+#else
+
+static jboolean getFileNamesToArray( char* dirName, char* fileNamePrefix, char* fileNameSuffix, char*** fileNamesOut, size_t* fileNamesSize, int* fileNameCount, int (*selector)( const char* dirname, const char* filename ) ) {
+
+  DIR           *dir ;
+  struct dirent *entry ;
+  jboolean      errorOccurred = JNI_FALSE ;
+
+  dir = opendir( dirName ) ;
+  if ( !dir ) {
+    fprintf( stderr, "error: could not open directory %s\n%s", dirName, strerror( errno ) ) ;
+    return JNI_TRUE ;
+  }
+
+  while ( ( entry = readdir( dir ) ) ) {
+
+    char *fileName = entry->d_name ;
+
+    if ( ( strcmp( ".", fileName ) == 0 ) || ( strcmp( "..", fileName ) == 0 ) ) continue ;
+
+    if ( matchPrefixAndSuffixToFileName( fileName, fileNamePrefix, fileNameSuffix ) ) {
+
+      if ( addFileToList( fileNamesOut, fileNameCount, fileNamesSize, dirName, fileName, selector, &errorOccurred ) ) goto end ;
+
+    }
+  }
+
+
+  end:
+
+  if ( dir ) closedir( dir ) ;
+
+  return errorOccurred ;
+
+}
+
+#endif
+
+extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix, int (*selector)( const char* dirname, const char* filename ) ) {
+
+  char     **fileNamesTmp ;
+  size_t   resultSize    = 30 ;
+  jboolean errorOccurred = JNI_FALSE ;
+  int      fileNameCount = 0 ;
+
+  if ( !( fileNamesTmp = jst_calloc( resultSize, sizeof( char* ) ) ) ) return NULL ;
+
+
+  errorOccurred = getFileNamesToArray( dirName, fileNamePrefix, fileNameSuffix, &fileNamesTmp, &resultSize, &fileNameCount, selector ) ;
+
+
+  if ( fileNamesTmp ) {
+    fileNamesTmp = jst_appendArrayItem( fileNamesTmp, fileNameCount, &resultSize, NULL, sizeof( char* ) ) ;
+    if ( !fileNamesTmp ) errorOccurred = JNI_TRUE ;
   }
 
   {
     char** rval = NULL ;
 
-    if ( tempResult ) {
-      if ( !errorOccurred ) rval = jst_packStringArray( tempResult ) ;
-      jst_freeAll( (void***)(void*)&tempResult ) ;
+    if ( fileNamesTmp ) {
+      if ( !errorOccurred ) rval = jst_packStringArray( fileNamesTmp ) ;
+      jst_freeAll( (void***)(void*)&fileNamesTmp ) ;
     }
 
     return rval ;
@@ -303,13 +329,10 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
 
 }
 
-#if defined( __linux__ ) || defined( __sun__ ) || defined( __APPLE__ )
-
-#endif
 
 #if defined( _WIN32 )
 
-static char* getFullPathToExecutableFileOnWindows() {
+static char* getFullPathToExecutableFile() {
 
   char   *execFile      = NULL ;
   size_t currentBufSize = 0 ;
@@ -348,7 +371,7 @@ static char* getFullPathToExecutableFileOnWindows() {
 
 #elif defined( __linux__ ) || defined( __sun__ )
 
-static char* getFullPathToExecutableFileOnLinuxOrSolaris() {
+static char* getFullPathToExecutableFile() {
   char execFile[    PATH_MAX + 1 ],
        procSymlink[ PATH_MAX + 1 ] ;
 
@@ -366,7 +389,7 @@ static char* getFullPathToExecutableFileOnLinuxOrSolaris() {
 
 #elif defined( __APPLE__ )
 
-static char* getFullPathToExecutableFileOnOSX() {
+static char* getFullPathToExecutableFile() {
 
   char execFile[ PATH_MAX + 1 ],
        *procSymlink = NULL ;
@@ -414,22 +437,17 @@ static char* getFullPathToExecutableFileOnOSX() {
 
 }
 
+# else
+
+#  error "looking up executable location has not been implemented on your platform"
+
 #endif
 
 extern char* jst_getExecutableHome() {
 
   char *execHome = NULL ;
 
-# if defined( _WIN32 )
-  execHome = getFullPathToExecutableFileOnWindows() ;
-# elif defined( __linux__ ) || defined( __sun__ )
-  execHome = getFullPathToExecutableFileOnLinuxOrSolaris() ;
-#  elif defined( __APPLE__ )
-  execHome = getFullPathToExecutableFileOnOSX() ;
-# else
-#  error "looking up executable location has not been implemented on your platform"
-# endif
-
+  execHome = getFullPathToExecutableFile() ;
 
   if ( execHome ) {
     size_t len ;
@@ -464,6 +482,7 @@ extern char* jst_createFileName( const char* root, ... ) {
   va_start( args, root ) ;
 
   while ( ( s = va_arg( args, char* ) ) ) {
+    // TODO: this looks like black magic - refactor
     if ( s[ 0 ] ) { // skip empty strings
       if ( ( s[ 0 ] != filesep[ 0 ] ) &&
            ( previous[ strlen( previous ) - 1 ] != filesep[ 0 ] ) &&

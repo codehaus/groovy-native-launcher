@@ -72,6 +72,17 @@ void* jst_calloc( size_t nelem, size_t elsize ) ;
 void* jst_realloc( void* ptr, size_t size ) ;
 char* jst_strdup( const char* s ) ;
 
+#if defined( _WIN32 )
+#  include <malloc.h>
+#  define jst_malloca( size ) _malloca( size )
+#  define jst_freea( ptr ) _freea( ptr )
+#elif defined( __linux__ ) || define( __sun__ ) || defined( __APPLE__ )
+#  include <alloca.h>
+#  define jst_malloca( size ) alloca( size )
+#  define jst_freea( ptr )
+#else
+#  error "alloca aliases need to be defined for your platform. If not present, define them as aliases to jst_malloc and free."
+#endif
 
 #define jst_free( x ) free( x ) ; x = NULL
 

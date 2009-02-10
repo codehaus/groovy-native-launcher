@@ -367,12 +367,13 @@ int rest_of_main( int argc, char** argv ) {
   options.jars                = NULL ;
   options.classpathStrategy   = jst_getParameterValue( processedActualParams, "--quickstart" ) ? JST_BOOTSTRAP_CLASSPATH_A : JST_NORMAL_CLASSPATH ;
 
-#if defined ( _WIN32 ) && defined ( _cwcompat )
-  jst_cygwinRelease() ;
-#endif
 
   rval = jst_launchJavaApp( &options ) ;
 
+#if defined ( _WIN32 ) && defined ( _cwcompat )
+  // see groovy.c for discussion on why this is removed
+  // jst_cygwinRelease() ;
+#endif
 
 end:
 

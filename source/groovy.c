@@ -626,17 +626,19 @@ int rest_of_main( int argc, char** argv ) {
   options.jars                = jars ;
   options.classpathStrategy   = jst_getParameterValue( processedActualParams, "--quickstart" ) ? JST_BOOTSTRAP_CLASSPATH_A : JST_NORMAL_CLASSPATH ;
 
+  rval = jst_launchJavaApp( &options ) ;
+
   // In GROOVY-3340, SimonS reports that things do not work properly if Cygwin is released before the JVM is
   // launched, but things are fine the other way around.  This ordering doesn't matter except in the Cygwin
   // case, so it seems safe to make the change as requested.
+  // See http://jira.codehaus.org/browse/GROOVY-3340
 
-  rval = jst_launchJavaApp( &options ) ;
-
-#if defined ( _WIN32 ) && defined ( _cwcompat )
-  jst_cygwinRelease() ;
-#endif
-
-  //rval = jst_launchJavaApp( &options ) ;
+  // freeing this after running the java program does not make much sense - it will be freed by
+  // the os at process exit anyway. The idea of freeing this manually before invoking the java program
+  // was to free resources that are no longer needed.
+//#if defined ( _WIN32 ) && defined ( _cwcompat )
+//  jst_cygwinRelease() ;
+//#endif
 
   if ( displayHelp ) { // add to the standard groovy help message
     fprintf( stderr, "\n"
