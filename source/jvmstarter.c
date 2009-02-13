@@ -696,114 +696,172 @@ static jboolean jst_startJvm( jint vmversion, JavaVMOption *jvmOptions, jint jvm
   return JNI_TRUE ;
 }
 
+static jclass getJavaStringClass( JNIEnv* env ) {
+
+  static jclass strClass = NULL ;
+
+  if ( !strClass && !( strClass = (*env)->FindClass(env, "java/lang/String") ) ) {
+    clearException( env ) ;
+    fprintf( stderr, "error: could not find java.lang.String class\n" ) ; // should never happen
+  }
+
+  return strClass ;
+
+}
+
+static jobjectArray createJObjectArray( JNIEnv* env, jint size, jclass klass ) {
+  jobjectArray arr = (*env)->NewObjectArray( env, size, klass, NULL ) ;
+
+  if ( !arr ) {
+    clearException( env ) ;
+    fprintf( stderr, "error: could not allocate memory for java array\n" ) ;
+  }
+
+  return arr ;
+}
+
+static int countParamsPassedToMainMethod( JstActualParam* parameters, JstUnrecognizedParamStrategy unrecognizedParamStrategy ) {
+
+  int count = 0,
+      i ;
+
+  for ( i = 0 ; parameters[ i ].param ; i++ ) {
+    if ( jst_isToBePassedToLaunchee( parameters + i, unrecognizedParamStrategy ) ) {
+      count++ ;
+    }
+  }
+
+  return count ;
+
+}
+
+static int ensureJNILocalCapacity( JNIEnv* env, jint requiredCapacity ) {
+  int result = (*env)->EnsureLocalCapacity( env, requiredCapacity ) ;
+  if ( result ) {
+    fprintf( stderr, "error: could not allocate memory in jvm local frame\n" ) ;
+  }
+  return result ;
+}
+
+/** @param strings must be NULL terminated. May be NULL.
+ * @param indx start at this index
+ * @return != 0 on error */
+static int addStringsToJavaStringArray( JNIEnv* env, jobjectArray jstrings, char** strings, jint indx ) {
+
+  int errorOccurred = 0 ;
+
+  if ( !strings ) return 0 ;
+
+  for ( ; *strings ; strings++ ) {
+    if ( ( errorOccurred = !addStringToJStringArray( env, *strings, jstrings, indx++ ) ) ) {
+      break ;
+    }
+  }
+
+  return errorOccurred ;
+
+}
+
 /** Returns NULL on error, and sets rval output param accordingly.
  * On successfull execution rval is not touched. */
+void printParameterDebugInformation( JstActualParam* parameter, JstInputParamHandling paramHandling, JstParamClass paramClass ) {
+
+  if ( _jst_debug ) {
+      char* paramValue = parameter->value ;
+      if ( ( paramClass    == JST_SINGLE_PARAM ) ||
+           ( paramHandling == JST_TERMINATING_OR_AFTER ) ||
+           ( paramClass    == JST_DOUBLE_PARAM ) ) {
+        paramValue = parameter->param ;
+      }
+      fprintf( stderr, "  %s\n", paramValue ) ;
+      if ( paramClass == JST_DOUBLE_PARAM )
+        fprintf( stderr, "  %s\n", parameter->value ) ;
+  }
+
+}
+
 static jobjectArray createJMainParams( JNIEnv* env, JstActualParam* parameters, char** extraProgramOptions, JstUnrecognizedParamStrategy unrecognizedParamStrategy, int* rval ) {
 
   jobjectArray launcheeJOptions = NULL ;
-  jclass strClass ;
+  jclass       strClass ;
   int i,
       passedParamCount = 0,
-      indx = 0 ; // index in java String[] (args to main)
-  jint result ;
+      indx             = 0, // index in java String[] (args to main)
+      errorOccurred    = 0 ;
 
-  for ( i = 0 ; parameters[ i ].param ; i++ ) {
-    if ( jst_isToBePassedToLaunchee( parameters + i, unrecognizedParamStrategy ) ) {
-      passedParamCount++ ;
-    }
-  }
 
-  passedParamCount += extraProgramOptions ? jst_pointerArrayLen( (void**)(void*)extraProgramOptions ) : 0 ;
+  passedParamCount += countParamsPassedToMainMethod( parameters, unrecognizedParamStrategy ) ;
+
+  passedParamCount += jst_pointerArrayLen( (void**)(void*)extraProgramOptions ) ;
 
   if ( _jst_debug ) fprintf( stderr, "passing %d parameters to main method: \n", passedParamCount ) ;
 
-  if ( ( result = (*env)->EnsureLocalCapacity( env, passedParamCount + 1 ) ) ) { // + 1 for the String[] to hold the params
-    clearException( env ) ;
-    fprintf( stderr, "error: could not allocate memory to hold references for program parameters (how many params did you give, dude?)\n" ) ;
-    *rval = result ;
+  if ( ( errorOccurred = ensureJNILocalCapacity( env, passedParamCount + 1 ) ) ) { // + 1 for the String[] to hold the params
     goto end ;
   }
 
-  if ( !( strClass = (*env)->FindClass(env, "java/lang/String") ) ) {
-    clearException( env ) ;
-    fprintf( stderr, "error: could not find java.lang.String class\n" ) ;
-    *rval = -1 ;
+  if ( ( errorOccurred =
+       !( strClass         = getJavaStringClass( env ) ) ||
+       !( launcheeJOptions = createJObjectArray( env, passedParamCount, strClass ) ) ) ) {
     goto end ;
   }
 
-
-  launcheeJOptions = (*env)->NewObjectArray( env, passedParamCount, strClass, NULL ) ;
-  if ( !launcheeJOptions ) {
-    clearException( env ) ;
-    fprintf( stderr, "error: could not allocate memory for java String array to hold program parameters (how many params did you give, dude?)\n" ) ;
-    *rval = -1 ;
+  if ( ( errorOccurred = addStringsToJavaStringArray( env, launcheeJOptions, extraProgramOptions, indx ) ) ) {
     goto end ;
   }
+  indx += jst_pointerArrayLen( (void**)(void*)extraProgramOptions ) ;
 
-  indx = 0 ;
-  if ( extraProgramOptions ) {
-    char *carg ;
-
-    while ( ( carg = *extraProgramOptions++ ) ) {
-      if ( _jst_debug ) fprintf( stderr, "  %s\n", carg ) ;
-
-      if ( !addStringToJStringArray( env, carg, launcheeJOptions, indx++ ) ) {
-        (*env)->DeleteLocalRef( env, launcheeJOptions ) ;
-        launcheeJOptions = NULL ;
-        *rval = -1 ;
-        goto end ;
-      }
-    }
+  if ( _jst_debug && extraProgramOptions ) {
+    char** s = extraProgramOptions ;
+    for ( ; *s ; s++ )
+      fprintf( stderr, "  %s\n", *s ) ;
   }
+
 
   for ( i = 0 ; parameters[ i ].param ; i++ ) {
 
     if ( jst_isToBePassedToLaunchee( parameters + i, unrecognizedParamStrategy ) ) {
-      jboolean failed = JNI_FALSE ;
       JstParamInfo* paramInfo = parameters[ i ].paramDefinition ;
-      // FIXME - this is mixed up - think though whatn handling info and param type are used for
-      JstInputParamHandling paramHandling = paramInfo ? paramInfo->handling : JST_TERMINATING_OR_AFTER ;
-      JstParamClass         paramClass    = paramInfo ? paramInfo->type     : 0 ;
 
-      if ( _jst_debug ) {
-        fprintf( stderr, "  %s\n",
-            ( paramClass == JST_SINGLE_PARAM ) || ( paramHandling == JST_TERMINATING_OR_AFTER ) ||
-            paramClass == JST_DOUBLE_PARAM
-            ? parameters[ i ].param : parameters[ i ].value
-        ) ;
-        if ( paramClass == JST_DOUBLE_PARAM ) fprintf( stderr, "  %s\n", parameters[ i ].value ) ;
-      }
+      JstInputParamHandling paramHandling = paramInfo ? paramInfo->handling : JST_TERMINATING_OR_AFTER ;
+      JstParamClass         paramClass    = paramInfo ? paramInfo->type : 0 ;
+
+      printParameterDebugInformation( parameters + i, paramHandling, paramClass ) ;
 
       assert( ( paramHandling & JST_TERMINATING_OR_AFTER ) || !( parameters[ i ].handling & JST_TERMINATING_OR_AFTER ) ) ;
 
       switch ( paramClass ) {
         case JST_SINGLE_PARAM :
         case JST_TERMINATING_OR_AFTER  :
-          failed = !addStringToJStringArray( env, parameters[ i ].param, launcheeJOptions, indx++ ) ;
+          errorOccurred = !addStringToJStringArray( env, parameters[ i ].param, launcheeJOptions, indx++ ) ;
           break ;
         case JST_DOUBLE_PARAM :
-          failed = !addStringToJStringArray( env, parameters[ i ].param,   launcheeJOptions, indx++ ) ||
-                   !addStringToJStringArray( env, parameters[ i++ ].value, launcheeJOptions, indx++ ) ;
+          errorOccurred = !addStringToJStringArray( env, parameters[ i ].param,   launcheeJOptions, indx++ ) ||
+                          !addStringToJStringArray( env, parameters[ i++ ].value, launcheeJOptions, indx++ ) ;
           break ;
         // TODO: put this and default: together (?)
         case JST_PREFIX_PARAM :
-          failed = !addStringToJStringArray( env, parameters[ i ].value, launcheeJOptions, indx++ ) ;
+          errorOccurred = !addStringToJStringArray( env, parameters[ i ].value, launcheeJOptions, indx++ ) ;
           break ;
         default : // all params after termination
           assert( paramHandling & JST_TERMINATING_OR_AFTER ) ;
-          failed = !addStringToJStringArray( env, parameters[ i ].value, launcheeJOptions, indx++ ) ;
+          errorOccurred = !addStringToJStringArray( env, parameters[ i ].value, launcheeJOptions, indx++ ) ;
           break ;
       }
-      if ( failed ) {
-        (*env)->DeleteLocalRef( env, launcheeJOptions ) ;
-        launcheeJOptions = NULL ;
-        *rval = -1 ;
-        goto end ;
-      }
+
+      if ( errorOccurred ) goto end ;
+
     }
   }
 
   end:
+
+  if ( errorOccurred ) {
+    if ( launcheeJOptions ) (*env)->DeleteLocalRef( env, launcheeJOptions ) ;
+    launcheeJOptions = NULL ;
+    *rval = errorOccurred ;
+  }
+
   return launcheeJOptions ;
 
 }

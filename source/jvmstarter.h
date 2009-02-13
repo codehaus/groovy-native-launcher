@@ -111,7 +111,7 @@ typedef struct {
   // this is needed so that the cygwin conversions need to be performed only once
   // This is the actual value passed in to the jvm or launchee program. E.g. the two (connected) parameters
   // --classpath /usr/local:/home/antti might have values "--classpath" and "C:\programs\cygwin\usr\local;C:\programs\cygwin\home\antti"
-  // respectively. For sinle params this is "" (as they have no real separate value except for being present).
+  // respectively. For single params this is "" (as they have no real separate value except for being present).
   // For prefix params this contains the prefix. Use jst_getParameterValue to fetch the value w/out the prefix.
   char *value ;
   JstInputParamHandling handling ;

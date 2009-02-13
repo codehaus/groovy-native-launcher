@@ -786,7 +786,7 @@ static int stripExecNameAndLastDirFromPath( char* executablePath, const char* la
     if ( lastDirLen ) {
       size_t len = strlen( executablePath ) ;
 
-      if ( ( (int)len >= lastDirLen + 1 ) &&
+      if ( ( len >= lastDirLen + 1 ) &&
            jst_endsWith( executablePath, lastDirOnExecPath ) ) {
 
         found = JNI_TRUE ;

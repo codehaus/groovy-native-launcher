@@ -29,9 +29,15 @@ profile = eval ( ARGUMENTS.get ( 'profile' , 'False' ) )
 
 if debug and profile : raise Exception , 'Profiling should be done on optimized executable, not debug version.'
 
-if profile and environment['CC'] == 'cl' : 
-    environment.Append ( CCFLAGS   = '-Zi', 
-                         LINKFLAGS = '-debug -fixed:no' ) 
+if environment['CC'] == 'cl' :
+    if profile :
+        environment.Append ( CCFLAGS   = '-Zi', 
+                             LINKFLAGS = '-debug -fixed:no' )
+    else :
+        # global optimization in msvc is incompatible w/ generating debug info (-Zi + friends)
+        environment.Append ( CCFLAGS   = '-GL',
+                             LINKFLAGS = '-ltcg' )
+
 
 if debug :
     if environment['CC'] == 'cl' or environment['CC'] == 'icl' :

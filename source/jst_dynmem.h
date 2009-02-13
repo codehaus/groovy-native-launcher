@@ -72,6 +72,8 @@ void* jst_calloc( size_t nelem, size_t elsize ) ;
 void* jst_realloc( void* ptr, size_t size ) ;
 char* jst_strdup( const char* s ) ;
 
+#define jst_free( x ) free( x ) ; x = NULL
+
 #if defined( _WIN32 )
 #  include <malloc.h>
 #  define jst_malloca( size ) _malloca( size )
@@ -84,7 +86,7 @@ char* jst_strdup( const char* s ) ;
 #  error "alloca aliases need to be defined for your platform. If not present, define them as aliases to jst_malloc and free."
 #endif
 
-#define jst_free( x ) free( x ) ; x = NULL
+#define JST_STRDUPA( target, source ) target = jst_malloca( strlen( source ) + 1 ) ; strcpy( target, source ) ;
 
 /** Frees all the pointers in the given array, the array itself and sets the reference to NULL */
 void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) ;
