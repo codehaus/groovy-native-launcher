@@ -17,6 +17,10 @@
 #ifndef JST_STRINGUTILS_H_
 #define JST_STRINGUTILS_H_
 
+#if defined( __cplusplus )
+  extern "C" {
+#endif
+
 /** returns != 0 iff str starts with the given prefix or prefix == NULL.
  * Empty prefix always matches. */
 int jst_startsWith( const char* str, const char* prefix ) ;
@@ -24,6 +28,15 @@ int jst_startsWith( const char* str, const char* prefix ) ;
 /** returns != 0 iff str ends with the given suffix or suffix == NULL.
  * Empty suffix always matches. */
 int jst_endsWith( const char* str, const char* suffix ) ;
+
+/** prints each of the strings in strings to the given file using the given formatstring,
+ * which defaults to just printing the string. strings may be NULL.
+ */
+void jst_printStringArray( FILE* file, char* formatstring, char** strings ) ;
+
+#if defined( __cplusplus )
+  } // end extern "C"
+#endif
 
 
 #endif /* JST_STRINGUTILS_H_ */

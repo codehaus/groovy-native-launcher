@@ -17,6 +17,9 @@
 //  $Date$
 
 #include <string.h>
+#include <stdio.h>
+
+#include "jst_stringutils.h"
 
 extern int jst_startsWith( const char* str, const char* prefix ) {
   size_t prefixLen ;
@@ -36,3 +39,13 @@ extern int jst_endsWith( const char* str, const char* suffix ) {
   return strLength >= suffixLen && memcmp( str + strLength - suffixLen, suffix, suffixLen ) == 0 ;
 }
 
+extern void jst_printStringArray( FILE* file, char* formatstring, char** strings ) {
+
+  if ( !strings ) return ;
+  if ( !formatstring ) formatstring = "%s" ;
+
+  for ( ; *strings ; strings++ ) {
+    fprintf( file, formatstring, *strings ) ;
+  }
+
+}

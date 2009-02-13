@@ -42,6 +42,7 @@
 #include "jvmstarter.h"
 #include "jst_dynmem.h"
 #include "jst_fileutils.h"
+#include "jst_stringutils.h"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // NOTE: when compiling w/ gcc on cygwin, pass -mno-cygwin, which makes gcc define _WIN32 and handle the win headers ok
@@ -764,71 +765,45 @@ static int addStringsToJavaStringArray( JNIEnv* env, jobjectArray jstrings, char
 
 /** Returns NULL on error, and sets rval output param accordingly.
  * On successfull execution rval is not touched. */
-void printParameterDebugInformation( JstActualParam* parameter, JstInputParamHandling paramHandling, JstParamClass paramClass ) {
+void printParameterDebugInformation( JstActualParam* parameter, JstParamInfo* paramInfo ) {
+
 
   if ( _jst_debug ) {
-      char* paramValue = parameter->value ;
-      if ( ( paramClass    == JST_SINGLE_PARAM ) ||
-           ( paramHandling == JST_TERMINATING_OR_AFTER ) ||
-           ( paramClass    == JST_DOUBLE_PARAM ) ) {
-        paramValue = parameter->param ;
-      }
-      fprintf( stderr, "  %s\n", paramValue ) ;
-      if ( paramClass == JST_DOUBLE_PARAM )
-        fprintf( stderr, "  %s\n", parameter->value ) ;
+
+    JstInputParamHandling paramHandling = paramInfo ? paramInfo->handling : JST_TERMINATING_OR_AFTER ;
+    JstParamClass         paramClass    = paramInfo ? paramInfo->type : 0 ;
+
+    char* paramValue = parameter->value ;
+
+    if ( ( paramClass    == JST_SINGLE_PARAM ) ||
+         ( paramHandling == JST_TERMINATING_OR_AFTER ) ||
+         ( paramClass    == JST_DOUBLE_PARAM ) ) {
+      paramValue = parameter->param ;
+    }
+
+    fprintf( stderr, "  %s\n", paramValue ) ;
+
+    if ( paramClass == JST_DOUBLE_PARAM )
+      fprintf( stderr, "  %s\n", parameter->value ) ;
+
   }
 
 }
 
-static jobjectArray createJMainParams( JNIEnv* env, JstActualParam* parameters, char** extraProgramOptions, JstUnrecognizedParamStrategy unrecognizedParamStrategy, int* rval ) {
+static int addParametersToJStringArray( JNIEnv* env, jobjectArray launcheeJOptions, JstActualParam* parameters, JstUnrecognizedParamStrategy unrecognizedParamStrategy, jint indx ) {
 
-  jobjectArray launcheeJOptions = NULL ;
-  jclass       strClass ;
-  int i,
-      passedParamCount = 0,
-      indx             = 0, // index in java String[] (args to main)
-      errorOccurred    = 0 ;
-
-
-  passedParamCount += countParamsPassedToMainMethod( parameters, unrecognizedParamStrategy ) ;
-
-  passedParamCount += jst_pointerArrayLen( (void**)(void*)extraProgramOptions ) ;
-
-  if ( _jst_debug ) fprintf( stderr, "passing %d parameters to main method: \n", passedParamCount ) ;
-
-  if ( ( errorOccurred = ensureJNILocalCapacity( env, passedParamCount + 1 ) ) ) { // + 1 for the String[] to hold the params
-    goto end ;
-  }
-
-  if ( ( errorOccurred =
-       !( strClass         = getJavaStringClass( env ) ) ||
-       !( launcheeJOptions = createJObjectArray( env, passedParamCount, strClass ) ) ) ) {
-    goto end ;
-  }
-
-  if ( ( errorOccurred = addStringsToJavaStringArray( env, launcheeJOptions, extraProgramOptions, indx ) ) ) {
-    goto end ;
-  }
-  indx += jst_pointerArrayLen( (void**)(void*)extraProgramOptions ) ;
-
-  if ( _jst_debug && extraProgramOptions ) {
-    char** s = extraProgramOptions ;
-    for ( ; *s ; s++ )
-      fprintf( stderr, "  %s\n", *s ) ;
-  }
-
+  int i ;
 
   for ( i = 0 ; parameters[ i ].param ; i++ ) {
 
     if ( jst_isToBePassedToLaunchee( parameters + i, unrecognizedParamStrategy ) ) {
-      JstParamInfo* paramInfo = parameters[ i ].paramDefinition ;
 
-      JstInputParamHandling paramHandling = paramInfo ? paramInfo->handling : JST_TERMINATING_OR_AFTER ;
-      JstParamClass         paramClass    = paramInfo ? paramInfo->type : 0 ;
+      int errorOccurred = 0 ;
 
-      printParameterDebugInformation( parameters + i, paramHandling, paramClass ) ;
+      JstParamInfo* paramInfo  = parameters[ i ].paramDefinition ;
+      JstParamClass paramClass = paramInfo ? paramInfo->type : 0 ;
 
-      assert( ( paramHandling & JST_TERMINATING_OR_AFTER ) || !( parameters[ i ].handling & JST_TERMINATING_OR_AFTER ) ) ;
+      printParameterDebugInformation( parameters + i, paramInfo ) ;
 
       switch ( paramClass ) {
         case JST_SINGLE_PARAM :
@@ -839,27 +814,64 @@ static jobjectArray createJMainParams( JNIEnv* env, JstActualParam* parameters, 
           errorOccurred = !addStringToJStringArray( env, parameters[ i ].param,   launcheeJOptions, indx++ ) ||
                           !addStringToJStringArray( env, parameters[ i++ ].value, launcheeJOptions, indx++ ) ;
           break ;
-        // TODO: put this and default: together (?)
-        case JST_PREFIX_PARAM :
-          errorOccurred = !addStringToJStringArray( env, parameters[ i ].value, launcheeJOptions, indx++ ) ;
-          break ;
-        default : // all params after termination
-          assert( paramHandling & JST_TERMINATING_OR_AFTER ) ;
+        default : // prefix params + all params after termination
+          assert( paramClass == JST_PREFIX_PARAM || ( !paramInfo || ( paramInfo->handling & JST_TERMINATING_OR_AFTER ) ) ) ;
           errorOccurred = !addStringToJStringArray( env, parameters[ i ].value, launcheeJOptions, indx++ ) ;
           break ;
       }
 
-      if ( errorOccurred ) goto end ;
+      if ( errorOccurred ) return errorOccurred ;
 
     }
+  } // for
+
+  return 0 ;
+
+}
+
+static jobjectArray createJStringArrayToHoldParamsToMain( JNIEnv* env, JstActualParam* parameters, char** extraProgramOptions, JstUnrecognizedParamStrategy unrecognizedParamStrategy ) {
+
+  int          passedParamCount ;
+  jclass       strClass ;
+
+  passedParamCount = countParamsPassedToMainMethod( parameters, unrecognizedParamStrategy ) ;
+
+  passedParamCount += jst_pointerArrayLen( (void**)(void*)extraProgramOptions ) ;
+
+  if ( _jst_debug ) fprintf( stderr, "passing %d parameters to main method: \n", passedParamCount ) ;
+
+  if ( ensureJNILocalCapacity( env, passedParamCount + 1 ) || // + 1 for the String[] to hold the params
+       !( strClass = getJavaStringClass( env ) ) ) {
+    return NULL ;
   }
 
-  end:
+  return createJObjectArray( env, passedParamCount, strClass ) ;
+
+}
+
+static jobjectArray createJMainParams( JNIEnv* env, JstActualParam* parameters, char** extraProgramOptions, JstUnrecognizedParamStrategy unrecognizedParamStrategy ) {
+
+  jobjectArray launcheeJOptions ;
+
+  int indx             = 0, // index in java String[] (args to main)
+      errorOccurred    = 0 ;
+
+  launcheeJOptions = createJStringArrayToHoldParamsToMain( env, parameters, extraProgramOptions, unrecognizedParamStrategy ) ;
+  if ( !launcheeJOptions ) return NULL ;
+
+  if ( !( errorOccurred = addStringsToJavaStringArray( env, launcheeJOptions, extraProgramOptions, indx ) ) ) {
+
+    indx += jst_pointerArrayLen( (void**)(void*)extraProgramOptions ) ;
+
+    if ( _jst_debug ) jst_printStringArray( stderr, "  %s\n", extraProgramOptions ) ;
+
+    errorOccurred = addParametersToJStringArray( env, launcheeJOptions, parameters, unrecognizedParamStrategy, indx ) ;
+
+  }
 
   if ( errorOccurred ) {
-    if ( launcheeJOptions ) (*env)->DeleteLocalRef( env, launcheeJOptions ) ;
+    (*env)->DeleteLocalRef( env, launcheeJOptions ) ;
     launcheeJOptions = NULL ;
-    *rval = errorOccurred ;
   }
 
   return launcheeJOptions ;
@@ -992,7 +1004,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   // find the application main class
   // find the startup method and call it
 
-  if ( !( launcheeJOptions = createJMainParams( env, launchOptions->parameters, launchOptions->extraProgramOptions, launchOptions->unrecognizedParamStrategy, &rval ) ) ) goto end ;
+  if ( !( launcheeJOptions = createJMainParams( env, launchOptions->parameters, launchOptions->extraProgramOptions, launchOptions->unrecognizedParamStrategy ) ) ) goto end ;
 
 
   if ( !( launcheeMainClassHandle = findMainClassAndMethod( env, launchOptions->mainClassName, launchOptions->mainMethodName, &launcheeMainMethodID ) ) ) goto end ;

@@ -29,14 +29,10 @@ profile = eval ( ARGUMENTS.get ( 'profile' , 'False' ) )
 
 if debug and profile : raise Exception , 'Profiling should be done on optimized executable, not debug version.'
 
-if environment['CC'] == 'cl' :
-    if profile :
+if profile :
+    if environment['CC'] == 'cl' :
         environment.Append ( CCFLAGS   = '-Zi', 
                              LINKFLAGS = '-debug -fixed:no' )
-    else :
-        # global optimization in msvc is incompatible w/ generating debug info (-Zi + friends)
-        environment.Append ( CCFLAGS   = '-GL',
-                             LINKFLAGS = '-ltcg' )
 
 
 if debug :
@@ -57,6 +53,11 @@ else :
         #
         environment.Append ( CCFLAGS   = '-MD -Ox',
                              LINKFLAGS = '-opt:ref -opt:nowin98 -incremental:no' )
+        if not profile :
+            # global optimization in msvc is incompatible w/ generating debug info (-Zi + friends)
+            environment.Append ( CCFLAGS   = '-GL',
+                                 LINKFLAGS = '-ltcg' )
+            
     elif environment['CC'] == 'gcc' :
         environment.Append ( CCFLAGS = '-O3' ) 
         #  The Mac OS X ld does not understand long options, and only allows stripping on 32-bit builds.
