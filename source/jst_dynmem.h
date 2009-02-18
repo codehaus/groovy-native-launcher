@@ -72,21 +72,37 @@ void* jst_calloc( size_t nelem, size_t elsize ) ;
 void* jst_realloc( void* ptr, size_t size ) ;
 char* jst_strdup( const char* s ) ;
 
+
 #define jst_free( x ) free( x ) ; x = NULL
 
 #if defined( _WIN32 )
+
 #  include <malloc.h>
-#  define jst_malloca( size ) _malloca( size )
-#  define jst_freea( ptr ) _freea( ptr )
+// malloca and freea are available in visual studio 2008
+#  if defined( _MSC_VER ) && _MSC_VER >= 1500
+#    define jst_malloca( size ) malloca( size )
+#    define jst_freea( ptr ) freea( ptr )
+#  else
+#    define jst_malloca( size ) alloca( size )
+#    define jst_freea( ptr )
+#  endif
+
 #elif defined( __linux__ ) || defined( __sun__ ) || defined( __APPLE__ )
+
 #  include <alloca.h>
 #  define jst_malloca( size ) alloca( size )
 #  define jst_freea( ptr )
+
 #else
-#  error "alloca aliases need to be defined for your platform. If not present, define them as aliases to jst_malloc and free."
+
+#  warning "alloca aliases not defined for your platform. Setting them as aliases to jst_malloc and free."
+#  define jst_malloca( size ) jst_malloc( size )
+#  define jst_freea( ptr ) free( ptr )
+
 #endif
 
-#define JST_STRDUPA( target, source ) target = jst_malloca( strlen( source ) + 1 ) ; strcpy( target, source ) ;
+#define JST_STRDUPA( target, source ) target = jst_malloca( strlen( source ) + 1 ) ; \
+                                      strcpy( target, source ) ;
 
 /** Frees all the pointers in the given array, the array itself and sets the reference to NULL */
 void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) ;

@@ -51,7 +51,7 @@ else :
         # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
         #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
         #
-        environment.Append ( CCFLAGS   = '-MD -Ox',
+        environment.Append ( CCFLAGS   = '-MD -Ox -GF',
                              LINKFLAGS = '-opt:ref -opt:nowin98 -incremental:no' )
         if not profile :
             # global optimization in msvc is incompatible w/ generating debug info (-Zi + friends)

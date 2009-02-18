@@ -182,15 +182,17 @@ extern void jst_printWinError( unsigned long errcode ) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+
 extern char* jst_findJavaHomeFromPath() {
   // TODO: check if this is a valid java home (how? possibly by seeing that the dyn lib can be found)
   // end loop over path elements
 
   // we are checking whether the executable is in "bin" dir
   // TODO: this is rather elementary test (but works unless there is a java executable in
-  //       a bin dir of some other app) - a better one is needed. Make the called func take
-  //       a pointer to a func that does the check.
-  return jst_findFromPath( JAVA_EXECUTABLE, "bin", JNI_TRUE ) ;
+  //       a bin dir of some other app) - a better one is needed.
+  char *javaBinDir = jst_findFromPath( JAVA_EXECUTABLE, validateThatFileIsInBinDir ) ;
+  if ( javaBinDir ) javaBinDir = jst_pathToParentDir( javaBinDir ) ;
+  return javaBinDir ;
 }
 
 
@@ -895,7 +897,7 @@ static jclass findMainClassAndMethod( JNIEnv* env, char* mainClassName, char* ma
                                                           "([Ljava/lang/String;)V" ) ;
   if ( !*launcheeMainMethodID ) {
     clearException( env ) ;
-    fprintf( stderr, "error: could not find startup method \"%s\" in class %s\n", mainMethodName, mainClassName ) ;
+    fprintf( stderr, "error: could not find method \"%s\" in class %s\n", mainMethodName, mainClassName ) ;
     launcheeMainClassHandle = NULL ;
   }
 

@@ -398,11 +398,13 @@ int rest_of_main( int argc, char** argv ) {
     if ( !jars[ 1 ] ) {
       groovyHome = getenv( "GROOVY_HOME" ) ;
       if ( !groovyHome ) {
-        groovyHome = jst_findFromPath( GROOVY_EXECUTABLE, "bin", JNI_TRUE ) ;
+        groovyHome = jst_findFromPath( GROOVY_EXECUTABLE, validateThatFileIsInBinDir ) ;
+        if ( groovyHome ) groovyHome = jst_pathToParentDir( groovyHome ) ;
         if ( errno ) goto end ;
 #if defined( _WIN32 )
         if ( !groovyHome ) {
-          groovyHome = jst_findFromPath( "groovy.bat", "bin", JNI_TRUE ) ;
+          groovyHome = jst_findFromPath( "groovy.bat", validateThatFileIsInBinDir ) ;
+          if ( groovyHome ) groovyHome = jst_pathToParentDir( groovyHome ) ;
           if ( errno ) goto end ;
         }
 #endif
@@ -430,11 +432,13 @@ int rest_of_main( int argc, char** argv ) {
     char *antHome  = getenv( "ANT_HOME" ),
          *antDHome = NULL ;
     if ( !antHome ) {
-      antHome = jst_findFromPath( ANT_EXECUTABLE, "bin", JNI_TRUE ) ;
+      antHome = jst_findFromPath( ANT_EXECUTABLE, validateThatFileIsInBinDir ) ;
+      if ( antHome ) antHome = jst_pathToParentDir( antHome ) ;
       if ( errno ) goto end ;
 #if defined( _WIN32 )
       if ( !antHome ) {
-        antHome = jst_findFromPath( "ant.bat", "bin", JNI_TRUE ) ;
+        antHome = jst_findFromPath( "ant.bat", validateThatFileIsInBinDir ) ;
+        if ( antHome ) antHome = jst_pathToParentDir( antHome ) ;
         if ( errno ) goto end ;
       }
 #endif
@@ -476,7 +480,8 @@ int rest_of_main( int argc, char** argv ) {
   options.classpathStrategy   = JST_NORMAL_CLASSPATH ;
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
-  jst_cygwinRelease() ;
+  // see comments in groovy.c
+//  jst_cygwinRelease() ;
 #endif
 
   rval = jst_launchJavaApp( &options ) ;

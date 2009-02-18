@@ -105,25 +105,22 @@ extern jboolean jst_dirNameEndsWithSeparator( const char* dirName ) {
 }
 
 extern char* jst_pathToParentDir( char* path ) {
-  size_t   len                   = strlen( path ) ;
-  jboolean pathEndsWithSeparator = jst_dirNameEndsWithSeparator( path ) ;
+
+  size_t len = strlen( path ) ;
 
   // this implementation is not perfect, but works ok in this program's context
 
 #if defined( _WIN32 )
-  if ( ( len == 0 ) ||
-       ( len == 1 && path[ 0 ] == JST_FILE_SEPARATOR[ 0 ] ) ||
-       ( ( len == 3 ) &&
-         isalpha( path[ 0 ] ) &&
-         ( path[ 1 ] == ':' ) &&
-         ( path[ 2 ] == JST_FILE_SEPARATOR[ 0 ] )
-       )
+  if ( ( len == 3 ) &&
+        isalpha( path[ 0 ] ) &&
+        ( path[ 1 ] == ':' ) &&
+        ( path[ 2 ] == JST_FILE_SEPARATOR[ 0 ] )
      ) return NULL ;
-#else
-  if ( len <= 1 ) return NULL ;
 #endif
 
-  if ( pathEndsWithSeparator ) {
+  if ( len <= 1 ) return NULL ;
+
+  if ( jst_dirNameEndsWithSeparator( path ) ) {
     path[ len - 1 ] = '\0' ;
   }
 
@@ -745,68 +742,76 @@ extern char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* env
 
 }
 
-static void printPathLookupDebugMessage( const char* location ) {
+static void printPathLookupDebugMessage( const char* pathname, const char* location, const char* file ) {
   if ( location ) {
-    fprintf( stderr, "debug: java home found on PATH: %s\n", location ) ;
+    fprintf( stderr, "debug: %s found on %s: %s\n", file, pathname, location ) ;
   } else {
-    fprintf( stderr, "debug: java home not found on PATH\n" ) ;
+    fprintf( stderr, "debug: %s not found on %s\n", file, pathname ) ;
   }
 }
 
 /** Appends filename + a file separator if necessary to dirname and writes the result in buffer (which must be dynallocated).
  * Returns buffer, possibly reallocated. Buffer may be initially NULL. */
-static char* createPathToFile( char* buffer, size_t *bufSize, const char* dirname, const char* filename ) {
-  if ( buffer ) buffer[ 0 ] = '\0' ;
+//static char* createPathToFile( char* buffer, size_t *bufSize, const char* dirname, const char* filename ) {
+//  if ( buffer ) buffer[ 0 ] = '\0' ;
+//
+//  return jst_append( buffer, bufSize, dirname,
+//                                      jst_dirNameEndsWithSeparator( dirname ) ? "" : JST_FILE_SEPARATOR,
+//                                      filename, NULL ) ;
+//}
 
-  return jst_append( buffer, bufSize, dirname,
-                                      jst_dirNameEndsWithSeparator( dirname ) ? "" : JST_FILE_SEPARATOR,
-                                      filename, NULL ) ;
+#define CREATE_PATH_TO_FILE_A( target, dirname, filename ) target = jst_malloca( strlen( dirname ) + strlen( filename ) + 1 ) ; \
+                                                          if ( target ) { \
+                                                            strcpy( target, dirname ) ; \
+                                                            if ( !jst_dirNameEndsWithSeparator( dirname ) ) strcat( target, JST_FILE_SEPARATOR ) ; \
+                                                            strcat( target, filename ) ; \
+                                                          }
+
+
+/** Checks that the given file exists and if validator func is given, checks against that, too. */
+static int validateFile( const char* dirname, const char* filename, int (*validator)( const char* dirname, const char* filename ) ) {
+
+  int  isvalid ;
+  char *executablePath ;
+
+  CREATE_PATH_TO_FILE_A( executablePath, dirname, filename )
+
+#if defined( _WIN32 )
+  if ( !executablePath ) {
+    if ( !errno ) errno = ENOMEM ;
+    return 0 ;
+  }
+#endif
+
+  isvalid = jst_fileExists( executablePath ) && ( !validator || validator( dirname, filename ) ) ;
+
+  jst_freea( executablePath ) ;
+
+  return isvalid ;
+
 }
 
-/** Dups the contents of env var PATH. On error errno will be set. Note: may return NULL if PATH not set. */
-static char* dupPATH() {
 
-  char *path = getenv( "PATH" ) ;
-  return path ? jst_strdup( path ) : NULL ;
+/** Returns  the path entry containing the given file AND (if given) accepted by the validator. On error errno will be set.
+ * The pointer is to a part of the given path buffer. */
+static char* findPathEntryContainingFile( char* path, const char* file, int (*validator)( const char* dirname, const char* filename ) ) {
 
-}
+  char     *dirname ;
+  jboolean firstTime = JNI_TRUE ;
+  int      found     = JNI_FALSE ;
 
-/** Does all the following:
- * - removes the exec name from the given path
- * - checks that the given "last dir" is actually the last dir on the given path (may be NULL)
- * - removes that last dir from the given filepath if required */
-static int stripExecNameAndLastDirFromPath( char* executablePath, const char* lastDirOnExecPath, jboolean removeLastDir ) {
-  int   found       = JNI_FALSE ;
-  char* lastFileSep = strrchr( executablePath, JST_FILE_SEPARATOR[ 0 ] ) ;
 
-  if ( lastFileSep ) {
-    size_t lastDirLen = lastDirOnExecPath ? strlen( lastDirOnExecPath ) : 0 ;
-    *lastFileSep = '\0' ;
+  for ( ; ( dirname = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
 
-    if ( lastDirLen ) {
-      size_t len = strlen( executablePath ) ;
+    if ( !*dirname ) continue ;
 
-      if ( ( len >= lastDirLen + 1 ) &&
-           jst_endsWith( executablePath, lastDirOnExecPath ) ) {
+    if ( ( found = validateFile( dirname, file, validator ) ) ) break ;
 
-        found = JNI_TRUE ;
-        if ( removeLastDir ) executablePath[ len -= lastDirLen + 1 ] = '\0' ;
-
-      }
-
-    } else {
-      found = JNI_TRUE ;
-    }
   }
 
-  return found ;
-}
+  return found ? dirname : NULL ;
 
-/** Returns (dynallocated) path entry containing the given file AND (if given) accepted by the validator. On error errno will be set. */
-//static char* findPathEntryContainingFile( const char* path, const char* file, int (*validator)( const char* dirname, const char* filename ) ) {
-//  // TODO
-//  return NULL ;
-//}
+}
 
 /** Tries to find the given executable from PATH. Freeing the returned value
  * is up to the caller. NULL is returned if not found.
@@ -814,47 +819,48 @@ static int stripExecNameAndLastDirFromPath( char* executablePath, const char* la
  * @param lastDirOnExecPath the leaf dir that the executable is required to be in, e.g. "bin". May be NULL
  * @param removeLastDir if true and lastDirOnExecPath, the last dir is removed from the path before it is returned.
  * */
-extern char* jst_findFromPath( const char* execName, const char* lastDirOnExecPath, jboolean removeLastDir ) {
+extern char* jst_findFromPath( const char* execName, int (*validator)( const char* dirname, const char* filename ) ) {
 
-  char     *path = NULL,
-           *executablePath = NULL,
-           *dirname ;
-  size_t   execPathBufSize = 100 ;
-  jboolean firstTime = JNI_TRUE ;
-  int      found     = JNI_FALSE ;
+  char *path    = NULL,
+       *dirname = NULL ;
 
   errno = 0 ;
 
-  path = dupPATH() ;
-  if ( !path ) goto end ; // PATH not defined. Should never happen, but is not really an error if it does.
-
-  for ( ; ( dirname = strtok( firstTime ? path : NULL, JST_PATH_SEPARATOR ) ) ; firstTime = JNI_FALSE ) {
-
-    if ( !*dirname ) continue ;
-
-    executablePath = createPathToFile( executablePath, &execPathBufSize, dirname, execName ) ;
-    if ( !executablePath ) goto end ;
-
-    if ( jst_fileExists( executablePath ) ) {
-
-      executablePath = jst_overwriteWithFullPathName( executablePath, &execPathBufSize ) ;
-      if ( !executablePath ) goto end ;
-
-      found = stripExecNameAndLastDirFromPath( executablePath, lastDirOnExecPath, removeLastDir ) ;
-      if ( found ) break ;
-
-    }
-
+  {
+    char* pathtmp = getenv( "PATH" ) ;
+    if ( !pathtmp ) goto end ; // PATH not defined. Should never happen, but is not really an error if it does.
+    JST_STRDUPA( path, pathtmp ) ;
+    if ( !path ) goto end ; // error allocating memory (only in windows debug mode)
   }
+
+  dirname = findPathEntryContainingFile( path, execName, validator ) ;
+
+  if ( dirname ) dirname = jst_strdup( dirname ) ;
 
   end:
-  if ( path ) free( path ) ;
-  if ( ( !found || errno ) && executablePath ) {
-    jst_free( executablePath ) ;
+  if ( path ) jst_freea( path ) ;
+  if ( errno && dirname ) {
+    jst_free( dirname ) ;
   }
 
-  if ( _jst_debug ) printPathLookupDebugMessage( executablePath ) ;
+  if ( _jst_debug ) printPathLookupDebugMessage( "PATH", dirname, execName ) ;
 
-  return executablePath ;
+  return dirname ;
 
 }
+
+extern int validateThatFileIsInBinDir( const char* dirname, const char* filename ) {
+  jboolean endsWithSeparator = jst_dirNameEndsWithSeparator( dirname ) ;
+  int      isvalid = 0 ;
+
+  // ok, this is not perfect, e.g. foo/barbin will be true. However, it is sufficient for our purposes.
+  if ( endsWithSeparator ) {
+    size_t len = strlen( dirname ) ;
+    isvalid = len >= 4 && memcmp( dirname + len - 4, "bin", 3 ) == 0 ;
+  } else {
+    isvalid = jst_endsWith( dirname, "bin" ) ;
+  }
+
+  return isvalid ;
+}
+

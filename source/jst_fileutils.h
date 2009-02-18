@@ -97,13 +97,8 @@ char* jst_getAppHome( JstAppHomeStrategy appHomeStrategy, const char* envVarName
  * Note that the returned path to the executable is the dir where the executable resides, not containing
  * the executable name. Any symlinks and relative paths have been resolved.
  * errno != 0 on error.
- * @param lastDirOnExecPath the leaf dir that the executable is required to be in, e.g. "bin". May be NULL.
- *                          This enables a really simple check that e.g. the java executable located is
- *                          located in java installation's bin dir (e.g. on windows it can also be in
- *                          c:\windows\system32)
- * @param removeLastDir if true and lastDirOnExecPath, the last dir is removed from the path before it is returned.
  * */
-char* jst_findFromPath( const char* execName, const char* lastDirOnExecPath, jboolean removeLastDir ) ;
+char* jst_findFromPath( const char* execName, int (*validator)( const char* dirname, const char* filename ) ) ;
 
 /** A simple func that checks whther the last char in the dir name is a file separator. */
 jboolean jst_dirNameEndsWithSeparator( const char* dirName ) ;
@@ -111,6 +106,10 @@ jboolean jst_dirNameEndsWithSeparator( const char* dirName ) ;
 /** Checks that the given file name has the given prefix and suffix. Give NULL to match anything. fileName may not be NULL.
  * Returns true if the given prefix and suffix match. */
 int matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* suffix ) ;
+
+/** a simple validator func that can be used as an argument to some other funcs that take a corresponding
+ * function pointer as a parameter */
+int validateThatFileIsInBinDir( const char* dirname, const char* filename ) ;
 
 #if defined( __cplusplus )
   } // end extern "C"
