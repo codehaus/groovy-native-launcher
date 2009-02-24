@@ -181,6 +181,19 @@ extern char* jst_append( char* target, size_t* bufsize, ... ) {
 
 }
 
+/** @param strings array must be null terminated */
+extern int jst_totalLenghtOfStringsInArray( char** strings ) {
+
+  int length = 0 ;
+
+  if ( !strings ) return 0 ;
+
+  while ( *strings )
+    length += strlen( *strings++ ) ;
+
+  return length ;
+}
+
 /** Appends the given pointer to the given null terminated pointer array.
  * given pointer to array may point to NULL, in which case a new array is created.
  * Returns NULL on error. */
@@ -189,64 +202,87 @@ extern void** jst_appendPointer( void*** pointerToNullTerminatedPointerArray, si
   if ( !item ) return NULL ;
 
   if ( !*pointerToNullTerminatedPointerArray ) {
-	if ( !*arrSize ) {
+    if ( !*arrSize ) {
       *arrSize = DYNAMIC_ARRAY_LENGTH_INCREMENT ;
-	}
+    }
+
     if ( !( *pointerToNullTerminatedPointerArray = jst_calloc( *arrSize, sizeof( void* ) ) ) ) return NULL ;
+
     **pointerToNullTerminatedPointerArray = item ;
-    return *pointerToNullTerminatedPointerArray ;
+
+
   } else {
+
     size_t count = 0 ;
 
     while ( (*pointerToNullTerminatedPointerArray)[ count ] ) count++ ;
-    if ( *arrSize <= count + 1 ) { // 1 for terminating null
+
+    if ( *arrSize <= count + 1 ) { // +1 for terminating null
       *arrSize = count + DYNAMIC_ARRAY_LENGTH_INCREMENT ;
       if ( !( *pointerToNullTerminatedPointerArray = jst_realloc( *pointerToNullTerminatedPointerArray, *arrSize * sizeof( void* ) ) ) ) return NULL ;
     }
+
     (*pointerToNullTerminatedPointerArray)[ count ]     = item ;
     (*pointerToNullTerminatedPointerArray)[ count + 1 ] = NULL ;
-    return *pointerToNullTerminatedPointerArray ;
   }
+
+  return *pointerToNullTerminatedPointerArray ;
 
 }
 
 extern void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) {
+
   void* item ;
   int   indx = 0 ;
+
   if ( !*pointerToNullTerminatedPointerArray ) return ;
+
   while ( ( item = (*pointerToNullTerminatedPointerArray)[ indx++ ] ) ) {
     free( item ) ;
   }
+
   free( *pointerToNullTerminatedPointerArray ) ;
+
   *pointerToNullTerminatedPointerArray = NULL ;
+
 }
 
 extern void* jst_removePointer( void** nullTerminatedPointerArray, void* itemToBeRemoved ) {
+
   while ( *nullTerminatedPointerArray && *nullTerminatedPointerArray != itemToBeRemoved ) nullTerminatedPointerArray++ ;
+
   if ( !*nullTerminatedPointerArray ) return NULL ;
+
   while ( *nullTerminatedPointerArray ) {
     *nullTerminatedPointerArray = *( nullTerminatedPointerArray + 1 ) ;
     nullTerminatedPointerArray++ ;
   }
+
   return itemToBeRemoved ;
+
 }
 
 extern int jst_removeAndFreePointer( void** nullTerminatedPointerArray, void** pointerToItemToBeRemoved ) {
+
   int rval = jst_removePointer( nullTerminatedPointerArray, *pointerToItemToBeRemoved ) ? JNI_TRUE : JNI_FALSE ;
+
   free( *pointerToItemToBeRemoved ) ;
+
   *pointerToItemToBeRemoved = NULL ;
+
   return rval ;
+
 }
 
 /** Concatenates the strings in the given null terminated str array to a single string, which must be freed by the caller. Returns null on error. */
 extern char* jst_concatenateStrArray( char** nullTerminatedStringArray ) {
-  size_t totalSize = 1 ; // 1 for the terminating nul char
+  size_t totalSize ;
   char   *s,
          *t,
          *rval ;
   int i = 0 ;
 
-  while ( ( s = nullTerminatedStringArray[ i++ ] ) ) totalSize += strlen( s ) ;
+  totalSize = jst_totalLenghtOfStringsInArray( nullTerminatedStringArray ) + 1 ; // + 1 for the terminating nul char
 
   if ( !( rval = jst_malloc( totalSize ) ) ) return NULL ;
 
@@ -288,20 +324,36 @@ extern int jst_arrayContainsString( const char** nullTerminatedArray, const char
 
 
 extern int jst_pointerArrayLen( void** nullTerminatedPointerArray ) {
+
   int count = 0 ;
+
   if ( !nullTerminatedPointerArray ) return 0 ;
+
   while ( nullTerminatedPointerArray[ count ] ) count++ ;
+
   return count ;
+
+}
+
+/** returns true if the memory pointed to by the given pointer is zero for "size" bytes. */
+static int regionIsZero( unsigned char* ptr, size_t size ) {
+
+  for( ; size-- ; ptr++ )
+    if ( *ptr )
+      return 0 ;
+
+  return 1 ;
 }
 
 /** Returns the size of any array whose end is marked by the first element has as its first
- * part a NULL pointer.
- * @param array may not be NULL */
+ * part a NULL pointer. */
 extern int jst_nullTerminatedArrayLen( void* array, size_t elementSizeInBytes ) {
   int len = 0 ;
   unsigned char* ptr = array ;
 
-  while ( ptr ) {
+  if ( !array ) return 0 ;
+
+  while ( regionIsZero( ptr, elementSizeInBytes ) ) {
     len++ ;
     ptr += elementSizeInBytes ;
   }

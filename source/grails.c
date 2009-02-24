@@ -340,8 +340,8 @@ int rest_of_main( int argc, char** argv ) {
   jardirs[ 2 ].name = NULL ;
 
 
-  jvmSelectStrategy = jst_getParameterValue( processedActualParams, "-client" ) ? JST_TRY_CLIENT_ONLY :
-                      jst_getParameterValue( processedActualParams, "-server" ) ? JST_TRY_SERVER_ONLY :
+  jvmSelectStrategy = jst_getParameterValue( processedActualParams, "-client" ) ? JST_CLIENTVM :
+                      jst_getParameterValue( processedActualParams, "-server" ) ? JST_SERVERVM :
                       // by default, mimic java launcher, which also prefers client vm due to its
                       // faster startup (despite it running much slower)
                       JST_CLIENT_FIRST ;

@@ -127,10 +127,11 @@ typedef struct {
  *  100 -> prefer client over server
  * If you're just passing this as a param, you need not worry about the bitwise meaning, it's just an implementation detail. */
 typedef enum {
-  JST_CLIENT_FIRST     = 7,
-  JST_SERVER_FIRST     = 3,
-  JST_TRY_CLIENT_ONLY  = 1,
-  JST_TRY_SERVER_ONLY  = 2
+  JST_CLIENTVM      = 1,
+  JST_SERVERVM      = 2,
+  JST_PREFER_CLIENT = 4,
+  JST_CLIENT_FIRST  = JST_CLIENTVM | JST_SERVERVM | JST_PREFER_CLIENT,
+  JST_SERVER_FIRST  = JST_CLIENTVM | JST_SERVERVM,
 } JVMSelectStrategy ;
 
 

@@ -196,6 +196,50 @@ extern char* jst_findJavaHomeFromPath() {
 }
 
 
+static char* getJavaHomeFromParameter( JstActualParam* processedActualParams, const char* paramName ) {
+
+  char *javaHome = jst_getParameterValue( processedActualParams, paramName ) ;
+
+  if ( javaHome ) {
+    if ( _jst_debug ) {
+      fprintf( stderr, "java home %s given as command line parameter\n", javaHome ) ;
+    }
+    return jst_strdup( javaHome ) ;
+  }
+  return NULL ;
+}
+
+static char* getJavaHomeFromEnvVar() {
+  char* javaHome = getenv( "JAVA_HOME" ) ;
+
+  if ( javaHome ) {
+    if ( jst_fileExists( javaHome ) ) {
+      if ( _jst_debug ) fprintf( stderr, "debug: using java home obtained from env var JAVA_HOME\n" ) ;
+      return jst_strdup( javaHome ) ;
+    } else {
+      fprintf( stderr, "warning: JAVA_HOME points to a nonexistent location\n" ) ;
+    }
+  }
+
+  return NULL ;
+
+}
+
+#if defined( __APPLE__ )
+
+static char* getJavaHomeFromStandardLocation() {
+  char* javaHome = "/System/Library/Frameworks/JavaVM.framework" ;
+  if ( !jst_fileExists( javaHome ) ) {
+     fprintf( stderr, "warning: java home not found in standard location %s\n", javaHome ) ;
+     javaHome = NULL ;
+   } else {
+     javaHome = jst_strdup( javaHome ) ;
+   }
+  return javaHome ;
+}
+
+#endif
+
 /** First sees if JAVA_HOME is set and points to an existing location (the validity is not checked).
  * Next, windows registry is checked (if on windows) or if on os-x the standard location
  * /System/Library/Frameworks/JavaVM.framework is checked for existence.
@@ -209,47 +253,18 @@ extern char* jst_findJavaHome( JstActualParam* processedActualParams ) {
 
   errno = 0 ;
 
-  javaHome = jst_getParameterValue( processedActualParams, "-jh" ) ;
-
-  if ( javaHome ) {
-    if ( _jst_debug ) {
-      fprintf( stderr, "java home %s given as command line parameter\n", javaHome ) ;
-    }
-    return jst_strdup( javaHome ) ;
-  }
-
-
-  javaHome = getenv( "JAVA_HOME" ) ;
-
-  if ( javaHome ) {
-    if ( jst_fileExists( javaHome ) ) {
-      if ( _jst_debug ) fprintf( stderr, "debug: using java home obtained from env var JAVA_HOME\n" ) ;
-      return jst_strdup( javaHome ) ;
-    } else {
-      fprintf( stderr, "warning: JAVA_HOME points to a nonexistent location\n" ) ;
-    }
-  }
-
-
-  javaHome = jst_findJavaHomeFromPath() ;
-  if ( errno ) return NULL ;
-  if ( javaHome ) return javaHome ;
-
+  if (
+  // TODO It is a little dubious that the hane of the parameter that is used to pass in
+  //      java home is hard codeed here - refactor.
+     ( javaHome = getJavaHomeFromParameter( processedActualParams, "-jh" ) ) || errno
+  || ( javaHome = getJavaHomeFromEnvVar()    ) || errno
+  || ( javaHome = jst_findJavaHomeFromPath() ) || errno
 #  if defined( _WIN32 )
-
-  javaHome = jst_findJavaHomeFromWinRegistry() ;
-  if ( errno ) return NULL ;
-
+  || ( javaHome = jst_findJavaHomeFromWinRegistry() ) || errno
 #  elif defined( __APPLE__ )
-
-  javaHome = jst_strdup( "/System/Library/Frameworks/JavaVM.framework" ) ;
-  if ( !javaHome ) return NULL ;
-  if ( !jst_fileExists( javaHome ) ) {
-    fprintf( stderr, "warning: java home not found in standard location %s\n", javaHome ) ;
-    jst_free( javaHome ) ;
-  }
-
+  || ( javaHome = getJavaHomeFromStandardLocation() )
 #  endif
+  ) ;
 
   if ( !javaHome ) fprintf( stderr, "error: could not locate java home\n" ) ;
 
@@ -264,19 +279,99 @@ extern char* jst_findJavaHome( JstActualParam* processedActualParams ) {
 static SetDllDirFunc getDllDirSetterFunc() {
 
   HINSTANCE hKernel32 = GetModuleHandle( "kernel32" ) ;
-  return hKernel32 ? (SetDllDirFunc)GetProcAddress( hKernel32, "SetDllDirectoryA" )
+  return hKernel32 ? (SetDllDirFunc)GetProcAddress( hKernel32, "SetDllDirectoryA" ) // not found on older windows (e.g. win2000)
                    : NULL ; // should never happen
 }
 
 #endif
 
-/** In case there are errors, the returned struct contains only NULLs. */
-static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSelectStrategy ) {
+static char* getJvmSelectStrategy( JVMSelectStrategy jvmSelectStrategy, char*** lookupDirsOut ) {
 
   static char* potentialPathsToServerJVM[]              = { PATHS_TO_SERVER_JVM, NULL } ;
   static char* potentialPathsToClientJVM[]              = { PATHS_TO_CLIENT_JVM, NULL } ;
   static char* potentialPathsToAnyJVMPreferringServer[] = { PATHS_TO_SERVER_JVM, PATHS_TO_CLIENT_JVM, NULL } ;
   static char* potentialPathsToAnyJVMPreferringClient[] = { PATHS_TO_CLIENT_JVM, PATHS_TO_SERVER_JVM, NULL } ;
+
+  jboolean   preferClient = ( jvmSelectStrategy & JST_PREFER_CLIENT ) ? JNI_TRUE : JNI_FALSE,
+             allowClient  = ( jvmSelectStrategy & JST_CLIENTVM )      ? JNI_TRUE : JNI_FALSE,
+             allowServer  = ( jvmSelectStrategy & JST_SERVERVM )      ? JNI_TRUE : JNI_FALSE ;
+
+  char* mode = NULL ;
+
+  assert( allowClient || allowServer ) ;
+
+  if ( allowServer && !allowClient ) {
+    mode = "server" ;
+    *lookupDirsOut = potentialPathsToServerJVM ;
+  } else if ( allowClient && !allowServer ) {
+    mode = "client" ;
+    *lookupDirsOut = potentialPathsToClientJVM ;
+  } else {
+    mode = "client or server" ;
+    *lookupDirsOut = preferClient ? potentialPathsToAnyJVMPreferringClient : potentialPathsToAnyJVMPreferringServer ;
+  }
+
+  return mode ;
+
+}
+
+#if defined( _WIN32 )
+
+/** Sets the pathBuffer[0]=0 if dll setter func is found, to current dir otherwise. */
+static SetDllDirFunc getDllDirSetterFuncOrPathToCurrentDir( char* pathBuffer, size_t bufsize ) {
+
+  SetDllDirFunc dllDirSetterFunc = dllDirSetterFunc = getDllDirSetterFunc() ;
+
+  *pathBuffer = '\0' ;
+
+  errno = 0 ;
+
+  if ( !dllDirSetterFunc ) {
+    if ( !getcwd( pathBuffer, (int)bufsize ) ) {
+      fprintf( stderr, "error %d: could not figure out current dir: %s\n", errno, strerror( errno ) ) ;
+      *pathBuffer = '\0' ;
+    }
+  }
+
+  return dllDirSetterFunc ;
+
+}
+
+// on some sun jdks (e.g. 1.6.0_06) the jvm.dll depends on msvcr71.dll, which is in the bin dir
+// of java installation, which may not be on PATH and thus the dll is not found if it is
+// not available in e.g. system dll dirs.
+// For a thorough discussion on this, see http://www.duckware.com/tech/java6msvcr71.html
+static void addJREBinDirToDllSearchPath( const char* javaHome, SetDllDirFunc dllDirSetterFunc ) {
+
+  char* javaBinDir = jst_malloca( strlen( javaHome ) + 5 ) ;
+
+  if ( !javaBinDir ) {
+    return ;
+  }
+
+  strcpy( javaBinDir, javaHome ) ;
+  strcat( javaBinDir, JST_FILE_SEPARATOR "bin" ) ;
+
+
+  if ( dllDirSetterFunc ) {
+    // NOTE: SetDllDirectoryA is only available on Win XP sp 1 and later. For compatibility
+    //       with older windows versions, we dynamically load that function to see if it's available.
+    if ( !dllDirSetterFunc( javaBinDir ) ) {
+      jst_printWinError( GetLastError() ) ;
+    }
+  } else {
+    chdir( javaBinDir ) ;
+  }
+
+  jst_freea( javaBinDir ) ;
+
+}
+
+#endif
+
+/** In case there are errors, the returned struct contains only NULLs. */
+static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmSelectStrategy ) {
+
 
 #if defined( _WIN32 )
   static SetDllDirFunc dllDirSetterFunc = NULL ;
@@ -291,37 +386,19 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
   JstDLHandle   jvmLib = (JstDLHandle)0 ;
   char**     lookupDirs = NULL ;
   char*      dynLibFile ;
-  jboolean   preferClient = ( jvmSelectStrategy & 4 ) ? JNI_TRUE : JNI_FALSE,  // third bit
-             allowClient  = ( jvmSelectStrategy & 1 ) ? JNI_TRUE : JNI_FALSE,  // first bit
-             allowServer  = ( jvmSelectStrategy & 2 ) ? JNI_TRUE : JNI_FALSE ; // secons bit
 
-  assert( allowClient || allowServer ) ;
 
   rval.creatorFunc  = NULL ;
   rval.dynLibHandle = NULL ;
 
-  if ( allowServer && !allowClient ) {
-    mode = "server" ;
-    lookupDirs = potentialPathsToServerJVM ;
-  } else if ( allowClient && !allowServer ) {
-    mode = "client" ;
-    lookupDirs = potentialPathsToClientJVM ;
-  } else {
-    mode = "client or server" ;
-    lookupDirs = preferClient ? potentialPathsToAnyJVMPreferringClient : potentialPathsToAnyJVMPreferringServer ;
-  }
+  mode = getJvmSelectStrategy( jvmSelectStrategy, &lookupDirs ) ;
+
 
 #if defined( _WIN32 )
-  currentDir[ 0 ] = '\0' ;
 
-  if ( !dllDirSetterFunc ) dllDirSetterFunc = getDllDirSetterFunc() ;
+  dllDirSetterFunc = getDllDirSetterFuncOrPathToCurrentDir( currentDir, sizeof( currentDir ) ) ;
+  if ( !dllDirSetterFunc && !*currentDir ) goto end ;
 
-  if ( !dllDirSetterFunc ) {
-    if ( !getcwd( currentDir, PATH_MAX + 1 ) ) {
-      fprintf( stderr, "error %d: could not figure out current dir: %s\n", errno, strerror( errno ) ) ;
-      goto end ;
-    }
-  }
 #endif
 
   for ( i = 0 ; i < 2 ; i++ ) { // try both jdk and jre style paths
@@ -338,27 +415,7 @@ static JavaDynLib findJVMDynamicLibrary(char* java_home, JVMSelectStrategy jvmSe
       if ( jst_fileExists( path ) ) {
 
 #       if defined( _WIN32 )
-        // on some sun jdks (e.g. 1.6.0_06) the jvm.dll depends on msvcr71.dll, which is in the bin dir
-        // of java installation, which may not be on PATH and thus the dll is not found if it is
-        // not available in e.g. system dll dirs.
-
-        // For a thorough discussion on this, see http://www.duckware.com/tech/java6msvcr71.html
-
-        char* javaBinDir = jst_append( NULL, NULL, java_home, JST_FILE_SEPARATOR, "bin", NULL ) ;
-        if ( !javaBinDir ) goto end ;
-
-        if ( dllDirSetterFunc ) {
-          // NOTE: SetDllDirectoryA is only available on Win XP sp 1 and later. For compatibility
-          //       with older windows versions, we dynamically load that function to see if it's available.
-          BOOL succeededModifyingDLLSearchPath = dllDirSetterFunc( javaBinDir ) ;
-          if ( !succeededModifyingDLLSearchPath ) {
-            jst_printWinError( GetLastError() ) ;
-            goto end ;
-          }
-        } else {
-          chdir( javaBinDir ) ;
-        }
-        jst_free( javaBinDir ) ;
+        addJREBinDirToDllSearchPath( java_home, dllDirSetterFunc ) ;
 #       endif
 
         errno = 0 ;

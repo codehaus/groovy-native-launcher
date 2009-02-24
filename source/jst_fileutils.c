@@ -352,8 +352,6 @@ static char* getFullPathToExecutableFile() {
     SetLastError( 0 ) ;
     len = GetModuleFileNameA( NULL, execFile, (DWORD)currentBufSize ) ;
   } while ( GetLastError() == ERROR_INSUFFICIENT_BUFFER ) ;
-  // this works equally well but is a bit less readable
-  // } while(len == currentBufSize);
 
 
   if ( len == 0 ) {
@@ -479,11 +477,13 @@ extern char* jst_createFileName( const char* root, ... ) {
   va_start( args, root ) ;
 
   while ( ( s = va_arg( args, char* ) ) ) {
-    // TODO: this looks like black magic - refactor
+
     if ( s[ 0 ] ) { // skip empty strings
+
       if ( ( s[ 0 ] != filesep[ 0 ] ) &&
            ( previous[ strlen( previous ) - 1 ] != filesep[ 0 ] ) &&
            !jst_appendPointer( (void***)(void*)&strings, &stringsSize, filesep ) ) goto end ;
+
       if ( !jst_appendPointer( (void***)(void*)&strings, &stringsSize, s ) ) goto end ;
       previous = s ;
     }
@@ -630,7 +630,9 @@ static char* getAppHomeBasedOnExecutableLocation( JstAppHomeStrategy appHomeStra
   char *appHome = NULL ;
 
   if ( appHomeStrategy != JST_INGORE_EXECUTABLE_LOCATION ) {
+
     appHome = jst_getExecutableHome() ;
+
     if ( !appHome ) {
       if ( !errno ) errno = 1 ;
       return NULL ;
@@ -644,8 +646,10 @@ static char* getAppHomeBasedOnExecutableLocation( JstAppHomeStrategy appHomeStra
 
     if ( appHome && validator ) {
       int isvalid ;
+
       errno = 0 ;
       isvalid = validator( appHome ) ;
+
       if ( errno ) {
         jst_free( appHome ) ;
         return NULL ;
@@ -654,6 +658,7 @@ static char* getAppHomeBasedOnExecutableLocation( JstAppHomeStrategy appHomeStra
       if ( !isvalid ) {
         jst_free( appHome ) ;
       }
+
     }
 
     if ( appHome ) {
