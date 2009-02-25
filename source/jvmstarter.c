@@ -264,7 +264,9 @@ extern char* jst_findJavaHome( JstActualParam* processedActualParams ) {
 #  elif defined( __APPLE__ )
   || ( javaHome = getJavaHomeFromStandardLocation() )
 #  endif
-  ) ;
+  ) {
+    ; // do nothing
+  }
 
   if ( !javaHome ) fprintf( stderr, "error: could not locate java home\n" ) ;
 
