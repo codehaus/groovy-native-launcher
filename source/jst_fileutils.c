@@ -843,7 +843,7 @@ extern char* jst_findFromPath( const char* execName, int (*validator)( const cha
   if ( dirname ) dirname = jst_strdup( dirname ) ;
 
   end:
-  if ( path ) jst_freea( path ) ;
+  if ( path ) { jst_freea( path ) ; }
   if ( errno && dirname ) {
     jst_free( dirname ) ;
   }
