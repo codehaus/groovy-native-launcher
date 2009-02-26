@@ -80,8 +80,8 @@ char* jst_strdup( const char* s ) ;
 #  include <malloc.h>
 // malloca and freea are available in visual studio 2008
 #  if defined( _MSC_VER ) && _MSC_VER >= 1500
-#    define jst_malloca( size ) malloca( size )
-#    define jst_freea( ptr ) freea( ptr )
+#    define jst_malloca( size ) _malloca( size )
+#    define jst_freea( ptr ) _freea( ptr )
 #  else
 #    define jst_malloca( size ) alloca( size )
 #    define jst_freea( ptr )
@@ -101,8 +101,27 @@ char* jst_strdup( const char* s ) ;
 
 #endif
 
+/** Concatenates the given strings into the given target buffer, overwriting any previous content.
+ * The last parameter must be NULL (to terminate the arg list).
+ * Returns target. */
+char* jst_concat_overwrite( char* target, ... ) ;
+
+
 #define JST_STRDUPA( target, source ) target = jst_malloca( strlen( source ) + 1 ) ; \
-                                      strcpy( target, source ) ;
+                                      if ( target ) strcpy( target, source ) ;
+
+#define JST_CONCATA2( target, str1, str2 ) target = jst_malloca( strlen( str1 ) + strlen( str2 ) + 1 ) ; \
+                                           if ( target ) { \
+                                             jst_concat_overwrite( target, str1, str2, NULL ) ; \
+                                           }
+#define JST_CONCATA3( target, str1, str2, str3 ) target = jst_malloca( strlen( str1 ) + strlen( str2 ) + strlen( str3 ) + 1 ) ; \
+                                                 if ( target ) { \
+                                                   jst_concat_overwrite( target, str1, str2, str3, NULL ) ; \
+                                                 }
+#define JST_CONCATA4( target, str1, str2, str3, str4 ) target = jst_malloca( strlen( str1 ) + strlen( str2 ) + strlen( str3 ) + strlen( str4 ) + 1 ) ; \
+                                                       if ( target ) { \
+                                                         jst_concat_overwrite( target, str1, str2, str3, str4, NULL ) ; \
+                                                       }
 
 /** Frees all the pointers in the given array, the array itself and sets the reference to NULL */
 void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) ;

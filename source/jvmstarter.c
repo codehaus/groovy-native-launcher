@@ -343,30 +343,31 @@ static SetDllDirFunc getDllDirSetterFuncOrPathToCurrentDir( char* pathBuffer, si
 // of java installation, which may not be on PATH and thus the dll is not found if it is
 // not available in e.g. system dll dirs.
 // For a thorough discussion on this, see http://www.duckware.com/tech/java6msvcr71.html
-static void addJREBinDirToDllSearchPath( const char* javaHome, SetDllDirFunc dllDirSetterFunc ) {
+// Returns 0 on error
+static int addJREBinDirToDllSearchPath( const char* javaHome, SetDllDirFunc dllDirSetterFunc ) {
 
-  char* javaBinDir = jst_malloca( strlen( javaHome ) + 5 ) ;
+  char* javaBinDir ;
+  int   success = 1 ;
 
-  if ( !javaBinDir ) {
-    return ;
-  }
+  JST_CONCATA2( javaBinDir, javaHome, JST_FILE_SEPARATOR "bin" ) ;
 
-  strcpy( javaBinDir, javaHome ) ;
-  strcat( javaBinDir, JST_FILE_SEPARATOR "bin" ) ;
+  if ( !javaBinDir ) return 0 ;
 
+  SetLastError( 0 ) ;
 
   if ( dllDirSetterFunc ) {
     // NOTE: SetDllDirectoryA is only available on Win XP sp 1 and later. For compatibility
     //       with older windows versions, we dynamically load that function to see if it's available.
     if ( !dllDirSetterFunc( javaBinDir ) ) {
       jst_printWinError( GetLastError() ) ;
+      success = JNI_FALSE ;
     }
   } else {
     chdir( javaBinDir ) ;
   }
 
   jst_freea( javaBinDir ) ;
-
+  return success ;
 }
 
 #endif
@@ -405,6 +406,9 @@ static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmS
 
   for ( i = 0 ; i < 2 ; i++ ) { // try both jdk and jre style paths
     for ( j = 0; ( dynLibFile = lookupDirs[ j ] ) ; j++ ) {
+
+      // TODO: extract func openJVMDynLib
+
       if ( path ) path[ 0 ] = '\0' ;
       path = jst_append( path, &pathSize, java_home,
                                           JST_FILE_SEPARATOR,
@@ -417,7 +421,7 @@ static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmS
       if ( jst_fileExists( path ) ) {
 
 #       if defined( _WIN32 )
-        addJREBinDirToDllSearchPath( java_home, dllDirSetterFunc ) ;
+        if ( !addJREBinDirToDllSearchPath( java_home, dllDirSetterFunc ) ) goto end ;
 #       endif
 
         errno = 0 ;

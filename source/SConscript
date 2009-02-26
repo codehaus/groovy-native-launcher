@@ -120,8 +120,8 @@ if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
     # this one's disabled as it does not seem very interesting:
     # c4711 == function 'function' selected for inline expansion
     #
-    environment.Append (
-        CCFLAGS = '-TC -Wall -Wp64 -wd4206 -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN' ,
+    environment.Append ( 
+        CCFLAGS = '-TC -Wall -Wp64 -wd4206 -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN -D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE',
         LIBS = [ 'advapi32' ] )
     windowsEnvironment = environment.Clone ( )
     windowsEnvironment.Append ( LINKFLAGS = '-subsystem:windows -entry:mainCRTStartup' )

@@ -125,6 +125,26 @@ extern char** jst_packStringArray( char** nullTerminatedStringArray ) {
   return rval ;
 }
 
+extern char* jst_concat_overwrite( char* target, ... ) {
+  va_list args ;
+  char *s,
+       *current = target ;
+
+  target[ 0 ] = '\0' ;
+
+  va_start( args, target ) ;
+
+  while ( ( s = va_arg( args, char* ) ) ) {
+    while ( *s ) *current++ = *s++ ;
+  }
+
+  *current = '\0' ;
+
+  va_end( args ) ;
+
+  return target ;
+
+}
 
 extern char* jst_append( char* target, size_t* bufsize, ... ) {
   va_list args ;
@@ -189,7 +209,7 @@ extern int jst_totalLenghtOfStringsInArray( char** strings ) {
   if ( !strings ) return 0 ;
 
   while ( *strings )
-    length += strlen( *strings++ ) ;
+    length += (int)strlen( *strings++ ) ;
 
   return length ;
 }
