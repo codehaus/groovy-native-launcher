@@ -156,7 +156,7 @@ typedef jint ( JNICALL *JVMCreatorFunc )( JavaVM**, void**, void* ) ;
 
 typedef struct {
   JVMCreatorFunc creatorFunc  ;
-  JstDLHandle       dynLibHandle ;
+  JstDLHandle    dynLibHandle ;
 } JavaDynLib ;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -404,7 +404,7 @@ static int loadJvmDynLib( const char* java_home, const char* dynLibFile, JstDLHa
 #if defined( _WIN32 )
     , SetDllDirFunc dllDirSetterFunc
 #endif
-) {
+                         ) {
 
   int i ;
 
@@ -438,16 +438,44 @@ static int loadJvmDynLib( const char* java_home, const char* dynLibFile, JstDLHa
 
 }
 
-//static JvmCreatorFunc getJvmCreatorFunc( JstDLHandle jvmDynLibHandle ) {
 
-//}
+static JVMCreatorFunc findJVMCreatorFunc( JstDLHandle jvmLib ) {
+
+  JVMCreatorFunc creatorFunc = (JVMCreatorFunc)dlsym( jvmLib, CREATE_JVM_FUNCTION_NAME ) ;
+
+  if ( !creatorFunc ) {
+
+#   if defined( _WIN32 )
+    jst_printWinError( GetLastError() ) ;
+#   else
+    char* errorMsg = dlerror() ;
+    if ( errorMsg ) fprintf( stderr, "%s\n", errorMsg ) ;
+#   endif
+    fprintf( stderr, "strange bug: jvm creator function not found in jvm dynamic library\n"
+                     "Please rerun with debug output enabled by setting environment variable " JST_DEBUG_ENV_VAR_NAME "\n" ) ;
+
+  }
+
+  return creatorFunc ;
+
+}
+
+#if defined( _WIN32 )
+static void resetDllSearchPath( SetDllDirFunc dllSearchDirSetter, const char* originalWorkingDir ) {
+  if ( dllSearchDirSetter ) {
+    dllSearchDirSetter( NULL ) ;
+  } else if ( originalWorkingDir[ 0 ] ) {
+    chdir( originalWorkingDir ) ;
+  }
+}
+#endif
 
 /** In case there are errors, the returned struct contains only NULLs. */
 static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmSelectStrategy ) {
 
 #if defined( _WIN32 )
   static SetDllDirFunc dllDirSetterFunc = NULL ;
-  char currentDir[ PATH_MAX + 1 ] ;
+  char originalProcessWorkingDir[ PATH_MAX + 1 ] ;
 #endif
 
   char       *mode ;
@@ -465,8 +493,8 @@ static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmS
 
 #if defined( _WIN32 )
 
-  dllDirSetterFunc = getDllDirSetterFuncOrPathToCurrentDir( currentDir, sizeof( currentDir ) ) ;
-  if ( !dllDirSetterFunc && !*currentDir ) goto end ;
+  dllDirSetterFunc = getDllDirSetterFuncOrPathToCurrentDir( originalProcessWorkingDir, sizeof( originalProcessWorkingDir ) ) ;
+  if ( !dllDirSetterFunc && !*originalProcessWorkingDir ) return rval ; // error
 
 #endif
 
@@ -485,31 +513,17 @@ static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmS
     fprintf( stderr, "error: could not find %s jvm under %s\n"
                      "       please check that it is a valid jdk / jre containing the desired type of jvm\n",
                      mode, java_home ) ;
-    goto end ;
-  }
-
-  rval.creatorFunc = (JVMCreatorFunc)dlsym( jvmLib, CREATE_JVM_FUNCTION_NAME ) ;
-
-  if ( rval.creatorFunc ) {
-    rval.dynLibHandle = jvmLib ;
   } else {
-#   if defined( _WIN32 )
-    jst_printWinError( GetLastError() ) ;
-#   else
-    char* errorMsg = dlerror() ;
-    if ( errorMsg ) fprintf( stderr, "%s\n", errorMsg ) ;
-#   endif
-    fprintf( stderr, "strange bug: jvm creator function not found in jvm dynamic library\n"
-                     "Please rerun with debug output enabled by setting environment variable " JST_DEBUG_ENV_VAR_NAME "\n" ) ;
+
+    rval.creatorFunc = (JVMCreatorFunc)findJVMCreatorFunc( jvmLib ) ;
+
+    if ( rval.creatorFunc ) rval.dynLibHandle = jvmLib ;
+
   }
 
-  end:
+
 # if defined( _WIN32 )
-  if ( dllDirSetterFunc ) {
-    dllDirSetterFunc( NULL ) ;
-  } else if ( currentDir[ 0 ] ) {
-    chdir( currentDir ) ;
-  }
+  resetDllSearchPath( dllDirSetterFunc, originalProcessWorkingDir ) ;
 # endif
 
   return rval ;
