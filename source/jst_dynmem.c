@@ -126,6 +126,7 @@ extern char** jst_packStringArray( char** nullTerminatedStringArray ) {
 }
 
 extern char* jst_concat_overwrite( char* target, ... ) {
+
   va_list args ;
   char *s,
        *current = target ;

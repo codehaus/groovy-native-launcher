@@ -50,6 +50,10 @@
 /** This macro yields its parameter in double quotes, e.g. JST_STRINGIZER( /home/antti => "/home/antti" */
 #define JST_STRINGIZER( str ) __JST_STRINGIZER_HELPER__( str )
 
+/** Call this function in the beginning of main to initialize the global flag telling whether to
+ * print out debug information to stderr.
+ * @return != 0 if debug state enabled */
+int jst_initDebugState() ;
 
 /** set to true at startup to print debug information about what the launcher is doing to stdout */
 extern jboolean _jst_debug ;

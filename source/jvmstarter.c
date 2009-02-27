@@ -143,7 +143,12 @@ typedef BOOL (WINAPI *SetDllDirFunc)( LPCTSTR lpPathname ) ;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+#define JST_DEBUG_ENV_VAR_NAME "__JLANCHER_DEBUG"
 jboolean _jst_debug = JNI_FALSE ;
+
+extern int jst_initDebugState() {
+  return _jst_debug = ( getenv( JST_DEBUG_ENV_VAR_NAME ) ? 1 : 0 ) ;
+}
 
 // The pointer to the JNI_CreateJavaVM function needs to be called w/ JNICALL calling convention. Using this typedef
 // takes care of that.
@@ -372,20 +377,78 @@ static int addJREBinDirToDllSearchPath( const char* javaHome, SetDllDirFunc dllD
 
 #endif
 
+static JstDLHandle openDynLib( const char* pathToLib ) {
+
+  JstDLHandle libraryHandle ;
+
+  errno = 0 ;
+  if ( !( libraryHandle = dlopen( pathToLib, RTLD_LAZY ) ) )  {
+    fprintf( stderr, "error: dynamic library %s exists but could not be loaded!\n", pathToLib ) ;
+    if ( errno ) fprintf( stderr, strerror( errno ) ) ;
+#         if defined( _WIN32 )
+    jst_printWinError( GetLastError() ) ;
+#         else
+    {
+      char* errorMsg = dlerror() ;
+      if ( errorMsg ) fprintf( stderr, "%s\n", errorMsg ) ;
+    }
+#         endif
+  }
+
+  return libraryHandle ;
+
+}
+
+/** returns != 0 if loaded successfully or on error. On error jvmLib == NULL */
+static int loadJvmDynLib( const char* java_home, const char* dynLibFile, JstDLHandle* jvmLib, SetDllDirFunc dllDirSetterFunc ) {
+
+  int i ;
+
+  *jvmLib = NULL ;
+
+  for ( i = 0 ; i < 2 ; i++ ) { // try both jdk and jre style paths
+
+    // on a jdk, we need to add jre to the path
+    char* path ;
+    JST_CONCATA4( path, java_home, JST_FILE_SEPARATOR, ( i == 0 ) ? "jre" JST_FILE_SEPARATOR : "", dynLibFile ) ;
+    if ( !path ) {
+      fprintf( stderr, "java launcher memory error\n" ) ;
+      return 1 ;
+    }
+
+    if ( jst_fileExists( path ) ) {
+
+#if defined( _WIN32 )
+      if ( !addJREBinDirToDllSearchPath( java_home, dllDirSetterFunc ) ) return 1 ;
+#endif
+
+      *jvmLib = openDynLib( path ) ;
+
+      if ( _jst_debug && *jvmLib ) fprintf( stderr, "debug: loaded jvm dynamic library %s\n", path ) ;
+
+      break ;
+    }
+  }
+
+  return *jvmLib != NULL ;
+
+}
+
+//static JvmCreatorFunc getJvmCreatorFunc( JstDLHandle jvmDynLibHandle ) {
+
+//}
+
 /** In case there are errors, the returned struct contains only NULLs. */
 static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmSelectStrategy ) {
-
 
 #if defined( _WIN32 )
   static SetDllDirFunc dllDirSetterFunc = NULL ;
   char currentDir[ PATH_MAX + 1 ] ;
 #endif
 
-  char       *path = NULL,
-             *mode ;
-  size_t     pathSize = PATH_MAX + 1 ;
+  char       *mode ;
   JavaDynLib rval ;
-  int        i = 0, j = 0;
+  int        i ;
   JstDLHandle   jvmLib = (JstDLHandle)0 ;
   char**     lookupDirs = NULL ;
   char*      dynLibFile ;
@@ -396,7 +459,6 @@ static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmS
 
   mode = getJvmSelectStrategy( jvmSelectStrategy, &lookupDirs ) ;
 
-
 #if defined( _WIN32 )
 
   dllDirSetterFunc = getDllDirSetterFuncOrPathToCurrentDir( currentDir, sizeof( currentDir ) ) ;
@@ -404,57 +466,24 @@ static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmS
 
 #endif
 
-  for ( i = 0 ; i < 2 ; i++ ) { // try both jdk and jre style paths
-    for ( j = 0; ( dynLibFile = lookupDirs[ j ] ) ; j++ ) {
+  for ( i = 0; ( dynLibFile = lookupDirs[ i ] ) ; i++ ) {
 
-      // TODO: extract func openJVMDynLib
+    if ( loadJvmDynLib( java_home, dynLibFile, &jvmLib, dllDirSetterFunc ) ) break ;
 
-      if ( path ) path[ 0 ] = '\0' ;
-      path = jst_append( path, &pathSize, java_home,
-                                          JST_FILE_SEPARATOR,
-                                          // on a jdk, we need to add jre at this point of the path
-                                          ( i == 0 ) ? "jre" JST_FILE_SEPARATOR : "",
-                                          dynLibFile,
-                                          NULL ) ;
-      if ( !path ) goto end ;
-
-      if ( jst_fileExists( path ) ) {
-
-#       if defined( _WIN32 )
-        if ( !addJREBinDirToDllSearchPath( java_home, dllDirSetterFunc ) ) goto end ;
-#       endif
-
-        errno = 0 ;
-        if ( !( jvmLib = dlopen( path, RTLD_LAZY ) ) )  {
-          fprintf( stderr, "error: dynamic library %s exists but could not be loaded!\n", path ) ;
-          if ( errno ) fprintf( stderr, strerror( errno ) ) ;
-#         if defined( _WIN32 )
-          jst_printWinError( GetLastError() ) ;
-#         else
-          {
-            char* errorMsg = dlerror() ;
-            if ( errorMsg ) fprintf( stderr, "%s\n", errorMsg ) ;
-          }
-#         endif
-        }
-        goto exitlookup ; // just break out of 2 nested loops
-      }
-    }
   }
-  exitlookup:
+
 
   if ( !jvmLib ) {
     fprintf( stderr, "error: could not find %s jvm under %s\n"
                      "       please check that it is a valid jdk / jre containing the desired type of jvm\n",
                      mode, java_home ) ;
-    return rval ;
+    goto end ;
   }
 
   rval.creatorFunc = (JVMCreatorFunc)dlsym( jvmLib, CREATE_JVM_FUNCTION_NAME ) ;
 
   if ( rval.creatorFunc ) {
     rval.dynLibHandle = jvmLib ;
-    if ( _jst_debug ) fprintf( stderr, "debug: loaded jvm dynamic library %s\n", path ) ;
   } else {
 #   if defined( _WIN32 )
     jst_printWinError( GetLastError() ) ;
@@ -462,7 +491,8 @@ static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmS
     char* errorMsg = dlerror() ;
     if ( errorMsg ) fprintf( stderr, "%s\n", errorMsg ) ;
 #   endif
-    fprintf( stderr, "strange bug: jvm creator function not found in jvm dynamic library %s\n", path ) ;
+    fprintf( stderr, "strange bug: jvm creator function not found in jvm dynamic library\n"
+                     "Please rerun with debug output enabled by setting environment variable " JST_DEBUG_ENV_VAR_NAME "\n" ) ;
   }
 
   end:
@@ -473,7 +503,6 @@ static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmS
     chdir( currentDir ) ;
   }
 # endif
-  if ( path ) free( path ) ;
 
   return rval ;
 }

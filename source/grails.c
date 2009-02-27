@@ -250,9 +250,7 @@ int rest_of_main( int argc, char** argv ) {
   JarDirSpecification jardirs[ 3 ] ;
 
 
-  // _jst_debug is a global debug flag
-  if ( getenv( "__JLAUNCHER_DEBUG" ) ) _jst_debug = JNI_TRUE ;
-
+  jst_initDebugState() ;
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   jst_cygwinInit() ;
