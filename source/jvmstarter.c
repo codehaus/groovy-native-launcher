@@ -385,14 +385,14 @@ static JstDLHandle openDynLib( const char* pathToLib ) {
   if ( !( libraryHandle = dlopen( pathToLib, RTLD_LAZY ) ) )  {
     fprintf( stderr, "error: dynamic library %s exists but could not be loaded!\n", pathToLib ) ;
     if ( errno ) fprintf( stderr, strerror( errno ) ) ;
-#         if defined( _WIN32 )
+#if defined( _WIN32 )
     jst_printWinError( GetLastError() ) ;
-#         else
+#else
     {
       char* errorMsg = dlerror() ;
       if ( errorMsg ) fprintf( stderr, "%s\n", errorMsg ) ;
     }
-#         endif
+#endif
   }
 
   return libraryHandle ;
@@ -400,7 +400,11 @@ static JstDLHandle openDynLib( const char* pathToLib ) {
 }
 
 /** returns != 0 if loaded successfully or on error. On error jvmLib == NULL */
-static int loadJvmDynLib( const char* java_home, const char* dynLibFile, JstDLHandle* jvmLib, SetDllDirFunc dllDirSetterFunc ) {
+static int loadJvmDynLib( const char* java_home, const char* dynLibFile, JstDLHandle* jvmLib
+#if defined( _WIN32 )
+    , SetDllDirFunc dllDirSetterFunc
+#endif
+) {
 
   int i ;
 
@@ -468,7 +472,11 @@ static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmS
 
   for ( i = 0; ( dynLibFile = lookupDirs[ i ] ) ; i++ ) {
 
-    if ( loadJvmDynLib( java_home, dynLibFile, &jvmLib, dllDirSetterFunc ) ) break ;
+    if ( loadJvmDynLib( java_home, dynLibFile, &jvmLib
+#if defined( _WIN32 )
+        , dllDirSetterFunc )
+#endif
+        ) break ;
 
   }
 
