@@ -474,9 +474,9 @@ static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmS
 
     if ( loadJvmDynLib( java_home, dynLibFile, &jvmLib
 #if defined( _WIN32 )
-        , dllDirSetterFunc )
+        , dllDirSetterFunc
 #endif
-        ) break ;
+        ) ) break ;
 
   }
 
