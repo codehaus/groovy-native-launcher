@@ -399,12 +399,18 @@ static JstDLHandle openDynLib( const char* pathToLib ) {
 
 }
 
-/** returns != 0 if loaded successfully or on error. On error jvmLib == NULL */
-static int loadJvmDynLib( const char* java_home, const char* dynLibFile, JstDLHandle* jvmLib
 #if defined( _WIN32 )
-    , SetDllDirFunc dllDirSetterFunc
+static void resetDllSearchPath( SetDllDirFunc dllSearchDirSetter, const char* originalWorkingDir ) {
+  if ( dllSearchDirSetter ) {
+    dllSearchDirSetter( NULL ) ;
+  } else if ( originalWorkingDir[ 0 ] ) {
+    chdir( originalWorkingDir ) ;
+  }
+}
 #endif
-                         ) {
+
+/** returns != 0 if loaded successfully or on error. On error jvmLib == NULL */
+static int loadJvmDynLib( const char* java_home, const char* dynLibFile, JstDLHandle* jvmLib ) {
 
   int i ;
 
@@ -423,10 +429,17 @@ static int loadJvmDynLib( const char* java_home, const char* dynLibFile, JstDLHa
     if ( jst_fileExists( path ) ) {
 
 #if defined( _WIN32 )
+      char originalProcessWorkingDir[ PATH_MAX + 1 ] ;
+      SetDllDirFunc dllDirSetterFunc = getDllDirSetterFuncOrPathToCurrentDir( originalProcessWorkingDir, sizeof( originalProcessWorkingDir ) ) ;
+      if ( !dllDirSetterFunc && !*originalProcessWorkingDir ) return 1 ;
       if ( !addJREBinDirToDllSearchPath( java_home, dllDirSetterFunc ) ) return 1 ;
 #endif
 
       *jvmLib = openDynLib( path ) ;
+
+#if defined( _WIN32 )
+      resetDllSearchPath( dllDirSetterFunc, originalProcessWorkingDir ) ;
+#endif
 
       if ( _jst_debug && *jvmLib ) fprintf( stderr, "debug: loaded jvm dynamic library %s\n", path ) ;
 
@@ -460,51 +473,26 @@ static JVMCreatorFunc findJVMCreatorFunc( JstDLHandle jvmLib ) {
 
 }
 
-#if defined( _WIN32 )
-static void resetDllSearchPath( SetDllDirFunc dllSearchDirSetter, const char* originalWorkingDir ) {
-  if ( dllSearchDirSetter ) {
-    dllSearchDirSetter( NULL ) ;
-  } else if ( originalWorkingDir[ 0 ] ) {
-    chdir( originalWorkingDir ) ;
-  }
-}
-#endif
 
 /** In case there are errors, the returned struct contains only NULLs. */
 static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmSelectStrategy ) {
 
-#if defined( _WIN32 )
-  static SetDllDirFunc dllDirSetterFunc = NULL ;
-  char originalProcessWorkingDir[ PATH_MAX + 1 ] ;
-#endif
-
   char       *mode ;
-  JavaDynLib rval ;
+  JavaDynLib javaDynamicLibrary ;
   int        i ;
   JstDLHandle   jvmLib = (JstDLHandle)0 ;
   char**     lookupDirs = NULL ;
   char*      dynLibFile ;
 
 
-  rval.creatorFunc  = NULL ;
-  rval.dynLibHandle = NULL ;
+  javaDynamicLibrary.creatorFunc  = NULL ;
+  javaDynamicLibrary.dynLibHandle = NULL ;
 
   mode = getJvmSelectStrategy( jvmSelectStrategy, &lookupDirs ) ;
 
-#if defined( _WIN32 )
-
-  dllDirSetterFunc = getDllDirSetterFuncOrPathToCurrentDir( originalProcessWorkingDir, sizeof( originalProcessWorkingDir ) ) ;
-  if ( !dllDirSetterFunc && !*originalProcessWorkingDir ) return rval ; // error
-
-#endif
-
   for ( i = 0; ( dynLibFile = lookupDirs[ i ] ) ; i++ ) {
 
-    if ( loadJvmDynLib( java_home, dynLibFile, &jvmLib
-#if defined( _WIN32 )
-        , dllDirSetterFunc
-#endif
-        ) ) break ;
+    if ( loadJvmDynLib( java_home, dynLibFile, &jvmLib ) ) break ;
 
   }
 
@@ -515,18 +503,13 @@ static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmS
                      mode, java_home ) ;
   } else {
 
-    rval.creatorFunc = (JVMCreatorFunc)findJVMCreatorFunc( jvmLib ) ;
+    javaDynamicLibrary.creatorFunc = (JVMCreatorFunc)findJVMCreatorFunc( jvmLib ) ;
 
-    if ( rval.creatorFunc ) rval.dynLibHandle = jvmLib ;
+    if ( javaDynamicLibrary.creatorFunc ) javaDynamicLibrary.dynLibHandle = jvmLib ;
 
   }
 
-
-# if defined( _WIN32 )
-  resetDllSearchPath( dllDirSetterFunc, originalProcessWorkingDir ) ;
-# endif
-
-  return rval ;
+  return javaDynamicLibrary ;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
