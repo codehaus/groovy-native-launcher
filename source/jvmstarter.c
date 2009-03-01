@@ -412,39 +412,41 @@ static void resetDllSearchPath( SetDllDirFunc dllSearchDirSetter, const char* or
 /** returns != 0 if loaded successfully or on error. On error jvmLib == NULL */
 static int loadJvmDynLib( const char* java_home, const char* dynLibFile, JstDLHandle* jvmLib ) {
 
-  int i ;
+  int i,
+      found = 0;
 
   *jvmLib = NULL ;
 
-  for ( i = 0 ; i < 2 ; i++ ) { // try both jdk and jre style paths
+  for ( i = 0 ; i < 2 && !found ; i++ ) { // i=0..1 => try both jdk and jre style paths
+
+    char* path ;
 
     // on a jdk, we need to add jre to the path
-    char* path ;
     JST_CONCATA4( path, java_home, JST_FILE_SEPARATOR, ( i == 0 ) ? "jre" JST_FILE_SEPARATOR : "", dynLibFile ) ;
-    if ( !path ) {
-      fprintf( stderr, "java launcher memory error\n" ) ;
-      return 1 ;
-    }
+    if ( !path ) return 0 ;
 
-    if ( jst_fileExists( path ) ) {
+    if ( ( found = jst_fileExists( path ) ) ) {
 
 #if defined( _WIN32 )
       char originalProcessWorkingDir[ PATH_MAX + 1 ] ;
       SetDllDirFunc dllDirSetterFunc = getDllDirSetterFuncOrPathToCurrentDir( originalProcessWorkingDir, sizeof( originalProcessWorkingDir ) ) ;
-      if ( !dllDirSetterFunc && !*originalProcessWorkingDir ) return 1 ;
-      if ( !addJREBinDirToDllSearchPath( java_home, dllDirSetterFunc ) ) return 1 ;
+      if ( ( dllDirSetterFunc || *originalProcessWorkingDir ) &&
+           addJREBinDirToDllSearchPath( java_home, dllDirSetterFunc ) ) {
 #endif
 
-      *jvmLib = openDynLib( path ) ;
+        *jvmLib = openDynLib( path ) ;
 
 #if defined( _WIN32 )
-      resetDllSearchPath( dllDirSetterFunc, originalProcessWorkingDir ) ;
+        resetDllSearchPath( dllDirSetterFunc, originalProcessWorkingDir ) ;
 #endif
 
-      if ( _jst_debug && *jvmLib ) fprintf( stderr, "debug: loaded jvm dynamic library %s\n", path ) ;
-
-      break ;
+        if ( _jst_debug && *jvmLib ) fprintf( stderr, "debug: loaded jvm dynamic library %s\n", path ) ;
+#if defined( _WIN32 )
+      }
+#endif
     }
+
+    jst_freea( path ) ;
   }
 
   return *jvmLib != NULL ;
@@ -602,26 +604,26 @@ static jboolean appendJarsFromDir( JarDirSpecification* dirSpec, char** target, 
 
 /** Returns false on error. */
 static jboolean addStringToJStringArray( JNIEnv* env, char *strToAdd, jobjectArray jstrArr, jint ind ) {
-  jboolean rval = JNI_FALSE ;
-  jstring  arg  = (*env)->NewStringUTF( env, strToAdd ) ;
+  jboolean success = JNI_FALSE ;
+  jstring  arg     = (*env)->NewStringUTF( env, strToAdd ) ;
 
   if ( !arg ) {
     fprintf( stderr, "error: could not convert %s to java string\n", strToAdd ) ;
     clearException( env ) ;
-    goto end ;
+    return JNI_FALSE ;
   }
 
   (*env)->SetObjectArrayElement( env, jstrArr, ind, arg ) ;
   if ( (*env)->ExceptionCheck( env ) ) {
     fprintf( stderr, "error: error when writing %dth element %s to Java String[]\n", (int)ind, strToAdd ) ;
     clearException( env ) ;
-    goto end ;
+  } else {
+    success = JNI_TRUE ;
   }
-  (*env)->DeleteLocalRef( env, arg ) ;
-  rval = JNI_TRUE ;
 
-  end:
-  return rval;
+  (*env)->DeleteLocalRef( env, arg ) ;
+
+  return success ;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

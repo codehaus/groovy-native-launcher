@@ -75,7 +75,7 @@ char* jst_strdup( const char* s ) ;
 
 #define jst_free( x ) free( x ) ; x = NULL
 
-#if defined( _WIN32 )
+#if defined( _WIN32 ) && !defined( NO_ALLOCA )
 
 #  include <malloc.h>
 // malloca and freea are available in visual studio 2008
@@ -87,7 +87,7 @@ char* jst_strdup( const char* s ) ;
 #    define jst_freea( ptr )
 #  endif
 
-#elif defined( __linux__ ) || defined( __sun__ ) || defined( __APPLE__ )
+#elif ( defined( __linux__ ) || defined( __sun__ ) || defined( __APPLE__ ) ) && !defined( NO_ALLOCA )
 
 #  include <alloca.h>
 #  define jst_malloca( size ) alloca( size )
@@ -95,7 +95,10 @@ char* jst_strdup( const char* s ) ;
 
 #else
 
-#  warning "alloca aliases not defined for your platform. Setting them as aliases to jst_malloc and free."
+#  if !defined( NO_ALLOCA )
+#    warning "alloca aliases not defined for your platform. Setting them as aliases to jst_malloc and free."
+#  endif
+
 #  define jst_malloca( size ) jst_malloc( size )
 #  define jst_freea( ptr ) free( ptr )
 
@@ -108,20 +111,22 @@ char* jst_concat_overwrite( char* target, ... ) ;
 
 
 #define JST_STRDUPA( target, source ) target = jst_malloca( strlen( source ) + 1 ) ; \
-                                      if ( target ) strcpy( target, source ) ;
+                                      if ( target ) { \
+                                        strcpy( target, source ) ; \
+                                      } else { fprintf( stderr, "java launcher memory error\n" ) ; }
 
 #define JST_CONCATA2( target, str1, str2 ) target = jst_malloca( strlen( str1 ) + strlen( str2 ) + 1 ) ; \
                                            if ( target ) { \
                                              jst_concat_overwrite( target, str1, str2, NULL ) ; \
-                                           }
+                                           } else { fprintf( stderr, "java launcher memory error\n" ) ; }
 #define JST_CONCATA3( target, str1, str2, str3 ) target = jst_malloca( strlen( str1 ) + strlen( str2 ) + strlen( str3 ) + 1 ) ; \
                                                  if ( target ) { \
                                                    jst_concat_overwrite( target, str1, str2, str3, NULL ) ; \
-                                                 }
+                                                 } else { fprintf( stderr, "java launcher memory error\n" ) ; }
 #define JST_CONCATA4( target, str1, str2, str3, str4 ) target = jst_malloca( strlen( str1 ) + strlen( str2 ) + strlen( str3 ) + strlen( str4 ) + 1 ) ; \
                                                        if ( target ) { \
                                                          jst_concat_overwrite( target, str1, str2, str3, str4, NULL ) ; \
-                                                       }
+                                                       } else { fprintf( stderr, "java launcher memory error\n" ) ; }
 
 /** Frees all the pointers in the given array, the array itself and sets the reference to NULL */
 void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) ;
