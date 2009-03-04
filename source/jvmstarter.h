@@ -270,6 +270,9 @@ char* jst_findJavaHomeFromPath() ;
  * Returns NULL if java home could not be figured out. Freeing the returned value is up to the caller. */
 char* jst_findJavaHome( JstActualParam* processedActualParams ) ;
 
+/** A simple utility that returns a dynallocated copy of java home string if it is passed in in
+ * the given param */
+char* getJavaHomeFromParameter( JstActualParam* processedActualParams, const char* paramName ) ;
 
 /** As appendArrayItem, but specifically for jvm options.
  * @param extraInfo JavaVMOption.extraInfo. See jni.h or jni documentation (JavaVMOption is defined in jni.h). */

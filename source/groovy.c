@@ -548,7 +548,9 @@ int rest_of_main( int argc, char** argv ) {
   javaHome = JST_STRINGIZER( JAVA_HOME ) ;
   if ( _jst_debug ) fprintf( stderr, "debug: using java home set at compile time: %s\n", javaHome ) ;
 #else
-  javaHome = jst_findJavaHome( processedActualParams ) ;
+  errno = 0 ;
+  ( javaHome = getJavaHomeFromParameter( processedActualParams, "-jh" ) ) || errno ||
+  ( javaHome = jst_findJavaHome( processedActualParams ) ) ;
   MARK_PTR_FOR_FREEING( javaHome )
 #endif
 

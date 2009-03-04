@@ -201,7 +201,7 @@ extern char* jst_findJavaHomeFromPath() {
 }
 
 
-static char* getJavaHomeFromParameter( JstActualParam* processedActualParams, const char* paramName ) {
+extern char* getJavaHomeFromParameter( JstActualParam* processedActualParams, const char* paramName ) {
 
   char *javaHome = jst_getParameterValue( processedActualParams, paramName ) ;
 
@@ -258,20 +258,14 @@ extern char* jst_findJavaHome( JstActualParam* processedActualParams ) {
 
   errno = 0 ;
 
-  if (
-  // TODO It is a little dubious that the hane of the parameter that is used to pass in
-  //      java home is hard codeed here - refactor.
-     ( javaHome = getJavaHomeFromParameter( processedActualParams, "-jh" ) ) || errno
-  || ( javaHome = getJavaHomeFromEnvVar()    ) || errno
+     ( javaHome = getJavaHomeFromEnvVar()    ) || errno
   || ( javaHome = jst_findJavaHomeFromPath() ) || errno
-#  if defined( _WIN32 )
-  || ( javaHome = jst_findJavaHomeFromWinRegistry() ) || errno
-#  elif defined( __APPLE__ )
+#if defined( _WIN32 )
+  || ( javaHome = jst_findJavaHomeFromWinRegistry() )
+#elif defined( __APPLE__ )
   || ( javaHome = getJavaHomeFromStandardLocation() )
-#  endif
-  ) {
-    ; // do nothing
-  }
+#endif
+    ;
 
   if ( !javaHome ) fprintf( stderr, "error: could not locate java home\n" ) ;
 
@@ -400,6 +394,7 @@ static JstDLHandle openDynLib( const char* pathToLib ) {
 }
 
 #if defined( _WIN32 )
+
 static void resetDllSearchPath( SetDllDirFunc dllSearchDirSetter, const char* originalWorkingDir ) {
   if ( dllSearchDirSetter ) {
     dllSearchDirSetter( NULL ) ;
@@ -419,10 +414,11 @@ static int loadJvmDynLib( const char* java_home, const char* dynLibFile, JstDLHa
 
   for ( i = 0 ; i < 2 && !found ; i++ ) { // i=0..1 => try both jdk and jre style paths
 
-    char* path ;
+    char *path,
+         *jreSubDir = ( i == 0 ) ? "jre" JST_FILE_SEPARATOR : "" ;
 
     // on a jdk, we need to add jre to the path
-    JST_CONCATA4( path, java_home, JST_FILE_SEPARATOR, ( i == 0 ) ? "jre" JST_FILE_SEPARATOR : "", dynLibFile ) ;
+    JST_CONCATA4( path, java_home, JST_FILE_SEPARATOR, jreSubDir, dynLibFile ) ;
     if ( !path ) return 0 ;
 
     if ( ( found = jst_fileExists( path ) ) ) {
@@ -479,12 +475,12 @@ static JVMCreatorFunc findJVMCreatorFunc( JstDLHandle jvmLib ) {
 /** In case there are errors, the returned struct contains only NULLs. */
 static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmSelectStrategy ) {
 
-  char       *mode ;
-  JavaDynLib javaDynamicLibrary ;
-  int        i ;
-  JstDLHandle   jvmLib = (JstDLHandle)0 ;
-  char**     lookupDirs = NULL ;
-  char*      dynLibFile ;
+  char        *mode ;
+  JavaDynLib  javaDynamicLibrary ;
+  int         i ;
+  JstDLHandle jvmLib = (JstDLHandle)0 ;
+  char**      lookupDirs = NULL ;
+  char*       dynLibFile ;
 
 
   javaDynamicLibrary.creatorFunc  = NULL ;
@@ -724,8 +720,8 @@ static char* handleJVMOptsString( const char* userOpts, JavaVMOption** jvmOption
                                             jvmOptionsSize,
                                             s,
                                             NULL ) ) ) {
-      free( jvmOptsS ) ;
-      return NULL ;
+      jst_free( jvmOptsS ) ;
+      break ;
     }
   }
 
@@ -734,11 +730,11 @@ static char* handleJVMOptsString( const char* userOpts, JavaVMOption** jvmOption
 }
 
 /** returns 0 on error */
-static jboolean jst_startJvm( jint vmversion, JavaVMOption *jvmOptions, jint jvmOptionsCount, jboolean ignoreUnrecognizedJvmParams, char* javaHome, JVMSelectStrategy jvmSelectStrategy,
+static jint jst_startJvm( jint vmversion, JavaVMOption *jvmOptions, jint jvmOptionsCount, jboolean ignoreUnrecognizedJvmParams, char* javaHome, JVMSelectStrategy jvmSelectStrategy,
                     // output
-                    JavaDynLib* javaLib, JavaVM** javavm, JNIEnv** env, int* errorCode ) {
+                    JavaDynLib* javaLib, JavaVM** javavm, JNIEnv** env ) {
   JavaVMInitArgs vm_args ;
-  int result ;
+  jint result = 0 ;
   JavaDynLib javaLibTmp ;
   // ( JNI_VERSION_1_4, jvmOptions, jvmOptionsCount, JNI_FALSE, javaHome, jvmSelectStrategy, &javaLib, &javavm, &env, &rval
 
@@ -751,12 +747,10 @@ static jboolean jst_startJvm( jint vmversion, JavaVMOption *jvmOptions, jint jvm
   // fetch the pointer to jvm creator func and invoke it
   javaLibTmp = findJVMDynamicLibrary( javaHome, jvmSelectStrategy ) ;
   if ( !( javaLibTmp.creatorFunc ) ) { // error message already printed
-    *errorCode = -1 ;
-    return JNI_FALSE ;
+    return -1 ;
   }
 
-  javaLib->creatorFunc  = javaLibTmp.creatorFunc  ;
-  javaLib->dynLibHandle = javaLibTmp.dynLibHandle ;
+  memcpy( javaLib, &javaLibTmp, sizeof( JavaDynLib ) ) ;
 
   // start the jvm.
   // the cast to void* before void** serves to remove a gcc warning
@@ -791,11 +785,9 @@ static jboolean jst_startJvm( jint vmversion, JavaVMOption *jvmOptions, jint jvm
         break ;
     }
     fprintf( stderr, "error: jvm creation failed with code %d: %s\n", (int)result, errMsg ) ;
-    *errorCode = result ;
-    return JNI_FALSE ;
   }
 
-  return JNI_TRUE ;
+  return result ;
 }
 
 static jclass getJavaStringClass( JNIEnv* env ) {
@@ -986,38 +978,75 @@ static jclass findMainClassAndMethod( JNIEnv* env, char* mainClassName, char* ma
   if ( !launcheeMainClassHandle ) {
     clearException( env ) ;
     fprintf( stderr, "error: could not find startup class %s\n", mainClassName ) ;
-    goto end ;
+  } else {
+
+    if ( !mainMethodName ) mainMethodName = "main" ;
+
+    *launcheeMainMethodID = (*env)->GetStaticMethodID( env, launcheeMainClassHandle,
+                                                            mainMethodName,
+                                                            "([Ljava/lang/String;)V" ) ;
+    if ( !*launcheeMainMethodID ) {
+      clearException( env ) ;
+      fprintf( stderr, "error: could not find method \"%s\" in class %s\n", mainMethodName, mainClassName ) ;
+      launcheeMainClassHandle = NULL ;
+    }
   }
 
-  if ( !mainMethodName ) mainMethodName = "main" ;
-
-  *launcheeMainMethodID = (*env)->GetStaticMethodID( env, launcheeMainClassHandle,
-                                                          mainMethodName,
-                                                          "([Ljava/lang/String;)V" ) ;
-  if ( !*launcheeMainMethodID ) {
-    clearException( env ) ;
-    fprintf( stderr, "error: could not find method \"%s\" in class %s\n", mainMethodName, mainClassName ) ;
-    launcheeMainClassHandle = NULL ;
-  }
-
-  end:
   return launcheeMainClassHandle ;
+}
+
+
+static JavaVMOption* handleJVMOptionsGivenOnCommandLine( JavaLauncherOptions *launchOptions, JavaVMOption* jvmOptions, int* jvmOptionsCount, size_t* jvmOptionsSize ) {
+
+  int i ;
+  jboolean unrecognizedParamsToJvm = ( launchOptions->unrecognizedParamStrategy & JST_UNRECOGNIZED_TO_JVM ) ? JNI_TRUE : JNI_FALSE ;
+
+
+  for ( i = 0 ; launchOptions->parameters[ i ].param ; i++ ) {
+
+    if ( ( ( launchOptions->parameters[ i ].handling & JST_UNRECOGNIZED ) && unrecognizedParamsToJvm ) ||
+         launchOptions->parameters[ i ].handling & JST_TO_JVM ) {
+      if ( !( jvmOptions = appendJvmOption( jvmOptions,
+                                            (*jvmOptionsCount)++,
+                                            jvmOptionsSize,
+                                            launchOptions->parameters[ i ].param,
+                                            NULL ) ) ) break ; // error
+    }
+  }
+
+  return jvmOptions ;
+
+}
+
+// returns 0 on failure
+static int handleJVMOptsFromEnvVar( const char* envVar, char** userJvmOptsS, JavaVMOption **jvmOptions, int* jvmOptionsCount, size_t* jvmOptionsSize ) {
+
+  if ( envVar ) {
+    envVar = getenv( envVar ) ;
+    if ( envVar && envVar[ 0 ] ) {
+      *userJvmOptsS = handleJVMOptsString( envVar, jvmOptions, jvmOptionsCount, jvmOptionsSize ) ;
+      if ( !*userJvmOptsS ) return 0 ;
+    }
+  }
+
+  return 1 ;
+
 }
 
 /** See the header file for information.
  */
 extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
-  int            rval    = -1 ;
+  int          rval    = -1 ;
 
-  JavaVM         *javavm = NULL ;
-  JNIEnv         *env    = NULL ;
-  JavaDynLib     javaLib ;
+  JavaVM       *javavm = NULL ;
+  JNIEnv       *env    = NULL ;
+  JavaDynLib   javaLib ;
   // TODO: put this inside a JSTJVMOptionHolder
-  JavaVMOption   *jvmOptions = NULL ;
+  JavaVMOption *jvmOptions = NULL ;
 
-  size_t         jvmOptionsSize = 5 ;
-  int            i,
-                 jvmOptionsCount      = 0 ;
+  size_t       jvmOptionsSize  = 5 ;
+  int          i,
+               jvmOptionsCount = 0 ;
 
   jclass       launcheeMainClassHandle  = NULL ;
   jmethodID    launcheeMainMethodID     = NULL ;
@@ -1025,8 +1054,6 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
 
   char      *classpath     = NULL,
             *userJvmOptsS  = NULL ;
-
-  jboolean  unrecognizedParamsToJvm = ( launchOptions->unrecognizedParamStrategy & JST_UNRECOGNIZED_TO_JVM ) ? JNI_TRUE : JNI_FALSE ;
 
   JVMSelectStrategy jvmSelectStrategy = launchOptions->jvmSelectStrategy ;
 
@@ -1059,42 +1086,22 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
                                           launchOptions->jvmOptions[ i ].extraInfo ) ) ) goto end ;
   }
 
-  // handle jvm options in env var JAVA_OPTS or similar
-  {
-    char *envVar = launchOptions->javaOptsEnvVar ;
-    if ( envVar ) {
-      envVar = getenv( envVar ) ;
-      if ( envVar && envVar[ 0 ] ) {
-        userJvmOptsS = handleJVMOptsString( envVar, &jvmOptions, &jvmOptionsCount, &jvmOptionsSize ) ;
-        if ( !userJvmOptsS ) goto end ;
-      }
-    }
-  }
+  // e.g. JAVA_OPTS
+  if ( !handleJVMOptsFromEnvVar( launchOptions->javaOptsEnvVar, &userJvmOptsS, &jvmOptions, &jvmOptionsCount, &jvmOptionsSize ) ) goto end ;
 
 
-  // jvm options given on the command line by the user
-  for ( i = 0 ; launchOptions->parameters[ i ].param ; i++ ) {
+  if ( !( jvmOptions = handleJVMOptionsGivenOnCommandLine( launchOptions, jvmOptions, &jvmOptionsCount, &jvmOptionsSize ) ) ) goto end ;
 
-    if ( ( ( launchOptions->parameters[ i ].handling & JST_UNRECOGNIZED ) && unrecognizedParamsToJvm ) ||
-         launchOptions->parameters[ i ].handling & JST_TO_JVM ) {
-      if ( !( jvmOptions = appendJvmOption( jvmOptions,
-                                            jvmOptionsCount++,
-                                            &jvmOptionsSize,
-                                            launchOptions->parameters[ i ].param,
-                                            NULL ) ) ) goto end ;
-    }
-  }
-
-  if( _jst_debug ) {
+  if ( _jst_debug ) {
     fprintf( stderr, "DUBUG: Starting jvm with the following %d options:\n", jvmOptionsCount ) ;
     for ( i = 0 ; i < jvmOptionsCount ; i++ ) {
       fprintf( stderr, "  %s\n", jvmOptions[ i ].optionString ) ;
     }
   }
 
-  if ( !jst_startJvm( JNI_VERSION_1_4, jvmOptions, jvmOptionsCount, JNI_FALSE, launchOptions->javaHome, jvmSelectStrategy,
-                      // output
-                      &javaLib, &javavm, &env, &rval )
+  if ( jst_startJvm( JNI_VERSION_1_4, jvmOptions, jvmOptionsCount, JNI_FALSE, launchOptions->javaHome, jvmSelectStrategy,
+                     // output
+                     &javaLib, &javavm, &env )
      ) goto end ;
 
 

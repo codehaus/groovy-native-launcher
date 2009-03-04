@@ -75,10 +75,12 @@ char* jst_strdup( const char* s ) ;
 
 #define jst_free( x ) free( x ) ; x = NULL
 
-#if defined( _WIN32 ) && !defined( NO_ALLOCA )
+#if defined( _WIN32 ) && !defined( NO_ALLOCA ) && !defined( _CRTDBG_MAP_ALLOC )
 
 #  include <malloc.h>
-// malloca and freea are available in visual studio 2008
+// _malloca and _freea are available in visual studio 2008
+// For some very strange reason _malloca is not found when _CRTDBG_MAP_ALLOC is defined, so
+// we'll use normal malloc in that case
 #  if defined( _MSC_VER ) && _MSC_VER >= 1500
 #    define jst_malloca( size ) _malloca( size )
 #    define jst_freea( ptr ) _freea( ptr )
@@ -95,7 +97,7 @@ char* jst_strdup( const char* s ) ;
 
 #else
 
-#  if !defined( NO_ALLOCA )
+#  if !defined( NO_ALLOCA ) && !defined( _CRTDBG_MAP_ALLOC )
 #    warning "alloca aliases not defined for your platform. Setting them as aliases to jst_malloc and free."
 #  endif
 
