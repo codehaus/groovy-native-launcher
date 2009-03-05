@@ -247,11 +247,12 @@ static const JstParamInfo noParameters[] = {
 // deduce which class name to pass as --main param. In other words, this here supports all different groovy executables.
 static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** parameterInfosOut, jboolean* displayHelpOut ) {
   // The execubale acts as a different groovy executable when it's renamed / symlinked to.
-  char *execName = jst_strdup( cmd ),
+  char *execName,
        *eName,
        *execNameTmp,
        *mainClassName = NULL ;
 
+  JST_STRDUPA( execName, cmd ) ;
   if ( !( execNameTmp = execName ) ) return NULL ;
 
 #if defined( _WIN32 )
@@ -281,11 +282,17 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
     if ( numArgs == 0 ) *displayHelpOut = JNI_FALSE ;
 
     if ( strcmp( execName, "gant" ) == 0 ) {
+      *displayHelpOut = JNI_FALSE ;
       mainClassName = "gant.Gant" ;
       *parameterInfosOut = (JstParamInfo*)gantParameters ;
     } else if ( strcmp( execName, "groovysh" ) == 0 ) {
+      *displayHelpOut = JNI_FALSE ;
       mainClassName = getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ;
       *parameterInfosOut = (JstParamInfo*)groovyshParameters ;
+    } else if ( strcmp( execName, "grape" ) == 0 ) {
+      *displayHelpOut = JNI_FALSE ;
+      mainClassName = "org.codehaus.groovy.tools.GrapeMain" ;
+      *parameterInfosOut = (JstParamInfo*)noParameters ;
     } else if ( strcmp( execName, "java2groovy" ) == 0 ) {
       *displayHelpOut = JNI_FALSE ;
       mainClassName = "org.codehaus.groovy.antlr.java.Java2GroovyMain" ;
@@ -306,7 +313,7 @@ static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** para
 
   }
 
-  free( execNameTmp ) ;
+  jst_freea( execNameTmp ) ;
 
   return mainClassName ;
 
