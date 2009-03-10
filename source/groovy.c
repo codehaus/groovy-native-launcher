@@ -421,9 +421,7 @@ int rest_of_main( int argc, char** argv ) {
 
   JavaLauncherOptions options ;
 
-  JavaVMOption *extraJvmOptions = NULL ;
-  size_t       extraJvmOptionsCount = 0,
-               extraJvmOptionsSize  = 5 ;
+  JstJvmOptions extraJvmOptions ;
   JstParamInfo* parameterInfos = NULL ;
   char *groovyConfFile  = NULL,
        *groovyDConf     = NULL, // the -Dgroovy.conf=something to pass to the jvm
@@ -462,6 +460,8 @@ int rest_of_main( int argc, char** argv ) {
 
   jst_initDebugState() ;
 
+  memset( &extraJvmOptions, 0, sizeof( extraJvmOptions ) ) ;
+
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   jst_cygwinInit() ;
 #endif
@@ -487,11 +487,7 @@ int rest_of_main( int argc, char** argv ) {
       scriptNameDyn = jst_append( NULL, NULL, "-Dscript.name=", scriptNameTmp, NULL ) ;
       MARK_PTR_FOR_FREEING( scriptNameDyn )
 
-      if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
-                                                  (int)extraJvmOptionsCount++,
-                                                  &extraJvmOptionsSize,
-                                                  scriptNameDyn,
-                                                  NULL ) ) ) goto end ;
+      if ( !appendJvmOption( &extraJvmOptions, scriptNameDyn, NULL ) ) goto end ;
 
       if ( scriptNameTmp != scriptNameIn ) {
         jst_free( scriptNameTmp ) ;
@@ -570,11 +566,7 @@ int rest_of_main( int argc, char** argv ) {
 
       if ( !toolsJarD ||
            !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, toolsJarD ) ||
-           ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
-                                                  (int)extraJvmOptionsCount++,
-                                                  &extraJvmOptionsSize,
-                                                  toolsJarD,
-                                                  NULL ) ) ) {
+           !appendJvmOption( &extraJvmOptions, toolsJarD, NULL ) ) {
         free( toolsJarFile ) ;
         goto end ;
       }
@@ -588,22 +580,14 @@ int rest_of_main( int argc, char** argv ) {
   MARK_PTR_FOR_FREEING( groovyDConf )
 
 
-  if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
-                                              (int)extraJvmOptionsCount++,
-                                              &extraJvmOptionsSize,
-                                              groovyDConf,
-                                              NULL ) ) ) goto end ;
+  if ( !appendJvmOption( &extraJvmOptions, groovyDConf, NULL ) ) goto end ;
 
   groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ;
   MARK_PTR_FOR_FREEING( groovyDHome )
 
-  if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
-                                              (int)extraJvmOptionsCount++,
-                                              &extraJvmOptionsSize,
-                                              groovyDHome,
-                                              NULL ) ) ) goto end ;
+  if ( !appendJvmOption( &extraJvmOptions, groovyDHome, NULL ) ) goto end ;
 
-  MARK_PTR_FOR_FREEING( extraJvmOptions )
+  MARK_PTR_FOR_FREEING( extraJvmOptions.options )
 
 
   jvmSelectStrategy = jst_getParameterValue( processedActualParams, "-client" ) ? JST_CLIENTVM :
@@ -624,8 +608,7 @@ int rest_of_main( int argc, char** argv ) {
   options.initialClasspath    = NULL ;
   options.unrecognizedParamStrategy = JST_UNRECOGNIZED_TO_JVM ;
   options.parameters          = processedActualParams ;
-  options.jvmOptions          = extraJvmOptions ;
-  options.numJvmOptions       = (int)extraJvmOptionsCount ;
+  options.jvmOptions          = &extraJvmOptions ;
   options.extraProgramOptions = extraProgramOptions ;
   options.mainClassName       = "org/codehaus/groovy/tools/GroovyStarter" ;
   options.mainMethodName      = "main" ;

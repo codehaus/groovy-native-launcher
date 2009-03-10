@@ -526,13 +526,20 @@ static void clearException( JNIEnv* env ) {
 // TODO: move jni utilities to a separate source file (for clarity)
 
 
-extern JavaVMOption* appendJvmOption( JavaVMOption* opts, int indx, size_t* optsSize, char* optStr, void* extraInfo ) {
+
+extern JavaVMOption* appendJvmOption( JstJvmOptions* opts, char* optStr, void* extraInfo ) {
   JavaVMOption tmp ;
 
   tmp.optionString = optStr    ;
   tmp.extraInfo    = extraInfo ;
 
-  return jst_appendArrayItem( opts, indx, optsSize, &tmp, sizeof( JavaVMOption ) ) ;
+  if ( ( opts->options = jst_appendArrayItem( opts->options, opts->optionsCount, &opts->optionsSize, &tmp, sizeof( JavaVMOption ) ) ) ) {
+    opts->optionsCount++ ;
+    return opts->options ;
+  } else {
+    return NULL ;
+  }
+
 
 }
 
@@ -706,7 +713,7 @@ static char* constructClasspath( char* initialCP, JarDirSpecification* jarDirs, 
  * a problem w/ it.
  * @param userOpts contains ' '  separated options for the jvm. May not be NULL or empty.
  * @return NULL on error, otherwise a pointer that must be freed by the called *after* the jvm has been started (a buffer containing all the options strings). */
-static char* handleJVMOptsString( const char* userOpts, JavaVMOption** jvmOptions, int* jvmOptionsCount, size_t* jvmOptionsSize ) {
+static char* handleJVMOptsString( const char* userOpts, JstJvmOptions* jvmOptions ) {
 
   char *s, *jvmOptsS ;
   jboolean firstTime = JNI_TRUE ;
@@ -715,11 +722,7 @@ static char* handleJVMOptsString( const char* userOpts, JavaVMOption** jvmOption
 
   for ( ; ( s = strtok( firstTime ? jvmOptsS : NULL, " " ) ) ; firstTime = JNI_FALSE ) {
 
-    if ( ! ( *jvmOptions = appendJvmOption( *jvmOptions,
-                                            (*jvmOptionsCount)++,
-                                            jvmOptionsSize,
-                                            s,
-                                            NULL ) ) ) {
+    if ( !appendJvmOption( jvmOptions, s, NULL ) ) {
       jst_free( jvmOptsS ) ;
       break ;
     }
@@ -996,7 +999,7 @@ static jclass findMainClassAndMethod( JNIEnv* env, char* mainClassName, char* ma
 }
 
 
-static JavaVMOption* handleJVMOptionsGivenOnCommandLine( JavaLauncherOptions *launchOptions, JavaVMOption* jvmOptions, int* jvmOptionsCount, size_t* jvmOptionsSize ) {
+static JavaVMOption* handleJVMOptionsGivenOnCommandLine( JavaLauncherOptions *launchOptions, JstJvmOptions* jvmOptions ) {
 
   int i ;
   jboolean unrecognizedParamsToJvm = ( launchOptions->unrecognizedParamStrategy & JST_UNRECOGNIZED_TO_JVM ) ? JNI_TRUE : JNI_FALSE ;
@@ -1006,25 +1009,21 @@ static JavaVMOption* handleJVMOptionsGivenOnCommandLine( JavaLauncherOptions *la
 
     if ( ( ( launchOptions->parameters[ i ].handling & JST_UNRECOGNIZED ) && unrecognizedParamsToJvm ) ||
          launchOptions->parameters[ i ].handling & JST_TO_JVM ) {
-      if ( !( jvmOptions = appendJvmOption( jvmOptions,
-                                            (*jvmOptionsCount)++,
-                                            jvmOptionsSize,
-                                            launchOptions->parameters[ i ].param,
-                                            NULL ) ) ) break ; // error
+      if ( !appendJvmOption( jvmOptions, launchOptions->parameters[ i ].param, NULL ) ) break ; // error
     }
   }
 
-  return jvmOptions ;
+  return jvmOptions->options ;
 
 }
 
 // returns 0 on failure
-static int handleJVMOptsFromEnvVar( const char* envVar, char** userJvmOptsS, JavaVMOption **jvmOptions, int* jvmOptionsCount, size_t* jvmOptionsSize ) {
+static int handleJVMOptsFromEnvVar( const char* envVar, char** userJvmOptsS, JstJvmOptions *jvmOptions ) {
 
   if ( envVar ) {
     envVar = getenv( envVar ) ;
     if ( envVar && envVar[ 0 ] ) {
-      *userJvmOptsS = handleJVMOptsString( envVar, jvmOptions, jvmOptionsCount, jvmOptionsSize ) ;
+      *userJvmOptsS = handleJVMOptsString( envVar, jvmOptions ) ;
       if ( !*userJvmOptsS ) return 0 ;
     }
   }
@@ -1032,6 +1031,7 @@ static int handleJVMOptsFromEnvVar( const char* envVar, char** userJvmOptsS, Jav
   return 1 ;
 
 }
+
 
 /** See the header file for information.
  */
@@ -1041,12 +1041,10 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   JavaVM       *javavm = NULL ;
   JNIEnv       *env    = NULL ;
   JavaDynLib   javaLib ;
-  // TODO: put this inside a JSTJVMOptionHolder
-  JavaVMOption *jvmOptions = NULL ;
 
-  size_t       jvmOptionsSize  = 5 ;
-  int          i,
-               jvmOptionsCount = 0 ;
+  JstJvmOptions jvmOptions ;
+
+  int          i ;
 
   jclass       launcheeMainClassHandle  = NULL ;
   jmethodID    launcheeMainMethodID     = NULL ;
@@ -1060,13 +1058,11 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   javaLib.creatorFunc  = NULL ;
   javaLib.dynLibHandle = NULL ;
 
+  memset( &jvmOptions, 0, sizeof( jvmOptions ) ) ;
+
 
   if ( !( classpath = constructClasspath( launchOptions->initialClasspath, launchOptions->jarDirs, launchOptions->jars, launchOptions->classpathStrategy ) ) ) goto end ;
-  if ( !( jvmOptions = appendJvmOption( jvmOptions,
-                                        jvmOptionsCount++,
-                                        &jvmOptionsSize,
-                                        classpath,
-                                        NULL ) ) ) goto end ;
+  if ( !appendJvmOption( &jvmOptions, classpath, NULL ) ) goto end ;
 
 
   // FIXME - extract function => move setting jvm starup options to a separate func
@@ -1078,34 +1074,32 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   // set on command line - env var - programmatically set (from most significant to least)
 
   // jvm options given as parameters to this func
-  for ( i = 0 ; i < launchOptions->numJvmOptions ; i++ ) {
-    if ( !( jvmOptions = appendJvmOption( jvmOptions,
-                                          jvmOptionsCount++,
-                                          &jvmOptionsSize,
-                                          launchOptions->jvmOptions[ i ].optionString,
-                                          launchOptions->jvmOptions[ i ].extraInfo ) ) ) goto end ;
+  for ( i = 0 ; i < launchOptions->jvmOptions->optionsCount ; i++ ) {
+    if ( !appendJvmOption( &jvmOptions,
+                           launchOptions->jvmOptions->options[ i ].optionString,
+                           launchOptions->jvmOptions->options[ i ].extraInfo ) ) goto end ;
   }
 
   // e.g. JAVA_OPTS
-  if ( !handleJVMOptsFromEnvVar( launchOptions->javaOptsEnvVar, &userJvmOptsS, &jvmOptions, &jvmOptionsCount, &jvmOptionsSize ) ) goto end ;
+  if ( !handleJVMOptsFromEnvVar( launchOptions->javaOptsEnvVar, &userJvmOptsS, &jvmOptions ) ) goto end ;
 
 
-  if ( !( jvmOptions = handleJVMOptionsGivenOnCommandLine( launchOptions, jvmOptions, &jvmOptionsCount, &jvmOptionsSize ) ) ) goto end ;
+  if ( !handleJVMOptionsGivenOnCommandLine( launchOptions, &jvmOptions ) ) goto end ;
 
   if ( _jst_debug ) {
-    fprintf( stderr, "DUBUG: Starting jvm with the following %d options:\n", jvmOptionsCount ) ;
-    for ( i = 0 ; i < jvmOptionsCount ; i++ ) {
-      fprintf( stderr, "  %s\n", jvmOptions[ i ].optionString ) ;
+    fprintf( stderr, "DUBUG: Starting jvm with the following %d options:\n", jvmOptions.optionsCount ) ;
+    for ( i = 0 ; i < jvmOptions.optionsCount ; i++ ) {
+      fprintf( stderr, "  %s\n", jvmOptions.options[ i ].optionString ) ;
     }
   }
 
-  if ( jst_startJvm( JNI_VERSION_1_4, jvmOptions, jvmOptionsCount, JNI_FALSE, launchOptions->javaHome, jvmSelectStrategy,
+  if ( jst_startJvm( JNI_VERSION_1_4, jvmOptions.options, jvmOptions.optionsCount, JNI_FALSE, launchOptions->javaHome, jvmSelectStrategy,
                      // output
                      &javaLib, &javavm, &env )
      ) goto end ;
 
 
-  jst_free( jvmOptions ) ;
+  jst_free( jvmOptions.options ) ;
   jst_free( classpath  ) ;
 
   // construct a java.lang.String[] to give program args in
@@ -1121,6 +1115,8 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   if ( _jst_debug ) {
     fprintf( stderr, "DEBUG: invoking %s.%s\n", launchOptions->mainClassName, launchOptions->mainMethodName ) ;
   }
+
+  // free memory holding jvm params and such
 
   // finally: launch the java application!
   (*env)->CallStaticVoidMethod( env, launcheeMainClassHandle, launcheeMainMethodID, launcheeJOptions ) ;
@@ -1144,7 +1140,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
 
   if ( javaLib.dynLibHandle ) dlclose( javaLib.dynLibHandle ) ;
   if ( classpath        ) free( classpath ) ;
-  if ( jvmOptions       ) free( jvmOptions ) ;
+  if ( jvmOptions.options ) free( jvmOptions.options ) ;
   if ( userJvmOptsS     ) free( userJvmOptsS ) ;
 
   return rval ;

@@ -273,9 +273,7 @@ int rest_of_main( int argc, char** argv ) {
 
   JavaLauncherOptions options ;
 
-  JavaVMOption *extraJvmOptions = NULL ;
-  size_t       extraJvmOptionsCount = 0,
-               extraJvmOptionsSize  = 5 ;
+  JstJvmOptions extraJvmOptions ;
   char *gantConfFile  = NULL,
        *gantHome      = NULL,
        *gantDHome     = NULL, // the -Dgroovy.home=something to pass to the jvm
@@ -298,6 +296,8 @@ int rest_of_main( int argc, char** argv ) {
 
 
   jst_initDebugState() ;
+
+  memset( &extraJvmOptions, 0, sizeof( extraJvmOptions ) ) ;
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   jst_cygwinInit() ;
@@ -342,11 +342,7 @@ int rest_of_main( int argc, char** argv ) {
     MARK_PTR_FOR_FREEING( groovyDConf )
 
 
-    if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
-                                                (int)extraJvmOptionsCount++,
-                                                &extraJvmOptionsSize,
-                                                groovyDConf,
-                                                NULL ) ) ) goto end ;
+    if ( !appendJvmOption( &extraJvmOptions, groovyDConf, NULL ) ) goto end ;
   }
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -363,11 +359,7 @@ int rest_of_main( int argc, char** argv ) {
 
       if ( !toolsJarD ||
            !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, toolsJarD ) ||
-           ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
-                                                  (int)extraJvmOptionsCount++,
-                                                  &extraJvmOptionsSize,
-                                                  toolsJarD,
-                                                  NULL ) ) ) {
+           !appendJvmOption( &extraJvmOptions, toolsJarD, NULL ) ) {
         free( toolsJarFile ) ;
         goto end ;
       }
@@ -381,11 +373,7 @@ int rest_of_main( int argc, char** argv ) {
   gantDHome = jst_append( NULL, NULL, "-Dgant.home=", gantHome, NULL ) ;
   MARK_PTR_FOR_FREEING( gantDHome )
 
-  if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
-                                              (int)extraJvmOptionsCount++,
-                                              &extraJvmOptionsSize,
-                                              gantDHome,
-                                              NULL ) ) ) goto end ;
+  if ( !appendJvmOption( &extraJvmOptions, gantDHome, NULL ) ) goto end ;
 
 
 
@@ -417,11 +405,7 @@ int rest_of_main( int argc, char** argv ) {
     groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome ? groovyHome : gantHome, NULL ) ;
     MARK_PTR_FOR_FREEING( groovyDHome )
 
-    if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
-                                                (int)extraJvmOptionsCount++,
-                                                &extraJvmOptionsSize,
-                                                groovyDHome,
-                                                NULL ) ) ) goto end ;
+    if ( !appendJvmOption( &extraJvmOptions, groovyDHome, NULL ) ) goto end ;
 
   }
 
@@ -449,16 +433,12 @@ int rest_of_main( int argc, char** argv ) {
     antDHome = jst_append( NULL, NULL, "-Dant.home=", antHome, NULL ) ;
     MARK_PTR_FOR_FREEING( antDHome )
 
-    if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
-                                                (int)extraJvmOptionsCount++,
-                                                &extraJvmOptionsSize,
-                                                antDHome,
-                                                NULL ) ) ) goto end ;
+    if ( !appendJvmOption( &extraJvmOptions, antDHome, NULL ) ) goto end ;
 
   }
 
 
-  MARK_PTR_FOR_FREEING( extraJvmOptions )
+  MARK_PTR_FOR_FREEING( extraJvmOptions.options )
 
 
   // populate the startup parameters
@@ -469,8 +449,7 @@ int rest_of_main( int argc, char** argv ) {
   options.initialClasspath    = NULL ;
   options.unrecognizedParamStrategy = JST_UNRECOGNIZED_TO_JVM ;
   options.parameters          = processedActualParams ;
-  options.jvmOptions          = extraJvmOptions ;
-  options.numJvmOptions       = (int)extraJvmOptionsCount ;
+  options.jvmOptions          = &extraJvmOptions ;
   options.extraProgramOptions = extraProgramOptions ;
   options.mainClassName       = "org/codehaus/groovy/tools/GroovyStarter" ;
   options.mainMethodName      = "main" ;

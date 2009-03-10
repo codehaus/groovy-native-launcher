@@ -221,9 +221,7 @@ int rest_of_main( int argc, char** argv ) {
 
   JavaLauncherOptions options ;
 
-  JavaVMOption *extraJvmOptions = NULL ;
-  size_t       extraJvmOptionsCount = 0,
-               extraJvmOptionsSize  = 5 ;
+  JstJvmOptions extraJvmOptions ;
 
   char *grailsHome      = NULL,
        *javaHome        = NULL ;
@@ -251,6 +249,8 @@ int rest_of_main( int argc, char** argv ) {
 
 
   jst_initDebugState() ;
+
+  memset( &extraJvmOptions, 0, sizeof( extraJvmOptions ) ) ;
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   jst_cygwinInit() ;
@@ -288,11 +288,7 @@ int rest_of_main( int argc, char** argv ) {
 
       if ( !toolsJarD ||
            !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, toolsJarD ) ||
-           ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
-                                                  (int)extraJvmOptionsCount++,
-                                                  &extraJvmOptionsSize,
-                                                  toolsJarD,
-                                                  NULL ) ) ) {
+           !appendJvmOption( &extraJvmOptions, toolsJarD, NULL ) ) {
         free( toolsJarFile ) ;
         goto end ;
       }
@@ -305,15 +301,11 @@ int rest_of_main( int argc, char** argv ) {
   {
     char *grailsDHome = jst_append( NULL, NULL, "-Dgrails.home=", grailsHome, NULL ) ;
     MARK_PTR_FOR_FREEING( grailsDHome )
-    if ( ! ( extraJvmOptions = appendJvmOption( extraJvmOptions,
-                                                (int)extraJvmOptionsCount++,
-                                                &extraJvmOptionsSize,
-                                                grailsDHome,
-                                                NULL ) ) ) goto end ;
+    if ( !appendJvmOption( &extraJvmOptions, grailsDHome, NULL ) ) goto end ;
   }
 
 
-  MARK_PTR_FOR_FREEING( extraJvmOptions )
+  MARK_PTR_FOR_FREEING( extraJvmOptions.options )
 
   // TODO: extract setting the jar lookup into a separate func?
   {
@@ -356,8 +348,7 @@ int rest_of_main( int argc, char** argv ) {
   options.initialClasspath    = NULL ;
   options.unrecognizedParamStrategy = JST_UNRECOGNIZED_TO_JVM ;
   options.parameters          = processedActualParams ;
-  options.jvmOptions          = extraJvmOptions ;
-  options.numJvmOptions       = (int)extraJvmOptionsCount ;
+  options.jvmOptions          = &extraJvmOptions ;
   options.extraProgramOptions = extraProgramOptions ;
   options.mainClassName       = "org/codehaus/groovy/grails/cli/support/GrailsStarter" ;
   options.mainMethodName      = "main" ;

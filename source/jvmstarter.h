@@ -164,6 +164,13 @@ typedef struct {
   int (*filter)( const char* dirname, const char* filename ) ;
 } JarDirSpecification ;
 
+/** set all members initially to 0 and then use appendJvmOption func to append jvm options */
+typedef struct {
+  JavaVMOption *options ;
+  int          optionsCount ;
+  size_t       optionsSize ;
+} JstJvmOptions ;
+
  /** Note that if you tell that -cp / --classpath and/or -jh / --javahome params are handled automatically.
   * If you do not want the user to be able to affect
   * javahome, specify these two as double params and their processing is up to you.
@@ -182,8 +189,7 @@ typedef struct {
   /** Processed actual parameters. May not be NULL. Use jst_processInputParameters function to obtain this value. */
   JstActualParam* parameters ;
   /** extra params to the jvm (in addition to those extracted from arguments above). */
-  JavaVMOption* jvmOptions ;
-  int numJvmOptions;
+  JstJvmOptions* jvmOptions ;
   /** parameters to the java class' main method. These are put first before the command line args. */
   char** extraProgramOptions ;
   char*  mainClassName ;
@@ -199,7 +205,6 @@ typedef struct {
 } JavaLauncherOptions ;
 
 
-// TODO: work in progress
 
 typedef struct {
   char* javahome ;
@@ -274,9 +279,11 @@ char* jst_findJavaHome( JstActualParam* processedActualParams ) ;
  * the given param */
 char* getJavaHomeFromParameter( JstActualParam* processedActualParams, const char* paramName ) ;
 
+
+
 /** As appendArrayItem, but specifically for jvm options.
  * @param extraInfo JavaVMOption.extraInfo. See jni.h or jni documentation (JavaVMOption is defined in jni.h). */
-JavaVMOption* appendJvmOption( JavaVMOption* opts, int indx, size_t* optsSize, char* optStr, void* extraInfo ) ;
+JavaVMOption* appendJvmOption( JstJvmOptions* opts, char* optStr, void* extraInfo ) ;
 
 #if defined( __cplusplus )
   } // end extern "C"
