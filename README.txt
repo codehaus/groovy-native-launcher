@@ -18,10 +18,6 @@ Design principles
 For maximum portability, the source is written in ANSI-C using POSIX functions. Anything
 that can be done using these is done so without using external libraries / extensions. 
 
-E.g. alloca function has not been used for memory handling as it is (unfortunately) 
-not in POSIX standard and memory handling can be done using malloc and friends 
-(albeit on the heap, not on the stack).
-
 Also, C99 features (although cool and useful) have not been used as they are not supported
 by ms cl compiler (visual c++).
 
@@ -55,6 +51,8 @@ Currently the implementation of the following things are platform dependent:
 
   * location and name of jvm dynamic library (jvmstarter.c)
   * getting the location of the current process' executable (jst_fileutils.c)
+  * supporting platform peculiarities like looking up java home from windows registry and
+    using the standard java installation location on os-x
   
 Java launcher generator
 -----------------------

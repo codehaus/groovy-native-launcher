@@ -154,11 +154,6 @@ extern int jst_initDebugState() {
 // takes care of that.
 typedef jint ( JNICALL *JVMCreatorFunc )( JavaVM**, void**, void* ) ;
 
-typedef struct {
-  JVMCreatorFunc creatorFunc  ;
-  JstDLHandle    dynLibHandle ;
-} JavaDynLib ;
-
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #if defined( _WIN32 )
@@ -471,20 +466,22 @@ static JVMCreatorFunc findJVMCreatorFunc( JstDLHandle jvmLib ) {
 
 }
 
+typedef struct {
+  JVMCreatorFunc creatorFunc  ;
+  JstDLHandle    dynLibHandle ;
+  JavaVM*        javavm ;
+  JNIEnv*        env ;
+} JstJVM ;
 
-/** In case there are errors, the returned struct contains only NULLs. */
-static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmSelectStrategy ) {
+
+/** returns 0 on error. */
+static int findJVMDynamicLibrary( JstJVM* javavm_out, char* java_home, JVMSelectStrategy jvmSelectStrategy ) {
 
   char        *mode ;
-  JavaDynLib  javaDynamicLibrary ;
   int         i ;
   JstDLHandle jvmLib = (JstDLHandle)0 ;
   char**      lookupDirs = NULL ;
   char*       dynLibFile ;
-
-
-  javaDynamicLibrary.creatorFunc  = NULL ;
-  javaDynamicLibrary.dynLibHandle = NULL ;
 
   mode = getJvmSelectStrategy( jvmSelectStrategy, &lookupDirs ) ;
 
@@ -501,13 +498,15 @@ static JavaDynLib findJVMDynamicLibrary( char* java_home, JVMSelectStrategy jvmS
                      mode, java_home ) ;
   } else {
 
-    javaDynamicLibrary.creatorFunc = (JVMCreatorFunc)findJVMCreatorFunc( jvmLib ) ;
+    javavm_out->creatorFunc = (JVMCreatorFunc)findJVMCreatorFunc( jvmLib ) ;
 
-    if ( javaDynamicLibrary.creatorFunc ) javaDynamicLibrary.dynLibHandle = jvmLib ;
-
+    if ( javavm_out->creatorFunc ) {
+      javavm_out->dynLibHandle = jvmLib ;
+      return 1 ;
+    }
   }
 
-  return javaDynamicLibrary ;
+  return 0 ;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -732,35 +731,33 @@ static char* handleJVMOptsString( const char* userOpts, JstJvmOptions* jvmOption
 
 }
 
-/** returns 0 on error */
-static jint jst_startJvm( jint vmversion, JavaVMOption *jvmOptions, jint jvmOptionsCount, jboolean ignoreUnrecognizedJvmParams, char* javaHome, JVMSelectStrategy jvmSelectStrategy,
+
+
+/** returns != 0 on error */
+static jint jst_startJvm( jint vmversion, JstJvmOptions *jvmOptions, jboolean ignoreUnrecognizedJvmParams, char* javaHome, JVMSelectStrategy jvmSelectStrategy,
                     // output
-                    JavaDynLib* javaLib, JavaVM** javavm, JNIEnv** env ) {
+                    JstJVM* javaVM ) {
   JavaVMInitArgs vm_args ;
   jint result = 0 ;
-  JavaDynLib javaLibTmp ;
   // ( JNI_VERSION_1_4, jvmOptions, jvmOptionsCount, JNI_FALSE, javaHome, jvmSelectStrategy, &javaLib, &javavm, &env, &rval
 
-  vm_args.version            = vmversion       ;
-  vm_args.options            = jvmOptions      ;
-  vm_args.nOptions           = jvmOptionsCount ;
+  vm_args.version            = vmversion                   ;
+  vm_args.options            = jvmOptions->options         ;
+  vm_args.nOptions           = jvmOptions->optionsCount    ;
   vm_args.ignoreUnrecognized = ignoreUnrecognizedJvmParams ;
 
 
   // fetch the pointer to jvm creator func and invoke it
-  javaLibTmp = findJVMDynamicLibrary( javaHome, jvmSelectStrategy ) ;
-  if ( !( javaLibTmp.creatorFunc ) ) { // error message already printed
+  if ( !findJVMDynamicLibrary( javaVM, javaHome, jvmSelectStrategy ) ) { // error message already printed
     return -1 ;
   }
-
-  memcpy( javaLib, &javaLibTmp, sizeof( JavaDynLib ) ) ;
 
   // start the jvm.
   // the cast to void* before void** serves to remove a gcc warning
   // "dereferencing type-punned pointer will break strict-aliasing rules"
   // Found the fix from
   // http://mail.opensolaris.org/pipermail/tools-gcc/2005-August/000048.html
-  result = (javaLib->creatorFunc)( javavm, (void**)(void*)env, &vm_args ) ;
+  result = (javaVM->creatorFunc)( &javaVM->javavm, (void**)(void*)&javaVM->env, &vm_args ) ;
 
   if ( result ) {
     char* errMsg ;
@@ -1032,19 +1029,50 @@ static int handleJVMOptsFromEnvVar( const char* envVar, char** userJvmOptsS, Jst
 
 }
 
+/** string pointed to by userJvmOptsS_out must be freed by the caller */
+static int gatherJVMOptions( JstJvmOptions* jvmOptions, JavaLauncherOptions* launchOptions, char** userJvmOptsS_out ) {
+
+  int i ;
+
+// the order in which jvm options are handled is significant: if the same option is given more than once, the last one is the one
+// that stands. That's why we here set first the jvm opts set programmatically, then the ones from user env var
+// and then the ones from the command line. Thus the user can override the ones he wants on the next level,
+// i.e. the precedence is:
+// set on command line - env var - programmatically set (from most significant to least)
+
+
+  // jvm options given as parameters to this func
+  for ( i = 0 ; i < launchOptions->jvmOptions->optionsCount ; i++ ) {
+    if ( !appendJvmOption( jvmOptions,
+                           launchOptions->jvmOptions->options[ i ].optionString,
+                           launchOptions->jvmOptions->options[ i ].extraInfo ) ) return 0 ;
+  }
+
+  // e.g. JAVA_OPTS
+  if ( !handleJVMOptsFromEnvVar( launchOptions->javaOptsEnvVar, userJvmOptsS_out, jvmOptions ) ) return 0 ;
+
+
+  if ( !handleJVMOptionsGivenOnCommandLine( launchOptions, jvmOptions ) ) return 0 ;
+
+  if ( _jst_debug ) {
+    fprintf( stderr, "DUBUG: Starting jvm with the following %d options:\n", jvmOptions->optionsCount ) ;
+    for ( i = 0 ; i < jvmOptions->optionsCount ; i++ ) {
+      fprintf( stderr, "  %s\n", jvmOptions->options[ i ].optionString ) ;
+    }
+  }
+
+  return JNI_TRUE ;
+
+}
 
 /** See the header file for information.
  */
 extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   int          rval    = -1 ;
 
-  JavaVM       *javavm = NULL ;
-  JNIEnv       *env    = NULL ;
-  JavaDynLib   javaLib ;
+  JstJVM       javavm ;
 
   JstJvmOptions jvmOptions ;
-
-  int          i ;
 
   jclass       launcheeMainClassHandle  = NULL ;
   jmethodID    launcheeMainMethodID     = NULL ;
@@ -1055,9 +1083,7 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
 
   JVMSelectStrategy jvmSelectStrategy = launchOptions->jvmSelectStrategy ;
 
-  javaLib.creatorFunc  = NULL ;
-  javaLib.dynLibHandle = NULL ;
-
+  memset( &javavm,     0, sizeof( javavm ) ) ;
   memset( &jvmOptions, 0, sizeof( jvmOptions ) ) ;
 
 
@@ -1065,51 +1091,23 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   if ( !appendJvmOption( &jvmOptions, classpath, NULL ) ) goto end ;
 
 
-  // FIXME - extract function => move setting jvm starup options to a separate func
-
-  // the order in which jvm options are handled is significant: if the same option is given more than once, the last one is the one
-  // that stands. That's why we here set first the jvm opts set programmatically, then the ones from user env var
-  // and then the ones from the command line. Thus the user can override the ones he wants on the next level,
-  // i.e. the precedence is:
-  // set on command line - env var - programmatically set (from most significant to least)
-
-  // jvm options given as parameters to this func
-  for ( i = 0 ; i < launchOptions->jvmOptions->optionsCount ; i++ ) {
-    if ( !appendJvmOption( &jvmOptions,
-                           launchOptions->jvmOptions->options[ i ].optionString,
-                           launchOptions->jvmOptions->options[ i ].extraInfo ) ) goto end ;
-  }
-
-  // e.g. JAVA_OPTS
-  if ( !handleJVMOptsFromEnvVar( launchOptions->javaOptsEnvVar, &userJvmOptsS, &jvmOptions ) ) goto end ;
+  if ( !gatherJVMOptions( &jvmOptions, launchOptions, &userJvmOptsS ) ) goto end ;
 
 
-  if ( !handleJVMOptionsGivenOnCommandLine( launchOptions, &jvmOptions ) ) goto end ;
-
-  if ( _jst_debug ) {
-    fprintf( stderr, "DUBUG: Starting jvm with the following %d options:\n", jvmOptions.optionsCount ) ;
-    for ( i = 0 ; i < jvmOptions.optionsCount ; i++ ) {
-      fprintf( stderr, "  %s\n", jvmOptions.options[ i ].optionString ) ;
-    }
-  }
-
-  if ( jst_startJvm( JNI_VERSION_1_4, jvmOptions.options, jvmOptions.optionsCount, JNI_FALSE, launchOptions->javaHome, jvmSelectStrategy,
+  if ( jst_startJvm( JNI_VERSION_1_4, &jvmOptions, JNI_FALSE, launchOptions->javaHome, jvmSelectStrategy,
                      // output
-                     &javaLib, &javavm, &env )
+                     &javavm )
      ) goto end ;
 
-
-  jst_free( jvmOptions.options ) ;
-  jst_free( classpath  ) ;
 
   // construct a java.lang.String[] to give program args in
   // find the application main class
   // find the startup method and call it
 
-  if ( !( launcheeJOptions = createJMainParams( env, launchOptions->parameters, launchOptions->extraProgramOptions, launchOptions->unrecognizedParamStrategy ) ) ) goto end ;
+  if ( !( launcheeJOptions = createJMainParams( javavm.env, launchOptions->parameters, launchOptions->extraProgramOptions, launchOptions->unrecognizedParamStrategy ) ) ) goto end ;
 
 
-  if ( !( launcheeMainClassHandle = findMainClassAndMethod( env, launchOptions->mainClassName, launchOptions->mainMethodName, &launcheeMainMethodID ) ) ) goto end ;
+  if ( !( launcheeMainClassHandle = findMainClassAndMethod( javavm.env, launchOptions->mainClassName, launchOptions->mainMethodName, &launcheeMainMethodID ) ) ) goto end ;
 
 
   if ( _jst_debug ) {
@@ -1117,13 +1115,16 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
   }
 
   // free memory holding jvm params and such
-
+  jst_free( jvmOptions.options ) ;
+  jst_free( classpath ) ;
+  jst_free( userJvmOptsS ) ;
+  jst_freeAll( launchOptions->pointersToFreeBeforeRunningMainMethod ) ;
   // finally: launch the java application!
-  (*env)->CallStaticVoidMethod( env, launcheeMainClassHandle, launcheeMainMethodID, launcheeJOptions ) ;
+  (*javavm.env)->CallStaticVoidMethod( javavm.env, launcheeMainClassHandle, launcheeMainMethodID, launcheeJOptions ) ;
 
-  if ( (*env)->ExceptionCheck( env ) ) {
+  if ( (*javavm.env)->ExceptionCheck( javavm.env ) ) {
     // TODO: provide an option which allows the caller to indicate whether to print the stack trace
-    (*env)->ExceptionClear( env ) ;
+    (*javavm.env)->ExceptionClear( javavm.env ) ;
   } else {
     rval = 0 ;
   }
@@ -1131,14 +1132,14 @@ extern int jst_launchJavaApp( JavaLauncherOptions *launchOptions ) {
 
   end:
   // cleanup
-  if ( javavm ) {
-    if ( (*javavm)->DetachCurrentThread( javavm ) ) {
+  if ( javavm.javavm ) {
+    if ( (*javavm.javavm)->DetachCurrentThread( javavm.javavm ) ) {
       fprintf( stderr, "Warning: could not detach main thread from the jvm at shutdown (please report this as a bug)\n" ) ;
     }
-    (*javavm)->DestroyJavaVM( javavm ) ;
+    (*javavm.javavm)->DestroyJavaVM( javavm.javavm ) ;
   }
 
-  if ( javaLib.dynLibHandle ) dlclose( javaLib.dynLibHandle ) ;
+  if ( javavm.dynLibHandle ) dlclose( javavm.dynLibHandle ) ;
   if ( classpath        ) free( classpath ) ;
   if ( jvmOptions.options ) free( jvmOptions.options ) ;
   if ( userJvmOptsS     ) free( userJvmOptsS ) ;

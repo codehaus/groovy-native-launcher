@@ -615,6 +615,7 @@ int rest_of_main( int argc, char** argv ) {
   options.jarDirs             = NULL ;
   options.jars                = jars ;
   options.classpathStrategy   = jst_getParameterValue( processedActualParams, "--quickstart" ) ? JST_BOOTSTRAP_CLASSPATH_A : JST_NORMAL_CLASSPATH ;
+  options.pointersToFreeBeforeRunningMainMethod = &dynReservedPointers ;
 
   rval = jst_launchJavaApp( &options ) ;
 

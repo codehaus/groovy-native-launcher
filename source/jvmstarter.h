@@ -171,10 +171,7 @@ typedef struct {
   size_t       optionsSize ;
 } JstJvmOptions ;
 
- /** Note that if you tell that -cp / --classpath and/or -jh / --javahome params are handled automatically.
-  * If you do not want the user to be able to affect
-  * javahome, specify these two as double params and their processing is up to you.
-  */
+
 typedef struct {
   /** May be null. */
   char* javaHome ;
@@ -202,6 +199,10 @@ typedef struct {
    * one of the possible classpaths, but finer grain of control may be provided in future implementation if
    * it is deemed necessary. */
   JstClasspathStrategy classpathStrategy ;
+  /** pointer to a null terminated pointer array containing pointers to dynallocated memory that should be freed (w/ jst_freeAll) before
+   * invoking the main method. Note that the array holding the pointers will also be freed.
+   * This is for those who are very keen not to hold memory any longer than necessaary ;) */
+  void*** pointersToFreeBeforeRunningMainMethod ;
 } JavaLauncherOptions ;
 
 

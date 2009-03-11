@@ -456,6 +456,7 @@ int rest_of_main( int argc, char** argv ) {
   options.jarDirs             = NULL ;
   options.jars                = jars ;
   options.classpathStrategy   = JST_NORMAL_CLASSPATH ;
+  options.pointersToFreeBeforeRunningMainMethod = &dynReservedPointers ;
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   // see comments in groovy.c
