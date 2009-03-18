@@ -869,3 +869,25 @@ extern int validateThatFileIsInBinDir( const char* dirname, const char* filename
   return isvalid ;
 }
 
+extern char* jst_extractProgramName( char* command, jboolean removeEndingW ) {
+
+  char* eName ;
+
+#if defined( _WIN32 )
+  size_t len = strlen( command ) ;
+  if ( jst_endsWith( command, ".exe" ) ) {
+    command[ len -= 4 ] = '\0' ;
+  }
+  if ( removeEndingW && len > 0 &&
+       ( command[ len - 1 ] == 'w' || command[ len - 1 ] == 'W' ) ) {
+    command[ len - 1 ] = '\0' ;
+  }
+
+#endif
+
+  eName = strrchr( command, JST_FILE_SEPARATOR[ 0 ] ) ;
+  if ( eName ) command = eName + 1 ;
+
+  return command ;
+}
+

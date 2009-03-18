@@ -40,6 +40,11 @@
 
 #endif
 
+#if defined( _WIN32 )
+#  define strcasecmp stricmp
+#else
+#  include <strings.h>
+#endif
 
 #include <jni.h>
 
@@ -216,7 +221,7 @@ static const JstParamInfo gantParameters[] = {
 } ;
 
 
-static const char* groovyshColorParam[] = { "-C", "--color", NULL } ;
+static const char* groovyshColorParam[]    = { "-C", "--color", NULL } ;
 static const char* groovyshTerminalParam[] = { "-T", "--terminal", NULL } ;
 
 static const JstParamInfo groovyshParameters[] = {
@@ -243,81 +248,52 @@ static const JstParamInfo noParameters[] = {
   { NULL,          0,                0 }
 } ;
 
+typedef struct {
+  char* executableName ;
+  char* mainClass ;
+  JstParamInfo* parameterInfos ;
+} GroovyApp ;
 
-// deduce which class name to pass as --main param. In other words, this here supports all different groovy executables.
-static char* jst_figureOutMainClass( char* cmd, int numArgs, JstParamInfo** parameterInfosOut, jboolean* displayHelpOut ) {
-  // The execubale acts as a different groovy executable when it's renamed / symlinked to.
-  char *execName,
-       *eName,
-       *execNameTmp,
-       *mainClassName = NULL ;
+static const GroovyApp groovyApps[] = {
+  { "groovy",        "groovy.ui.GroovyMain",                           (JstParamInfo*)groovyParameters  },
+  { "groovyc",       "org.codehaus.groovy.tools.FileSystemCompiler",   (JstParamInfo*)groovycParameters },
+  { "gant",          "gant.Gant",                                      (JstParamInfo*)gantParameters },
+  { "groovysh",      "org.codehaus.groovy.tools.shell.Main",           (JstParamInfo*)groovyshParameters },
+  { "grape",         "org.codehaus.groovy.tools.GrapeMain",            (JstParamInfo*)noParameters },
+  { "java2groovy",   "org.codehaus.groovy.antlr.java.Java2GroovyMain", (JstParamInfo*)java2groovyParameters },
+  { "groovyconsole", "groovy.ui.Console",                              (JstParamInfo*)noParameters },
+  { "graphicspad",   "groovy.swing.j2d.app.GraphicsPad",               (JstParamInfo*)noParameters },
 
-  JST_STRDUPA( execName, cmd ) ;
-  if ( !( execNameTmp = execName ) ) return NULL ;
+  { NULL, NULL, NULL }
+} ;
 
-#if defined( _WIN32 )
-  {
-    size_t len = strlen( execName ) ;
-    if ( jst_endsWith( execName, ".exe" ) ) {
-      execName[ len -= 4 ] = '\0' ;
-    }
-    if ( len > 0 &&
-         ( execName[ len - 1 ] == 'w' || execName[ len - 1 ] == 'W' ) ) {
-      execName[ len - 1 ] = '\0' ;
+static GroovyApp* recognizeGroovyApp( const char* cmd ) {
+  GroovyApp *app = (GroovyApp*)&groovyApps[ 0 ], // default to being groovy
+            *tmp ;
+  char *copyOfCmd,
+       *execName ;
+
+  JST_STRDUPA( copyOfCmd, cmd ) ;
+  if ( !copyOfCmd ) return NULL ;
+
+  execName = jst_extractProgramName( copyOfCmd, JNI_TRUE ) ;
+
+  for ( tmp = (GroovyApp*)groovyApps ; tmp->executableName ; tmp++ ) {
+    if ( strcasecmp( execName, tmp->executableName ) == 0 ) {
+      app = tmp ;
+      break ;
     }
   }
-#endif
 
-  eName = strrchr( execName, JST_FILE_SEPARATOR[ 0 ] ) ;
-  if ( eName ) execName = eName + 1 ;
-
-  if ( strcmp( execName, "groovy" ) == 0 ) {
-    mainClassName = "groovy.ui.GroovyMain" ;
-    *parameterInfosOut = (JstParamInfo*)groovyParameters ;
-  } else if ( strcmp( execName, "groovyc" ) == 0 ) {
-    mainClassName = "org.codehaus.groovy.tools.FileSystemCompiler" ;
-    *parameterInfosOut = (JstParamInfo*)groovycParameters ;
-  } else {
-
-    if ( numArgs == 0 ) *displayHelpOut = JNI_FALSE ;
-
-    if ( strcmp( execName, "gant" ) == 0 ) {
-      *displayHelpOut = JNI_FALSE ;
-      mainClassName = "gant.Gant" ;
-      *parameterInfosOut = (JstParamInfo*)gantParameters ;
-    } else if ( strcmp( execName, "groovysh" ) == 0 ) {
-      *displayHelpOut = JNI_FALSE ;
-      mainClassName = getenv( "OLDSHELL" ) ? "groovy.ui.InteractiveShell" : "org.codehaus.groovy.tools.shell.Main" ;
-      *parameterInfosOut = (JstParamInfo*)groovyshParameters ;
-    } else if ( strcmp( execName, "grape" ) == 0 ) {
-      *displayHelpOut = JNI_FALSE ;
-      mainClassName = "org.codehaus.groovy.tools.GrapeMain" ;
-      *parameterInfosOut = (JstParamInfo*)noParameters ;
-    } else if ( strcmp( execName, "java2groovy" ) == 0 ) {
-      *displayHelpOut = JNI_FALSE ;
-      mainClassName = "org.codehaus.groovy.antlr.java.Java2GroovyMain" ;
-      *parameterInfosOut = (JstParamInfo*)java2groovyParameters ;
-    } else if ( ( strcmp( execName, "groovyConsole" ) == 0 ) || ( strcmp( execName, "groovyconsole" ) == 0 ) ) {
-      *displayHelpOut = JNI_FALSE ;
-      *parameterInfosOut = (JstParamInfo*)noParameters ;
-      mainClassName = "groovy.ui.Console" ;
-    } else if ( ( strcmp( execName, "graphicsPad"   ) == 0 ) || strcmp( execName, "graphicspad" ) == 0 ) {
-      *displayHelpOut = JNI_FALSE ;
-      *parameterInfosOut = (JstParamInfo*)noParameters ;
-      mainClassName = "groovy.swing.j2d.app.GraphicsPad" ;
-    } else { // default to being "groovy"
-      if ( numArgs == 0 ) *displayHelpOut = JNI_TRUE ;
-      mainClassName = "groovy.ui.GroovyMain" ;
-      *parameterInfosOut = (JstParamInfo*)groovyParameters ;
-    }
-
+  if ( strcasecmp( "groovysh", app->executableName ) == 0 && getenv( "OLDSHELL" ) ) {
+    app->mainClass = "groovy.ui.InteractiveShell" ;
   }
 
-  jst_freea( execNameTmp ) ;
+  jst_freea( copyOfCmd ) ;
 
-  return mainClassName ;
-
+  return app ;
 }
+
 
 #if defined( _WIN32 ) && defined ( _cwcompat )
 
@@ -422,7 +398,6 @@ int rest_of_main( int argc, char** argv ) {
   JavaLauncherOptions options ;
 
   JstJvmOptions extraJvmOptions ;
-  JstParamInfo* parameterInfos = NULL ;
   char *groovyConfFile  = NULL,
        *groovyDConf     = NULL, // the -Dgroovy.conf=something to pass to the jvm
        *groovyHome      = NULL,
@@ -457,6 +432,8 @@ int rest_of_main( int argc, char** argv ) {
 
   JstActualParam *processedActualParams = NULL ;
 
+  GroovyApp* groovyApp = NULL ;
+
 
   jst_initDebugState() ;
 
@@ -466,10 +443,14 @@ int rest_of_main( int argc, char** argv ) {
   jst_cygwinInit() ;
 #endif
 
-  extraProgramOptions[ 1 ] = jst_figureOutMainClass( argv[ 0 ], numArgs, &parameterInfos, &displayHelp ) ;
-  if ( !extraProgramOptions[ 1 ] ) goto end ;
+  groovyApp = recognizeGroovyApp( argv[ 0 ] ) ;
 
-  processedActualParams = jst_processInputParameters( argv + 1, argc - 1, parameterInfos, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
+  if ( !groovyApp ) goto end ;
+  extraProgramOptions[ 1 ] = groovyApp->mainClass ;
+
+  if ( displayHelp && strcmp( "groovy", groovyApp->executableName ) != 0 ) displayHelp = JNI_FALSE ;
+
+  processedActualParams = jst_processInputParameters( argv + 1, argc - 1, groovyApp->parameterInfos, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
 
   MARK_PTR_FOR_FREEING( processedActualParams )
 

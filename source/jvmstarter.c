@@ -143,7 +143,7 @@ typedef BOOL (WINAPI *SetDllDirFunc)( LPCTSTR lpPathname ) ;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-#define JST_DEBUG_ENV_VAR_NAME "__JLANCHER_DEBUG"
+#define JST_DEBUG_ENV_VAR_NAME "__JLAUNCHER_DEBUG"
 jboolean _jst_debug = JNI_FALSE ;
 
 extern int jst_initDebugState() {

@@ -111,6 +111,11 @@ int matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* suffix )
  * function pointer as a parameter */
 int validateThatFileIsInBinDir( const char* dirname, const char* filename ) ;
 
+/** Modifies the given buffer (inserts \0 char) and returns a pointer within it. Free the *original*
+ * if it's dynallocated. */
+char* jst_extractProgramName( char* command, jboolean removeEndingW ) ;
+
+
 #if defined( __cplusplus )
   } // end extern "C"
 #endif
