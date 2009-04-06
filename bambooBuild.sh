@@ -1,6 +1,6 @@
 #! /bin/sh
 
-echo $PATH
+groovy -v
 
 exit 1
 
