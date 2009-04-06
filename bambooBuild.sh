@@ -14,7 +14,7 @@ groovyInstallPath=groovy-$groovyVersion
 
 # Execute an experimental run of groovy to collect data about the server VM.
 
-__JLAUNCHER_DEBUG=true  $groovyInstallPath/bin/groovy -server -e "println 'hello'" 
+__JLAUNCHER_DEBUG=true  PATH=/usr/bin:$PATH $groovyInstallPath/bin/groovy -server -e "println 'hello'" 
 
 
 export GROOVY_HOME=$groovyInstallPath
