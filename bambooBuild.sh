@@ -17,6 +17,6 @@ export GROOVY_HOME=$groovyInstallPath
 # directory for the known Bamboo host.
 
 scons compile
-__JLAUNCHER_DEBUG=true  build_scons_Linux_x86_64_gcc/groovy -server -e "println 'hello'" 
+__JLAUNCHER_DEBUG=true  JAVA_OPTS=  build_scons_Linux_x86_64_gcc/groovy -server -e "println 'hello'" 
 
 #scons test
