@@ -11,12 +11,12 @@ groovyInstallPath=groovy-$groovyVersion
 /usr/bin/wget http://dist.codehaus.org/groovy/distributions/$groovyZipName
 /usr/bin/unzip $groovyZipName
 
-
-# Execute an experimental run of groovy to collect data about the server VM.
-
-__JLAUNCHER_DEBUG=true  PATH=/usr/bin:/bin:$PATH $groovyInstallPath/bin/groovy -server -e "println 'hello'" 
-
-
 export GROOVY_HOME=$groovyInstallPath
 
-scons test
+# Execute an experimental run of groovy to collect data about the server VM.  Live with hardwiring the build
+# directory for the known Bamboo host.
+
+scons compile
+__JLAUNCHER_DEBUG=true  build_scons_Linux_x86_64_gcc/groovy -server -e "println 'hello'" 
+
+#scons test
