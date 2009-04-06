@@ -21,4 +21,4 @@ export GROOVY_HOME=$groovyInstallPath
 
 #  Remove any inherited values in JAVA_OPTS since they shouldn't be there.
 
- JAVA_OPTS=  scons test
+__JLAUNCHER_DEBUG=true JAVA_OPTS=  scons test
