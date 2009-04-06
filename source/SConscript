@@ -150,12 +150,11 @@ mainFunctionPattern = re.compile ( 'int\s+main\s*\(' )
 for f in Glob ( '*.c' ) :
     theFile = file ( str ( f ) )
     try:
-        try :
-            theText = theFile.read ( )
-        except IOError :
-            print '########  Error reading' , str ( f )
-        else :
-            if mainFunctionPattern.search ( theText ) : mainFiles.append ( f.name )
+        theText = theFile.read ( )
+    except IOError :
+        print '########  Error reading' , str ( f )
+    else :
+        if mainFunctionPattern.search ( theText ) : mainFiles.append ( f.name )
     finally :
         theFile.close ( )
 otherSources =  [ f.name for f in Glob ( '*.c' ) if f.name not in mainFiles ]
