@@ -1,7 +1,7 @@
 #! /bin/sh
 
-echo `which groovy`
+echo $PATH
 
-return 1
+exit 1
 
 scons test
