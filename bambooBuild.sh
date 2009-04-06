@@ -16,7 +16,9 @@ export GROOVY_HOME=$groovyInstallPath
 # Execute an experimental run of groovy to collect data about the server VM.  Live with hardwiring the build
 # directory for the known Bamboo host.
 
-scons compile
-__JLAUNCHER_DEBUG=true  JAVA_OPTS=  build_scons_Linux_x86_64_gcc/groovy -server -e "println 'hello'" 
+#scons compile
+#__JLAUNCHER_DEBUG=true  JAVA_OPTS=  build_scons_Linux_x86_64_gcc/groovy -server -e "println 'hello'" 
 
-#scons test
+#  Remove any inherited values in JAVA_OPTS since they shouldn't be there.
+
+ JAVA_OPTS=  scons test
