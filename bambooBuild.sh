@@ -10,6 +10,12 @@ groovyZipName=groovy-binary-$groovyVersion.zip
 /usr/bin/wget http://dist.codehaus.org/groovy/distributions/$groovyZipName
 /usr/bin/unzip $groovyZipName
 
+
+# Execute an experimental run of groovy to collect data about the server VM.
+
+__JLAUNCHER_DEBUG=true  groovy -server -e "println 'hello'" 
+
+
 export GROOVY_HOME=groovy-$groovyVersion
 
 scons test
