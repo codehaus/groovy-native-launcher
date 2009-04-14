@@ -27,6 +27,8 @@ import unittest
 
 import supportModule
 
+from types import *
+
 #  Class containing all the core tests.
 
 class GroovyTestCase ( unittest.TestCase ) :
@@ -36,7 +38,15 @@ class GroovyTestCase ( unittest.TestCase ) :
         ( returnCode , output ) = supportModule.executeCommand ( command , prefixCommand )
         self.assertEqual ( returnCode , expectedReturnCode )
         if type ( expectedOutput ) == type ( re.compile ( 'a' ) ) :
-            assert expectedOutput.search ( output ) != None , 'Failed to match ' + extraMessage
+            msg = None
+            if extraMessage :
+                msg = 'Failed to match ' + extraMessage
+            else :
+                msg = 'Failed to match ' + output + ' against ' + str( expectedOutput ) 
+            assert expectedOutput.search ( output ) != None , 'Failed to match ' + msg
+        elif type( expectedOutput ) == LambdaType :
+            msg = 'failed ' + str( expectedOutput )
+            assert expectedOutput( output )
         else :
             self.assertEqual ( output, expectedOutput )
 
@@ -45,7 +55,9 @@ class GroovyTestCase ( unittest.TestCase ) :
         self.groovyExecutionTest ( '-v' , re.compile ( pattern ) , None , pattern )
 
     def testPassingJVMParameter ( self ) :
-        self.groovyExecutionTest ( '-Xmx300m -e "println Runtime.runtime.maxMemory ( )"' , '312213504' if not supportModule.platform == 'sunos' else '311099392' )
+        # the exact amount of memory the jvm reserves on requesting -Xmx300m seems to vary by platform, but it seems to be within 10% of that requested
+        memtest = lambda x : abs( int( x ) - 300000000 ) < 30000000
+        self.groovyExecutionTest ( '-Xmx300m -e "println Runtime.runtime.maxMemory ( )"' , memtest )
 
     def testServerVM ( self ) :
         self.groovyExecutionTest ( '-server -e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'server', re.IGNORECASE ) , prefixCommand = "LD_LIBRARY_PATH='/usr/jdk/latest/jre/lib/sparc/server'" if supportModule.platform == 'sunos' else '' )
