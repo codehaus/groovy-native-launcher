@@ -177,9 +177,6 @@ typedef struct {
   char* javaHome ;
   /** what kind of jvm to use. */
   JVMSelectStrategy jvmSelectStrategy ;
-  // TODO: ditch this, the called may preprocess them. Provide a func to transform a space separated string into jvm options
-  /** The name of the env var where to take extra jvm params from. May be NULL. */
-  char* javaOptsEnvVar ;
   JstUnrecognizedParamStrategy unrecognizedParamStrategy ;
   /** Give any cp entries you want appended to the beginning of classpath here. May be NULL */
   char* initialClasspath ;
@@ -285,6 +282,20 @@ char* getJavaHomeFromParameter( JstActualParam* processedActualParams, const cha
 /** As appendArrayItem, but specifically for jvm options.
  * @param extraInfo JavaVMOption.extraInfo. See jni.h or jni documentation (JavaVMOption is defined in jni.h). */
 JavaVMOption* appendJvmOption( JstJvmOptions* opts, char* optStr, void* extraInfo ) ;
+
+/**
+ * Adds the options in the param userOpts (separated by spaces) to the jvm options passed in.
+ *
+ * Known bug: always separates at ' ', does not take into account quoted values w/ spaces. Should not
+ * usually be a problem, so fixing it is left till someone complains about it, i.e. actually has
+ * a problem w/ it.
+ *
+ * @param userOpts contains ' '  separated options for the jvm. May not be NULL or empty. The given string is modified
+ *                 so that nul char terminations are inserted at spaces and this buffer is used to hold the strings passed to the jvm.
+ *                 I.e. Take care it is not freed or reused before jvm is started.
+ * @param jvmStrategyOut modified if -client or -server given on the command line, left alone otherwise.
+ * @return 0 on error */
+int handleJVMOptsString( char* userOpts, JstJvmOptions* jvmOptions, JVMSelectStrategy* jvmStrategyOut ) ;
 
 #if defined( __cplusplus )
   } // end extern "C"

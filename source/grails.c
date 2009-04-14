@@ -241,7 +241,7 @@ int rest_of_main( int argc, char** argv ) {
 
   int  rval = -1 ;
 
-  JVMSelectStrategy jvmSelectStrategy ;
+  JVMSelectStrategy jvmSelectStrategy = JST_CLIENT_FIRST ;
 
   JstActualParam *processedActualParams = NULL ;
 
@@ -330,11 +330,13 @@ int rest_of_main( int argc, char** argv ) {
   jardirs[ 2 ].name = NULL ;
 
 
-  jvmSelectStrategy = jst_getParameterValue( processedActualParams, "-client" ) ? JST_CLIENTVM :
-                      jst_getParameterValue( processedActualParams, "-server" ) ? JST_SERVERVM :
-                      // by default, mimic java launcher, which also prefers client vm due to its
-                      // faster startup (despite it running much slower)
-                      JST_CLIENT_FIRST ;
+  {
+    char* javaOptsFromEnvVar = getenv( "JAVA_OPTS" ) ;
+    if ( javaOptsFromEnvVar ) {
+      MARK_PTR_FOR_FREEING( javaOptsFromEnvVar = jst_strdup( javaOptsFromEnvVar ) )
+      if ( !handleJVMOptsString( javaOptsFromEnvVar, &extraJvmOptions, &jvmSelectStrategy ) ) goto end ;
+    }
+  }
 
 
   // populate the startup parameters
@@ -344,7 +346,6 @@ int rest_of_main( int argc, char** argv ) {
 
   options.javaHome            = javaHome ;
   options.jvmSelectStrategy   = jvmSelectStrategy ;
-  options.javaOptsEnvVar      = "JAVA_OPTS" ;
   options.initialClasspath    = NULL ;
   options.unrecognizedParamStrategy = JST_UNRECOGNIZED_TO_JVM ;
   options.parameters          = processedActualParams ;

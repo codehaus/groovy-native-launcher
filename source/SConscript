@@ -52,7 +52,7 @@ else :
         #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
         #
         environment.Append ( CCFLAGS   = '-MD -Ox -GF',
-                             LINKFLAGS = '-opt:ref -opt:nowin98 -incremental:no' )
+                             LINKFLAGS = '-opt:ref -opt:nowin98' )
         if not profile :
             # global optimization in msvc is incompatible w/ generating debug info (-Zi + friends)
             environment.Append ( CCFLAGS   = '-GL',
@@ -122,7 +122,9 @@ if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
     #
     environment.Append ( 
         CCFLAGS = '-TC -Wall -Wp64 -wd4206 -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN -D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE',
-        LIBS = [ 'advapi32' ] )
+        LIBS = [ 'advapi32' ],
+        LINKFLAGS = '-incremental:no -manifest:no'
+        )
     windowsEnvironment = environment.Clone ( )
     windowsEnvironment.Append ( LINKFLAGS = '-subsystem:windows -entry:mainCRTStartup' )
     environment.Append ( LINKFLAGS = '-subsystem:console' )

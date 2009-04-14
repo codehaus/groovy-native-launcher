@@ -445,7 +445,6 @@ int rest_of_main( int argc, char** argv ) {
 
   options.javaHome            = javaHome ;
   options.jvmSelectStrategy   = JST_CLIENT_FIRST ;
-  options.javaOptsEnvVar      = "JAVA_OPTS" ;
   options.initialClasspath    = NULL ;
   options.unrecognizedParamStrategy = JST_UNRECOGNIZED_TO_JVM ;
   options.parameters          = processedActualParams ;
