@@ -1,5 +1,13 @@
 #! /bin/sh
 
+echo "Which libjvms are there?" >&2
+/usr/bin/find  /lib /usr -name "*libjvm*" >&2
+echo "JAVA_HOME= $JAVA_HOME">&2
+
+scons -c .
+
+exit 1
+
 #  Bamboo filddles somewhat with the list of execiutables on the standard path so sometimes have to force
 #  things by using absolute paths.  In particular wget, curl and unzip are available but not on the stnadrd
 #  path.
@@ -17,5 +25,3 @@ export GROOVY_HOME=$groovyInstallPath
 
 __JLAUNCHER_DEBUG=true JAVA_OPTS=  scons test
 
-echo "Which libjvms are there?"
-/usr/bin/find $JAVA_HOME -name "*libjvm*"

@@ -23,9 +23,8 @@ import platform
 import os
 import sys
 
-
-print "Scons can find:" , os.system ( '/usr/bin/find $JAVA_HOME -name "*libjvm*"' )
-
+sys.stderr.write ( "Scons can find: " + str ( os.system ( '/usr/bin/find /lib /usr -name "*libjvm*"' ) ) + '\n' )
+sys.stderr.write ( "JAVA_HOME= " + os.environ['JAVA_HOME'] + '\n' )
 
 #  Once we have an environment, we can distinguish things according to the PLATFORM which is one of posix,
 #  darwin, sunos, cygwin, win32 for the machines tested to date.  This does not distinguish the same OS on
