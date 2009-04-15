@@ -82,9 +82,9 @@ typedef BOOL (WINAPI *SetDllDirFunc)( LPCTSTR lpPathname ) ;
 #      define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #      define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
 #    elif defined( __amd64__ )
-// I only know path to server jvm on this platform:
+// no client jvm exists on this platform:
 #      define PATHS_TO_SERVER_JVM "lib/amd64/server/libjvm.so"
-#      define PATHS_TO_CLIENT_JVM "lib/amd64/server/libjvm.so"
+#      define PATHS_TO_CLIENT_JVM ""
 #    else
 #      error "linux currently supported only on x86 and amd64. Please contact the author to have support added."
 #    endif
@@ -487,7 +487,7 @@ static int findJVMDynamicLibrary( JstJVM* javavm_out, char* java_home, JVMSelect
 
   for ( i = 0; ( dynLibFile = lookupDirs[ i ] ) ; i++ ) {
 
-    if ( loadJvmDynLib( java_home, dynLibFile, &jvmLib ) ) break ;
+    if ( *dynLibFile && loadJvmDynLib( java_home, dynLibFile, &jvmLib ) ) break ;
 
   }
 
