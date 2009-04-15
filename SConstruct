@@ -23,9 +23,6 @@ import platform
 import os
 import sys
 
-sys.stderr.write ( "Scons can find: " + str ( os.system ( '/usr/bin/find /lib /usr -name "*libjvm*"' ) ) + '\n' )
-sys.stderr.write ( "JAVA_HOME= " + os.environ['JAVA_HOME'] + '\n' )
-
 #  Once we have an environment, we can distinguish things according to the PLATFORM which is one of posix,
 #  darwin, sunos, cygwin, win32 for the machines tested to date.  This does not distinguish the same OS on
 #  different architectures where this is an issue.  For Python this is not an issue but we are compiling C
