@@ -60,10 +60,10 @@ class GroovyTestCase ( unittest.TestCase ) :
         self.groovyExecutionTest ( '-Xmx300m -e "println Runtime.runtime.maxMemory ( )"' , memtest )
 
     def testServerVM ( self ) :
-        self.groovyExecutionTest ( '-server -e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'server', re.IGNORECASE ) , prefixCommand = "LD_LIBRARY_PATH='/usr/jdk/latest/jre/lib/sparc/server'" if supportModule.platform == 'sunos' else '' )
+        self.groovyExecutionTest ( '-server -e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'server vm', re.IGNORECASE ) , prefixCommand = "LD_LIBRARY_PATH='/usr/jdk/latest/jre/lib/sparc/server'" if supportModule.platform == 'sunos' else '' )
 
     def testClientVM ( self ) :
-        self.groovyExecutionTest ( '-e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'client', re.IGNORECASE ) )
+        self.groovyExecutionTest ( '-e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'client vm', re.IGNORECASE ) )
 
     def testExitStatus ( self ) :
         self.groovyExecutionTest ( '-e "System.exit ( 123 )"' , '' , 123 )
