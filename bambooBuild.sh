@@ -18,4 +18,4 @@ export GROOVY_HOME=$groovyInstallPath
 __JLAUNCHER_DEBUG=true JAVA_OPTS=  scons test
 
 echo "Which libjvms are there?"
-find $JAVA_HOME -name "*libjvm*"
+/usr/bin/find $JAVA_HOME -name "*libjvm*"

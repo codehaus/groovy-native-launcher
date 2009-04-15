@@ -24,7 +24,7 @@ import os
 import sys
 
 
-print "Scons can find:" , os.system ( 'find $JAVA_HOME -name "*libjvm*"' )
+print "Scons can find:" , os.system ( '/usr/bin/find $JAVA_HOME -name "*libjvm*"' )
 
 
 #  Once we have an environment, we can distinguish things according to the PLATFORM which is one of posix,
