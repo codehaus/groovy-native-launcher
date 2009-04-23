@@ -73,7 +73,7 @@ static int jst_queryRegistryValue( HKEY key, char* valueName, char* valueBuffer,
 
 }
 
-#define VALUE_BUFFER_DEFAULT_SIZE 1024
+#define VALUE_BUFFER_INITIAL_SIZE 1024
 
 /** The return value must be freed by the caller.
  * Note that NULL return does not necessarily indicate error - it may just mean the value is not found.
@@ -81,9 +81,9 @@ static int jst_queryRegistryValue( HKEY key, char* valueName, char* valueBuffer,
  */
 static char* jst_queryRegistryStringValue( HKEY root, char* subkeyName, char* valueName, int* statusOut ) {
   DWORD status,
-        valueBufferSize = VALUE_BUFFER_DEFAULT_SIZE ;
+        valueBufferSize = VALUE_BUFFER_INITIAL_SIZE ;
   HKEY key = 0 ;
-  char valueBuffer[ VALUE_BUFFER_DEFAULT_SIZE ],
+  char valueBuffer[ VALUE_BUFFER_INITIAL_SIZE ],
        *valueBufferDyn = NULL ;
 
   status = jst_openRegistryKey( root, subkeyName, &key ) ;
@@ -132,8 +132,11 @@ static char* jst_queryRegistryStringValue( HKEY root, char* subkeyName, char* va
   end :
 
   if ( key ) {
-    status = RegCloseKey( key ) ;
-    if ( status != ERROR_SUCCESS ) jst_printWinError( status ) ;
+    DWORD statusTmp = RegCloseKey( key ) ;
+    if ( statusTmp != ERROR_SUCCESS ) {
+      jst_printWinError( statusTmp ) ;
+      if ( !status ) status = statusTmp ;
+    }
   }
 
   return valueBufferDyn ;

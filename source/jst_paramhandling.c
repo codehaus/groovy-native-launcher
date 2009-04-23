@@ -95,13 +95,52 @@ static char* cygwinConvertStringAndAppendInTheEndOfGivenBufferIfNotEqualToOrigin
 //       issue, so doing these improvements is left till it is verified that there are cases where
 //       this actually makes a difference.
 
+static void printParameterClassification( JstInputParamHandling handlingFlags ) {
+  // these correspond to the bits in JstInputParamHandling
+  static const char* descriptions[] = {
+                                        "to launcher",
+                                        "to jvm",
+                                        "to launched program",
+                                        "terminating or after",
+                                        "cygwin path convert",
+                                         "cygwin pathlist convert",
+                                        "unrecognized",
+                                        NULL
+                                      } ;
+  int i = 0, firstOnePrinted = 1 ;
+
+  for ( ; descriptions[ i ] ; i++ ) {
+    if ( ( handlingFlags >> i ) & 1 ) {
+      if ( !firstOnePrinted ) fprintf( stderr, ", " ) ;
+      fprintf( stderr, descriptions[ i ] ) ;
+      firstOnePrinted = 0 ;
+    }
+  }
+
+}
+
+
+static void printParameterDebugInfo( JstActualParam* params, int numParams ) {
+
+  int i ;
+
+  fprintf( stderr, "debug: param classifications for %d input params:\n", numParams ) ;
+
+  for ( i = 0 ; i < numParams ; i++ ) {
+
+    fprintf( stderr, "  %s -> ", params[ i ].param ) ;
+    printParameterClassification( params[ i ].handling ) ;
+    fprintf( stderr, " (%d)\n", params[ i ].handling ) ;
+  }
+
+}
 
 // FIXME: the func below is a bit too complex - refactor
 
 extern JstActualParam* jst_processInputParameters( char** args, int numArgs, JstParamInfo *paramInfos, const char** terminatingSuffixes, CygwinConversionType cygwinConvertParamsAfterTermination ) {
 
   // TODO: cygwin conversions of param values
-  //       + for all input params after termination (if requested)
+  //       + for all input params after termination (if requested) => not a good idea, e.g. xpath params migh be transformed weird.
 
   int    i, j ;
   size_t usedSize   = ( numArgs + 1 ) * sizeof( JstActualParam ),
@@ -171,8 +210,8 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
               processedParams[ i ].handling = paramInfos[ j ].handling ;
             }
           }
-        }
           break ;
+        }
       } // switch
 
       if ( found ) {
@@ -228,12 +267,7 @@ extern JstActualParam* jst_processInputParameters( char** args, int numArgs, Jst
     processedParams[ i ].value = value ;
   }
 
-  if ( _jst_debug ) {
-    fprintf( stderr, "debug: param classifications for %d input params:\n", numArgs ) ;
-    for ( i = 0 ; i < numArgs ; i++ ) {
-      fprintf( stderr, "  %s -> %d\n", processedParams[ i ].param, processedParams[ i ].handling ) ;
-    }
-  }
+  if ( _jst_debug ) printParameterDebugInfo( processedParams, numArgs ) ;
 
   if ( usedSize < actualSize ) {
     processedParams = jst_realloc( processedParams, usedSize ) ;
