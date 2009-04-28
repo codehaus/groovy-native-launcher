@@ -89,13 +89,9 @@ environment.SConsignFile ( '.sconsign_' + discriminator )
 
 executables = SConscript ( 'source/SConscript' , exports = 'environment' , variant_dir = buildDirectory , duplicate = 0 )
 
-#executables64 = SConscript ( 'source/SConscript' , exports = 'environment' , variant_dir = buildDirectory , duplicate = 0 )
-
 #  From here down is about the targets that the user will want to make use of.
 
 Default ( Alias ( 'compile' , executables ) )
-
-#Alias ( 'compile64' , executables64 )
 
 def runLauncherTests ( target , source , env ) :
     for item in source :
@@ -109,8 +105,6 @@ def runLauncherTests ( target , source , env ) :
             pass
 
 Command ( 'test' , executables , runLauncherTests )
-
-#Command ( 'test-64' , executable64 , runLauncherTests )
 
 #  Have to take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
 #  does arise on Solaris 10.
