@@ -4,7 +4,7 @@
 #  things by using absolute paths.  In particular wget, curl and unzip are available but not on the stnadrd
 #  path.
  
-groovyVersion=1.6.0
+groovyVersion=1.6.2
 groovyZipName=groovy-binary-$groovyVersion.zip
 groovyInstallPath=groovy-$groovyVersion
 
@@ -17,4 +17,3 @@ export GROOVY_HOME=$groovyInstallPath
 #  the return code of the script?
 
 __JLAUNCHER_DEBUG=true JAVA_OPTS=  scons test
-
