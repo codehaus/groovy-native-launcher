@@ -65,7 +65,7 @@ class GroovyTestCase ( unittest.TestCase ) :
 
     def testClientVM ( self ) :
         #  It seems that the RHEL 64-bit Linux system that is Bamboo only has a server VM.
-        print '########################' , platform.node ( ) 
+       assert platform.node ( ) ==  'ci.codehaus.org' , platform.node ( ) + ' is not the expected domain name.' 
         if platform.node ( ) == 'ci.codehaus.org' :
             expectedLabel =  'server vm'
         else :
