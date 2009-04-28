@@ -40,37 +40,27 @@ class GroovyTestCase ( unittest.TestCase ) :
         ( returnCode , output ) = supportModule.executeCommand ( command , prefixCommand )
         self.assertEqual ( returnCode , expectedReturnCode )
         if type ( expectedOutput ) == type ( re.compile ( 'a' ) ) :
-            msg = None
-            if extraMessage :
-                msg = 'Failed to match ' + extraMessage
-            else :
-                msg = 'Failed to match ' + output + ' against ' + str( expectedOutput ) 
-            assert expectedOutput.search ( output ) != None , 'Failed to match ' + msg
+            assert expectedOutput.search ( output ) != None , 'Failed to match ' +  ( extraMessage if extraMessage else output + ' against ' + str ( expectedOutput ) )
         elif type( expectedOutput ) == LambdaType :
-            msg = 'failed ' + str( expectedOutput )
-            assert expectedOutput( output )
+            assert expectedOutput ( output ) , 'failed ' + str ( expectedOutput )
         else :
-            self.assertEqual ( output, expectedOutput )
+            self.assertEqual ( output , expectedOutput )
 
     def testVersion ( self ) :
         pattern = 'Groovy Version: .* JVM: '
         self.groovyExecutionTest ( '-v' , re.compile ( pattern ) , None , pattern )
 
     def testPassingJVMParameter ( self ) :
-        # the exact amount of memory the jvm reserves on requesting -Xmx300m seems to vary by platform, but it seems to be within 10% of that requested
+        # The exact amount of memory the JVM reserves on requesting -Xmx300m seems to vary by platform, but it seems to be always within 10% of that requested.
         self.groovyExecutionTest ( '-Xmx300m -e "println Runtime.runtime.maxMemory ( )"' ,  lambda x : abs ( int ( x ) - 300000000 ) < 30000000 )
 
     def testServerVM ( self ) :
         self.groovyExecutionTest ( '-server -e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'server vm' , re.IGNORECASE ) , prefixCommand = "LD_LIBRARY_PATH='/usr/jdk/latest/jre/lib/sparc/server'" if supportModule.platform == 'sunos' else '' )
 
     def testClientVM ( self ) :
-        #  It seems that the RHEL 64-bit Linux system that is Bamboo only has a server VM.
-        assert platform.node ( ) ==  'ci.codehaus.org' , platform.node ( ) + ' is not the expected domain name.' 
-        if platform.node ( ) == 'ci.codehaus.org' :
-            expectedLabel =  'server vm'
-        else :
-            expectedLabel =  'client vm'
-        self.groovyExecutionTest ( '-e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( expectedLabel , re.IGNORECASE ) )
+        #  It seems that the RHEL 64-bit Linux system that is Codehaus Bamboo only has a server JVM.
+        #  Experimentation determines the name of this machine is as given here.
+        self.groovyExecutionTest ( '-e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'server vm' if platform.node ( ) == 'codehaus04.managed.contegix.com'  else 'client vm' , re.IGNORECASE ) )
 
     def testExitStatus ( self ) :
         self.groovyExecutionTest ( '-e "System.exit ( 123 )"' , '' , 123 )
