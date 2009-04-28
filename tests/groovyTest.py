@@ -1,9 +1,9 @@
-# -*- mode:python coding:utf-8 -*-
+# -*- mode:python; coding:utf-8; -*-
 # jedit: :mode=python:
 
 #  Groovy -- A native launcher for Groovy
 #
-#  Copyright © 2008 Russel Winder
+#  Copyright © 2008-9 Russel Winder
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
 #  compliance with the License. You may obtain a copy of the License at
@@ -24,9 +24,10 @@
 import os
 import re
 import unittest
+import shutil
+import platform
 
 import supportModule
-import shutil
 
 from types import *
 
@@ -57,14 +58,18 @@ class GroovyTestCase ( unittest.TestCase ) :
 
     def testPassingJVMParameter ( self ) :
         # the exact amount of memory the jvm reserves on requesting -Xmx300m seems to vary by platform, but it seems to be within 10% of that requested
-        memtest = lambda x : abs( int( x ) - 300000000 ) < 30000000
-        self.groovyExecutionTest ( '-Xmx300m -e "println Runtime.runtime.maxMemory ( )"' , memtest )
+        self.groovyExecutionTest ( '-Xmx300m -e "println Runtime.runtime.maxMemory ( )"' ,  lambda x : abs ( int ( x ) - 300000000 ) < 30000000 )
 
     def testServerVM ( self ) :
-        self.groovyExecutionTest ( '-server -e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'server vm', re.IGNORECASE ) , prefixCommand = "LD_LIBRARY_PATH='/usr/jdk/latest/jre/lib/sparc/server'" if supportModule.platform == 'sunos' else '' )
+        self.groovyExecutionTest ( '-server -e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'server vm' , re.IGNORECASE ) , prefixCommand = "LD_LIBRARY_PATH='/usr/jdk/latest/jre/lib/sparc/server'" if supportModule.platform == 'sunos' else '' )
 
     def testClientVM ( self ) :
-        self.groovyExecutionTest ( '-e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'client vm', re.IGNORECASE ) )
+        #  It seems that the RHEL 64-bit Linux system that is Bamboo only has a server VM.
+        if platform.node ( ) == 'ci.codehaus.org' :
+            expectedLabel =  'server vm'
+        else :
+            expectedLabel =  'client vm'
+        self.groovyExecutionTest ( '-e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( expectedLabel , re.IGNORECASE ) )
 
     def testExitStatus ( self ) :
         self.groovyExecutionTest ( '-e "System.exit ( 123 )"' , '' , 123 )
@@ -115,6 +120,7 @@ class CygwinGroovyTestCase ( GroovyTestCase ) :
         os.remove ( bFile.name )
         #os.rmdir (bDirectory )
         shutil.rmtree( bDirectory, True )
+
 #  The entry point for SCons to use.
 
 def runTests ( path , architecture ) :
