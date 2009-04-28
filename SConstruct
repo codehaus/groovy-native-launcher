@@ -25,9 +25,9 @@ import sys
 
 #  Once we have an environment, we can distinguish things according to the PLATFORM which is one of posix,
 #  darwin, sunos, cygwin, win32 for the machines tested to date.  This does not distinguish the same OS on
-#  different architectures where this is an issue.  For Python this is not an issue but we are compiling C
+#  different architectures where this is an issue.  For Python this is not an issue, but we are compiling C
 #  so it is.  We therefore use uname to provide better discrimination.  This will give Linux, SunOS, Darwin,
-#  CYGWIN_NT-5.1, Windows as possible values for the operating system (no different from PLATFORM really,
+#  CYGWIN_NT-5.1, Windows as possible values for the operating system (no different from PLATFORM really),
 #  and values like i686 for the processor where it can be determined, i.e not on Windows but on all other
 #  systems.  Combine this with the compiler in use and we have a complete platform specification so that we
 #  can have multiple concurrent builds for different architectures all in the same source hierarchy.
@@ -35,7 +35,7 @@ import sys
 unameResult = platform.uname ( )
 
 #  toolchain and msvsversion options are processed here, other options are processed in source/SConscript
-#  These have effects that need to be taken into account when creating Environment
+#  These have effects that need to be taken into account when creating the environment.
 #
 #  There is an issue when using Windows that Visual C++ has precedence of GCC and sometimes you really have
 #  to use GCC even when Visual C++ is present.

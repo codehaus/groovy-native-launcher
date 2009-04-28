@@ -52,19 +52,17 @@ if debug :
 else :
     environment.Append ( CPPDEFINES = [ 'NDEBUG' ] )
     if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
-        # the -MD option is important - it is required when using JNI. 
-        # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
-        #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
-        #
+        #  The -MD option is important - it is required when using JNI. 
+        #  See for example http://java.sun.com/docs/books/jni/html/start.html#27008 and
+        #  http://java.sun.com/docs/books/jni/html/invoke.html#28755
         environment.Append ( CCFLAGS = [ '-MD' , '-Ox' , '-GF' ] , LINKFLAGS = [ '-opt:ref' , '-opt:nowin98' ] )
         if not profile :
-            # global optimization in msvc is incompatible w/ generating debug info (-Zi + friends)
+            #  Global optimization in msvc is incompatible w/ generating debug info (-Zi + friends).
             environment.Append ( CCFLAGS = [ '-GL' ] , LINKFLAGS = [ '-ltcg' ] )
     elif environment['CC'] == 'gcc' :
         environment.Append ( CCFLAGS = [ '-O3' ] ) 
-        #  The Mac OS X Leopard ld does ignores this option as being obsolete.
-        #
-        #  The Solaris GCC appears to use the Sun ld if present rather than the ld in binutils.
+        #  Mac OS X Leopard ld ignores this option as being obsolete.
+        #  Solaris GCC appears to use Sun ld if present rather than binutils ld.
         environment.Append ( LINKFLAGS = [ '-Wl,-s' ] )
     else :
         print 'Strip mode not set for compiler' , environment['CC']
@@ -105,6 +103,7 @@ if environment['PLATFORM'] == 'darwin' :
     environment.Append ( LINKFLAGS = [ '-framework' ,  'CoreFoundation' ] )
 
 #  Map from uname operating system names (environment['Architecture']) to include directory names.
+
 includeDirectoryName = {
     'Linux' : 'linux' ,
     'SunOS' : 'solaris' ,
@@ -117,16 +116,15 @@ includeDirectoryName = {
 
 environment.Append ( CPPPATH = [ os.path.join ( javaHome , 'include'  , includeDirectoryName [ environment[ 'Architecture' ] ] ) , os.path.join ( javaHome , 'include' ) ] )
 if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
-    # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
-    # c4206 == translation unit is empty (if not compiling cygwin compatible binary, jst_cygwincompatibility.c is empty)
-    # c4255 == 'function' : no function prototype given: converting '()' to '(void)'
-    # c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
-    # c4820 == padding added into a struct 
-    # This one is disabled as there's a lot of this done intentionally (and there seems to be no way to tell cl that it's intentional):
-    # c4706 == assignment in conditional expression
-    # this one's disabled as it does not seem very interesting:
-    # c4711 == function 'function' selected for inline expansion
-    #
+    #  -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
+    #    c4206 == translation unit is empty (if not compiling cygwin compatible binary, jst_cygwincompatibility.c is empty)
+    #    c4255 == 'function' : no function prototype given: converting '()' to '(void)'
+    #    c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
+    #    c4820 == padding added into a struct 
+    #  This one is disabled as there's a lot of this done intentionally (and there seems to be no way to tell cl that it's intentional):
+    #    c4706 == assignment in conditional expression
+    #  This one is disabled as it does not seem very interesting:
+    #    c4711 == function 'function' selected for inline expansion
     environment.Append ( 
         CPPDEFINES = [ 'WIN32_LEAN_AND_MEAN' , 'VC_EXTRALEAN' , '_CRT_SECURE_NO_WARNINGS' , '_CRT_NONSTDC_NO_DEPRECATE' ] ,
         CCFLAGS = [ '-TC' , '-Wall' , '-Wp64' , '-wd4206' , '-wd4255' , '-wd4668' , '-wd4706' , '-wd4711' , '-wd4820' ] ,
@@ -151,9 +149,6 @@ if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = [ 'd
 #  Search for any file with what appears to be a main function and assume that file is the main file of an
 #  application to be built.  Assume all other source files should be compiled and linked with each of the
 #  main files.  Return a list of all the executables made.
-
-#  Codehaus Bamboo SCons seems to use Python 2.4 which doesn't have a proper try/except/else/finally --
-#  which was introduced in 2.5
 
 mainFiles = [ ]
 mainFunctionPattern = re.compile ( 'int\s+main\s*\(' )
@@ -182,7 +177,8 @@ for name in mainFiles :
             resources = environment.RES ( target = root + '.coff' , source = root + '.rc' )
         returnValue += [
             environment.Program ( root + '.exe' , objects + [ resources ] ) ,
-            windowsEnvironment.Program ( root + 'w.exe' , objects + [ resources ] ) ]
+            windowsEnvironment.Program ( root + 'w.exe' , objects + [ resources ] )
+            ]
     else :
         returnValue += environment.Program ( root , sources )
 
