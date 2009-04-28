@@ -1,9 +1,9 @@
-# -*- mode:python coding:utf-8 -*-
+# -*- mode:python; coding:utf-8; -*-
 # jedit: :mode=python:
 
 #  Groovy -- A native launcher for Groovy
 #
-#  Copyright © 2007-8 Russel Winder
+#  Copyright © 2007-9 Russel Winder
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
 #  compliance with the License. You may obtain a copy of the License at
@@ -36,12 +36,11 @@ unameResult = platform.uname ( )
 
 #  toolchain and msvsversion options are processed here, other options are processed in source/SConscript
 #  These have effects that need to be taken into account when creating Environment
-
+#
 #  There is an issue when using Windows that Visual C++ has precedence of GCC and sometimes you really have
 #  to use GCC even when Visual C++ is present.
 
-toolchain   = ARGUMENTS.get ( 'toolchain' , False ) 
-
+toolchain = ARGUMENTS.get ( 'toolchain' , False ) 
 msvsVersion = ARGUMENTS.get ( 'msvsversion' , False ) 
 if ( toolchain ) :
     if msvsVersion :
@@ -63,10 +62,25 @@ if environment['Architecture'] == 'Windows' :
     result = os.popen ( 'uname -s' ).read ( ).strip ( )
     if result != '' : environment['Architecture'] = result
 
+#  A platform may support both 32-bit and 64-bit builds, e,g, Solaris builds on SPARC v9.  By default we
+#  assume a 32-bit build.  Use a command line parameter width to determine if a 64-bit build is to be
+#  attempted.
+
+width = int ( ARGUMENTS.get ( 'width' , -1 ) )
+if width == 64 or width == 32 :
+    pass
+elif width == -1 :
+    width = 32
+else :
+    print 'Width must be 32 or 64, 32 is the default if nothing specified. Value given was' , width
+    Exit ( 1 )
+environment['Width'] = width
+
 #  Distinguish the build directory and the sconsign file by architecture, shell, processor, and compiler so
 #  that multiple builds for different architectures can happen concurrently using the same source tree.
  
-discriminator = environment['Architecture'] + '_' + unameResult[4] + '_' + environment['CC'] 
+discriminator = environment['Architecture'] + '_' + unameResult[4] + '_' + environment['CC']
+if width != 32 : discriminator = discriminator + '_' + str ( width )
 buildDirectory = 'build_scons_' + discriminator
 
 environment.SConsignFile ( '.sconsign_' + discriminator )
@@ -75,9 +89,13 @@ environment.SConsignFile ( '.sconsign_' + discriminator )
 
 executables = SConscript ( 'source/SConscript' , exports = 'environment' , variant_dir = buildDirectory , duplicate = 0 )
 
+#executables64 = SConscript ( 'source/SConscript' , exports = 'environment' , variant_dir = buildDirectory , duplicate = 0 )
+
 #  From here down is about the targets that the user will want to make use of.
 
 Default ( Alias ( 'compile' , executables ) )
+
+#Alias ( 'compile64' , executables64 )
 
 def runLauncherTests ( target , source , env ) :
     for item in source :
@@ -91,6 +109,8 @@ def runLauncherTests ( target , source , env ) :
             pass
 
 Command ( 'test' , executables , runLauncherTests )
+
+#Command ( 'test-64' , executable64 , runLauncherTests )
 
 #  Have to take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
 #  does arise on Solaris 10.

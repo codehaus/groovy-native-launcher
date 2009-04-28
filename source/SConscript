@@ -1,4 +1,4 @@
-# -*- mode:python coding:utf-8 -*-
+# -*- mode:python; coding:utf-8; -*-
 # jedit: :mode=python:
 
 #  Groovy -- A native launcher for Groovy
@@ -24,56 +24,59 @@ import re
 
 Import ( 'environment' )
 
-debug   = eval ( ARGUMENTS.get ( 'debug' ,   'False' ) )
+if environment['Width'] == 64 :
+    if environment['CC'] == 'gcc' :
+        environment.Append ( CCFLAGS = [ '-m64' ] , LINKFLAGS = [ '-m64' ] )
+    else :
+        raise Exception , '64-bit build for non-GCC not yet set up.'
+
+debug = eval ( ARGUMENTS.get ( 'debug' ,  'False' ) )
 profile = eval ( ARGUMENTS.get ( 'profile' , 'False' ) )
 
-if debug and profile : raise Exception , 'Profiling should be done on optimized executable, not debug version.'
+if debug and profile :
+    print 'Profiling should be done on optimized executable, not debug version.'
+    Exit ( 1 )
 
 if profile :
     if environment['CC'] == 'cl' :
-        environment.Append ( CCFLAGS   = '-Zi', 
-                             LINKFLAGS = '-debug -fixed:no' )
-
+        environment.Append ( CCFLAGS  = [ '-Zi' ] , LINKFLAGS = [ '-debug' , '-fixed:no' ] )
 
 if debug :
     if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
-        environment.Append ( CCFLAGS   = '-MDd -Od -Zi -RTCcsu -D_CRTDBG_MAP_ALLOC',
-                             LINKFLAGS = '-debug' )
+        environment.Append ( CPPDEFINES= [ '_CRTDBG_MAP_ALLOC' ] , CCFLAGS = [ '-MDd' , '-Od' , '-Zi' , '-RTCcsu' ] , LINKFLAGS = [ '-debug' ] )
     elif environment['CC'] == 'gcc' :
-        environment.Append ( CCFLAGS = '-g' )
+        environment.Append ( CCFLAGS = [ '-g' ] )
     else :
         print 'Debug mode not set up for compiler' , environment['CC']
         Exit ( 1 )
 else :
-    environment.Append ( CCFLAGS = '-DNDEBUG' )
+    environment.Append ( CPPDEFINES = [ 'NDEBUG' ] )
     if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
         # the -MD option is important - it is required when using JNI. 
         # See e.g. http://java.sun.com/docs/books/jni/html/start.html#27008 and
         #          http://java.sun.com/docs/books/jni/html/invoke.html#28755
         #
-        environment.Append ( CCFLAGS   = '-MD -Ox -GF',
-                             LINKFLAGS = '-opt:ref -opt:nowin98' )
+        environment.Append ( CCFLAGS = [ '-MD' , '-Ox' , '-GF' ] , LINKFLAGS = [ '-opt:ref' , '-opt:nowin98' ] )
         if not profile :
             # global optimization in msvc is incompatible w/ generating debug info (-Zi + friends)
-            environment.Append ( CCFLAGS   = '-GL',
-                                 LINKFLAGS = '-ltcg' )
-            
+            environment.Append ( CCFLAGS = [ '-GL' ] , LINKFLAGS = [ '-ltcg' ] )
     elif environment['CC'] == 'gcc' :
-        environment.Append ( CCFLAGS = '-O3' ) 
-        #  The Mac OS X ld does not understand long options, and only allows stripping on 32-bit builds.
-        #  The Solaris GCC appears to use the Sun ld if present rathe than the ld in binutils.
-        environment.Append ( LINKFLAGS = '-Wl,-s' )
+        environment.Append ( CCFLAGS = [ '-O3' ] ) 
+        #  The Mac OS X Leopard ld does ignores this option as being obsolete.
+        #
+        #  The Solaris GCC appears to use the Sun ld if present rather than the ld in binutils.
+        environment.Append ( LINKFLAGS = [ '-Wl,-s' ] )
     else :
         print 'Strip mode not set for compiler' , environment['CC']
 
 cygwinsupport = eval ( ARGUMENTS.get ( 'cygwinsupport' , 'True' ) )
 if cygwinsupport :
     if environment['PLATFORM'] in [ 'Windows' , 'mingw' , 'cygwin' ] :
-        environment.Append ( CCFLAGS = '-D_cwcompat' )
+        environment.Append ( CPPDEFINES = [ '_cwcompat' ] )
 
 extraMacrosString = ARGUMENTS.get ( 'extramacros' , '' )
 for macro in extraMacrosString.split ( ) :
-    environment.Append ( CCFLAGS = '-D' + macro )
+    environment.Append ( CPPDEFINES = [ macro ] )
 
 try :
     javaHome = os.environ['JAVA_HOME']
@@ -84,18 +87,22 @@ if javaHome == '' :
         putativeDirectory = '/System/Library/Frameworks/JavaVM.framework'
         if os.path.isdir ( putativeDirectory ) :
             javaHome = putativeDirectory
-            environment.Append ( CPPFLAGS = ' -I"%s/Headers"' % ( javaHome ) )
-        else : raise Exception , 'JAVA_HOME not defined and %s not found.' % ( putativeDirectory )
-    else : raise Exception , 'JAVA_HOME not defined.'
+            environment.Append ( CPPPATH = [ javaHome ] )
+        else :
+            print 'JAVA_HOME not defined and', putativeDirectory, 'not found.'
+            Exit ( 1 )
+    else :
+        print 'JAVA_HOME not defined.'
+        Exit ( 1 )
 
 if environment['PLATFORM'] == 'cygwin' :
     javaHome = os.popen ( 'cygpath --unix "' + javaHome + '"' ).read ( ).strip ( )
-    environment.Append ( CCFLAGS = ' -mno-cygwin' , LINKFLAGS = ' -s -mno-cygwin' )
+    environment.Append ( CCFLAGS = [ '-mno-cygwin' ] , LINKFLAGS = [ '-s' , '-mno-cygwin' ] )
     windowsEnvironment = environment.Clone ( )
-    windowsEnvironment.Append ( LINKFLAGS = '-mwindows' )
+    windowsEnvironment.Append ( LINKFLAGS = [ '-mwindows' ] )
 
 if environment['PLATFORM'] == 'darwin' :
-    environment.Append ( LINKFLAGS = '-framework CoreFoundation' )
+    environment.Append ( LINKFLAGS = [ '-framework' ,  'CoreFoundation' ] )
 
 #  Map from uname operating system names (environment['Architecture']) to include directory names.
 includeDirectoryName = {
@@ -108,7 +115,7 @@ includeDirectoryName = {
     'Windows' : 'win32'
     }
 
-environment.Append ( CPPFLAGS = ' -I"%s" -I"%s"' % ( os.path.join ( javaHome , 'include'  , includeDirectoryName [ environment[ 'Architecture' ] ] ) , os.path.join ( javaHome , 'include' ) ) )
+environment.Append ( CPPPATH = [ os.path.join ( javaHome , 'include'  , includeDirectoryName [ environment[ 'Architecture' ] ] ) , os.path.join ( javaHome , 'include' ) ] )
 if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
     # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
     # c4206 == translation unit is empty (if not compiling cygwin compatible binary, jst_cygwincompatibility.c is empty)
@@ -121,13 +128,14 @@ if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
     # c4711 == function 'function' selected for inline expansion
     #
     environment.Append ( 
-        CCFLAGS = '-TC -Wall -Wp64 -wd4206 -wd4255 -wd4668 -wd4706 -wd4711 -wd4820 -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN -D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE',
-        LIBS = [ 'advapi32' ],
-        LINKFLAGS = '-incremental:no -manifest:no'
+        CPPDEFINES = [ 'WIN32_LEAN_AND_MEAN' , 'VC_EXTRALEAN' , '_CRT_SECURE_NO_WARNINGS' , '_CRT_NONSTDC_NO_DEPRECATE' ] ,
+        CCFLAGS = [ '-TC' , '-Wall' , '-Wp64' , '-wd4206' , '-wd4255' , '-wd4668' , '-wd4706' , '-wd4711' , '-wd4820' ] ,
+        LIBS = [ 'advapi32' ] ,
+        LINKFLAGS = [ '-incremental:no' , '-manifest:no' ]
         )
     windowsEnvironment = environment.Clone ( )
-    windowsEnvironment.Append ( LINKFLAGS = '-subsystem:windows -entry:mainCRTStartup' )
-    environment.Append ( LINKFLAGS = '-subsystem:console' )
+    windowsEnvironment.Append ( LINKFLAGS = [ '-subsystem:windows' , '-entry:mainCRTStartup' ] )
+    environment.Append ( LINKFLAGS = [ '-subsystem:console' ] )
 elif environment['CC'] == 'gcc' :
     #  Cygwin specific options were set earlier.
     environment.Append ( CCFLAGS = ' -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls' )
@@ -138,7 +146,7 @@ elif environment['CC'] == 'gcc' :
 else :
     print 'Assuming default options for compiler' , environment['CC']
 
-if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = 'dl' )
+if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = [ 'dl' ] )
 
 #  Search for any file with what appears to be a main function and assume that file is the main file of an
 #  application to be built.  Assume all other source files should be compiled and linked with each of the
