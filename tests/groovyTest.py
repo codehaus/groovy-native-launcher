@@ -26,6 +26,7 @@ import re
 import unittest
 
 import supportModule
+import shutil
 
 from types import *
 
@@ -112,8 +113,8 @@ class CygwinGroovyTestCase ( GroovyTestCase ) :
         self.groovyExecutionTest ( '--classpath ' + aDirectory + ':' + bDirectory + ' -e "new A ( ).b.sayHello ( )"' , 'hello there' )
         os.remove ( aFile.name )
         os.remove ( bFile.name )
-        os.rmdir (bDirectory )
-
+        #os.rmdir (bDirectory )
+        shutil.rmtree( bDirectory, True )
 #  The entry point for SCons to use.
 
 def runTests ( path , architecture ) :

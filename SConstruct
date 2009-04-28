@@ -130,7 +130,7 @@ Help ( '''The targets:
 are provided.  compile is the default.  Possible options are:
 
     debug=<True|*False*>
-    cygwinCompile=<True|*False*>
+    cygwinsupport=<True|*False*>
     toolchain=mingw (to use mingw even if msvs is installed)
     msvsversion=<version> (to use specific version if several versions are installed)
     extramacros=<list-of-c-macro-definitions>

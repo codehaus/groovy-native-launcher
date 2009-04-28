@@ -1,6 +1,6 @@
 //  A library for easy creation of a native launcher for Java applications.
 //
-//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
+//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 //
 //  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
 //  compliance with the License. You may obtain a copy of the License at
@@ -12,10 +12,10 @@
 //  implied. See the License for the specific language governing permissions and limitations under the
 //  License.
 //
-//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
+//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 
 
-// Note that cygwin compatibility requires some stack manipulation in 
+// Note that cygwin compatibility requires some stack manipulation in
 // the beginning of main and thus can not be extracted into a totally
 // separate library.
 
@@ -41,18 +41,18 @@
   cygwin_conversionfunc_type cygwin_posix2win_path_list = NULL ;
 
   static HINSTANCE g_cygwinDllHandle = NULL ;
-  
+
   int jst_cygwinInit() {
-          
+
     g_cygwinDllHandle = LoadLibrary( "cygwin1.dll" ) ;
-  
+
     if ( g_cygwinDllHandle ) {
       SetLastError( 0 ) ;
       cygwin_initfunc            = (cygwin_initfunc_type)      GetProcAddress( g_cygwinDllHandle, "cygwin_dll_init" ) ;
       // only proceed getting more proc addresses if the last call was successfull in order not to hide the original error
       if ( cygwin_initfunc       ) cygwin_posix2win_path      = (cygwin_conversionfunc_type)GetProcAddress( g_cygwinDllHandle, "cygwin_conv_to_win32_path"       ) ;
       if ( cygwin_posix2win_path ) cygwin_posix2win_path_list = (cygwin_conversionfunc_type)GetProcAddress( g_cygwinDllHandle, "cygwin_posix_to_win32_path_list" ) ;
-      
+
       if ( !cygwin_initfunc || !cygwin_posix2win_path || !cygwin_posix2win_path_list ) {
         fprintf( stderr, "strange bug: could not find appropriate init and conversion functions inside cygwin1.dll\n" ) ;
         jst_printWinError( GetLastError() ) ;
@@ -60,11 +60,11 @@
       }
       cygwin_initfunc() ;
     } // if cygwin1.dll is not found, just carry on. It means we're not inside cygwin shell and don't need to care about cygwin path conversions
-    
+
     return g_cygwinDllHandle ? 1 : 0 ;
   }
 
-  extern void jst_cygwinRelease() {   
+  extern void jst_cygwinRelease() {
     if ( g_cygwinDllHandle ) {
       FreeLibrary( g_cygwinDllHandle ) ;
       g_cygwinDllHandle          = NULL ;
@@ -75,34 +75,113 @@
     }
   }
 
-  
+
   /** Path conversion from cygwin format to win format. This func contains the general logic, and thus
    * requires a pointer to a cygwin conversion func. */
   static char* convertPath( cygwin_conversionfunc_type conversionFunc, char* path ) {
     char  temp[ MAX_PATH + 1 ] ;
 
     // FIXME
-    
+
     if ( conversionFunc ) {
       conversionFunc( path, temp ) ;
     } else {
       strcpy( temp, path ) ;
     }
-    
+
     return jst_strdup( temp ) ;
-    
+
   }
-  
+
   /** returns NULL on error, does not modify the param. Result must be freed by caller. */
   extern char* jst_convertCygwin2winPath( char* path ) {
-    return convertPath( cygwin_posix2win_path, path ) ;  
+    return convertPath( cygwin_posix2win_path, path ) ;
   }
-  
-  
-  
+
+
+
   /** see above */
   extern char* jst_convertCygwin2winPathList( char* path ) {
     return convertPath( cygwin_posix2win_path_list, path ) ;
+  }
+
+  // 2**15
+  #  define PAD_SIZE 32768
+
+  typedef struct {
+    void* backup ;
+    void* stackbase ;
+    void* end ;
+    unsigned char padding[ PAD_SIZE ] ; // sizeof( unsigned char ) == 1, i.e. a single byte
+  } CygPadding ;
+
+  static CygPadding *g_pad ;
+
+  extern int runCygwinCompatibly( int argc, char** argv, int (*mainproc)( int argc, char** argv ) ) {
+
+
+    int mainRval ;
+
+      // NOTE: This code is experimental and is not compiled into the executable by default.
+      //       When building w/ rant, do
+      //       scons -c
+      //       if compiling in cygwin, cygwin support enabled is the default:
+      //       scons
+      //       if compiling in elsewhere (e.g. mingw), use
+      //       scons cygwinsupport=True
+
+      // Dynamically loading the cygwin dll is a lot more complicated than the loading of an ordinary dll. Please see
+      // http://cygwin.com/faq/faq.programming.html#faq.programming.msvs-mingw
+      // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/cygwin/how-cygtls-works.txt?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
+      // "If you load cygwin1.dll dynamically from a non-cygwin application, it is
+      // vital that the bottom CYGTLS_PADSIZE bytes of the stack are not in use
+      // before you call cygwin_dll_init()."
+      // See also
+      // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.cc?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
+      // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.h?rev=1.2&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
+
+      size_t delta ;
+      CygPadding pad ;
+      void* sbase ;
+
+      g_pad = &pad ;
+      pad.end = pad.padding + PAD_SIZE ;
+
+    #if defined( __GNUC__ )
+      __asm__ (
+          "movl %%fs:4, %0"
+          :"=r"( sbase )
+        ) ;
+    #else
+      __asm {
+          mov eax, fs:[ 4 ]
+          mov sbase, eax
+      }
+    #endif
+      g_pad->stackbase = sbase ;
+
+      delta = (size_t)g_pad->stackbase - (size_t)g_pad->end ;
+
+      if ( delta ) {
+        g_pad->backup = malloc( delta ) ;
+        if( !( g_pad->backup) ) {
+          fprintf( stderr, "error: out of mem when copying stack state\n" ) ;
+          return -1 ;
+        }
+        memcpy( g_pad->backup, g_pad->end, delta ) ;
+      }
+
+      mainRval = mainproc( argc, argv ) ;
+
+      // clean up the stack (is it necessary? we are exiting the program anyway...)
+      if ( delta ) {
+        memcpy( g_pad->end, g_pad->backup, delta ) ;
+        free( g_pad->backup ) ;
+      }
+
+      return mainRval ;
+
+
   }
 
 #endif

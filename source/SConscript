@@ -66,8 +66,8 @@ else :
     else :
         print 'Strip mode not set for compiler' , environment['CC']
 
-cygwinCompile = eval ( ARGUMENTS.get ( 'cygwinCompile' , 'True' ) )
-if cygwinCompile :
+cygwinsupport = eval ( ARGUMENTS.get ( 'cygwinsupport' , 'True' ) )
+if cygwinsupport :
     if environment['PLATFORM'] in [ 'Windows' , 'mingw' , 'cygwin' ] :
         environment.Append ( CCFLAGS = '-D_cwcompat' )
 

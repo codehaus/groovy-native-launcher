@@ -130,7 +130,8 @@ static void printParameterDebugInfo( JstActualParam* params, int numParams ) {
 
     fprintf( stderr, "  %s -> ", params[ i ].param ) ;
     printParameterClassification( params[ i ].handling ) ;
-    fprintf( stderr, " (%d)\n", params[ i ].handling ) ;
+    fprintf( stderr, " (0x%02x)\n", params[ i ].handling ) ;
+
   }
 
 }

@@ -171,105 +171,7 @@ static const JstParamInfo gantParameters[] = {
 
 
 
-#if defined( _WIN32 ) && defined ( _cwcompat )
-
-  static int rest_of_main( int argc, char** argv ) ;
-  /** This is a global as I'm not sure how stack manipulation required by cygwin
-   * will affect the stack variables */
-  static int mainRval ;
-  // 2**15
-#  define PAD_SIZE 32768
-
-#if !defined( byte )
-  typedef unsigned char byte ;
-#endif
-
-  typedef struct {
-    void* backup ;
-    void* stackbase ;
-    void* end ;
-    byte padding[ PAD_SIZE ] ;
-  } CygPadding ;
-
-  static CygPadding *g_pad ;
-
-#endif
-
-
-
-int main( int argc, char** argv ) {
-
-// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-// cygwin compatibility code begin
-
-#if defined ( _WIN32 ) && defined ( _cwcompat )
-
-
-  // NOTE: This code is experimental and is not compiled into the executable by default.
-  //       When building w/ rant, do
-  //       rant clean
-  //       rant cygwinc
-
-  // Dynamically loading the cygwin dll is a lot more complicated than the loading of an ordinary dll. Please see
-  // http://cygwin.com/faq/faq.programming.html#faq.programming.msvs-mingw
-  // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/cygwin/how-cygtls-works.txt?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
-  // "If you load cygwin1.dll dynamically from a non-cygwin application, it is
-  // vital that the bottom CYGTLS_PADSIZE bytes of the stack are not in use
-  // before you call cygwin_dll_init()."
-  // See also
-  // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.cc?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
-  // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.h?rev=1.2&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
-  size_t delta ;
-  CygPadding pad ;
-  void* sbase ;
-
-  g_pad = &pad ;
-  pad.end = pad.padding + PAD_SIZE ;
-
-  #if defined( __GNUC__ )
-  __asm__ (
-    "movl %%fs:4, %0"
-    :"=r"( sbase )
-    ) ;
-  #else
-  __asm {
-    mov eax, fs:[ 4 ]
-    mov sbase, eax
-  }
-  #endif
-  g_pad->stackbase = sbase ;
-
-  delta = (size_t)g_pad->stackbase - (size_t)g_pad->end ;
-
-  if ( delta ) {
-    g_pad->backup = malloc( delta ) ;
-    if( !( g_pad->backup) ) {
-      fprintf( stderr, "error: out of mem when copying stack state\n" ) ;
-      return -1 ;
-    }
-    memcpy( g_pad->backup, g_pad->end, delta ) ;
-  }
-
-  mainRval = rest_of_main( argc, argv ) ;
-
-  // clean up the stack (is it necessary? we are exiting the program anyway...)
-  if ( delta ) {
-    memcpy( g_pad->end, g_pad->backup, delta ) ;
-    free( g_pad->backup ) ;
-  }
-
-  return mainRval ;
-
-}
-
-int rest_of_main( int argc, char** argv ) {
-
-#endif
-
-// cygwin compatibility end
-//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+static int startGant( int argc, char** argv ) {
 
   JavaLauncherOptions options ;
 
@@ -472,3 +374,17 @@ end:
   return rval ;
 
 }
+
+#if defined ( _WIN32 ) && defined ( _cwcompat )
+
+#include "jst_cygwin_compatibility.h"
+
+int main( int argc, char** argv ) {
+  return runCygwinCompatibly( argc, argv, startGant ) ;
+}
+#else
+int main( int argc, char** argv ) {
+  return startGant( argc, argv ) ;
+}
+#endif
+

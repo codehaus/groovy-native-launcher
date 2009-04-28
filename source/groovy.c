@@ -60,57 +60,6 @@
 #define GROOVY_CONF_FILE "groovy-starter.conf"
 
 
-static int groovyJarSelect( const char* dirName, const char* fileName ) {
-  int result = strcmp( "groovy-starter.jar", fileName ) == 0 ;
-  if ( !result ) {
-    size_t fileNameLen = strlen( fileName ) ;
-    // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes
-    // aren't available, we'll just check that the char following
-    // groovy- is a digit
-    // note that having && ( memcmp( "groovy-", fileName, 7 ) == 0 ) in the condition is unnecessary as that is taken care of in findGroovyStartupJar
-    if ( fileNameLen >= 12 ) result = isdigit( fileName[ 7 ] ) ;
-  }
-  return result ;
-}
-
-
-/** If groovy-starter.jar exists, returns path to that. If not, the first jar whose name starts w/ "groovy-x" (where x is a digit) is returned.
- * The previous is appropriate for groovy <= 1.0, the latter for groovy >= 1.1
- * Returns NULL on error, otherwise dynallocated string (which caller must free). */
-static char* findGroovyStartupJar( const char* groovyHome ) {
-  return findStartupJar( groovyHome, "lib", "groovy-", "groovy", &groovyJarSelect ) ;
-}
-
-/** Checks that the given dir is a valid groovy dir.
- * If false is returned, check errno to see if there was an error (in mem allocation) */
-static int isValidGroovyHome( const char* dir ) {
-  char *gconfFile = NULL ;
-  jboolean rval = JNI_FALSE ;
-
-  errno = 0 ;
-
-  gconfFile = jst_createFileName( dir, "conf", GROOVY_CONF_FILE, NULL ) ;
-  if ( gconfFile ) {
-    rval = jst_fileExists( gconfFile ) ? JNI_TRUE : JNI_FALSE ;
-    free( gconfFile ) ;
-  }
-
-  if ( _jst_debug ) fprintf( stderr, "debug: %s is %sa valid groovy installation\n", dir, rval ? "" : "not " ) ;
-
-  return rval ;
-}
-
-
-/** returns null on error, otherwise pointer to groovy home.
- * First tries to see if the current executable is located in a groovy installation's bin directory. If not, groovy
- * home env var is looked up. If neither succeed, an error msg is printed.
- * freeing the returned pointer must be done by the caller. */
-char* getGroovyHome() {
-
-  return jst_getAppHome( JST_USE_PARENT_OF_EXEC_LOCATION_AS_HOME, "GROOVY_HOME", &isValidGroovyHome ) ;
-
-}
-
 // ms visual c++ compiler does not support compound literals
 // ( i.e. defining e.g. arrays inline, e.g. { (char*[]){ "hello", NULL }, 12 } ),
 // so for sake of maximum portability the initialization of all the arrays containing
@@ -267,6 +216,58 @@ static const GroovyApp groovyApps[] = {
   { NULL, NULL, NULL }
 } ;
 
+
+
+static int groovyJarSelect( const char* dirName, const char* fileName ) {
+  int result = strcmp( "groovy-starter.jar", fileName ) == 0 ;
+  if ( !result ) {
+    size_t fileNameLen = strlen( fileName ) ;
+    // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes
+    // aren't available, we'll just check that the char following
+    // groovy- is a digit
+    // note that having && ( memcmp( "groovy-", fileName, 7 ) == 0 ) in the condition is unnecessary as that is taken care of in findGroovyStartupJar
+    if ( fileNameLen >= 12 ) result = isdigit( fileName[ 7 ] ) ;
+  }
+  return result ;
+}
+
+/** If groovy-starter.jar exists, returns path to that. If not, the first jar whose name starts w/ "groovy-x" (where x is a digit) is returned.
+ * The previous is appropriate for groovy <= 1.0, the latter for groovy >= 1.1
+ * Returns NULL on error, otherwise dynallocated string (which caller must free). */
+static char* findGroovyStartupJar( const char* groovyHome ) {
+  return findStartupJar( groovyHome, "lib", "groovy-", "groovy", &groovyJarSelect ) ;
+}
+
+/** Checks that the given dir is a valid groovy dir.
+ * If false is returned, check errno to see if there was an error (in mem allocation) */
+static int isValidGroovyHome( const char* dir ) {
+  char *gconfFile = NULL ;
+  jboolean rval = JNI_FALSE ;
+
+  errno = 0 ;
+
+  gconfFile = jst_createFileName( dir, "conf", GROOVY_CONF_FILE, NULL ) ;
+  if ( gconfFile ) {
+    rval = jst_fileExists( gconfFile ) ? JNI_TRUE : JNI_FALSE ;
+    free( gconfFile ) ;
+  }
+
+  if ( _jst_debug ) fprintf( stderr, "debug: %s is %sa valid groovy installation\n", dir, rval ? "" : "not " ) ;
+
+  return rval ;
+}
+
+/** returns null on error, otherwise pointer to groovy home.
+ * First tries to see if the current executable is located in a groovy installation's bin directory. If not, groovy
+ * home env var is looked up. If neither succeed, an error msg is printed.
+ * freeing the returned pointer must be done by the caller. */
+char* getGroovyHome() {
+
+  return jst_getAppHome( JST_USE_PARENT_OF_EXEC_LOCATION_AS_HOME, "GROOVY_HOME", &isValidGroovyHome ) ;
+
+}
+
+
 static GroovyApp* recognizeGroovyApp( const char* cmd ) {
   GroovyApp *app = (GroovyApp*)&groovyApps[ 0 ], // default to being groovy
             *tmp ;
@@ -294,106 +295,28 @@ static GroovyApp* recognizeGroovyApp( const char* cmd ) {
   return app ;
 }
 
+static char* createScriptNameDParam( const char* scriptName ) {
 
-#if defined( _WIN32 ) && defined ( _cwcompat )
+  char* scriptNameD = NULL ;
 
-  static int rest_of_main( int argc, char** argv ) ;
-  /** This is a global as I'm not sure how stack manipulation required by cygwin
-   * will affect the stack variables */
-  static int mainRval ;
-  // 2**15
-#  define PAD_SIZE 32768
+  if ( scriptName ) {
 
-#if !defined( byte )
-  typedef unsigned char byte ;
-#endif
+    char *scriptNameTmp = jst_fullPathName( scriptName ) ;
 
-  typedef struct {
-    void* backup ;
-    void* stackbase ;
-    void* end ;
-    byte padding[ PAD_SIZE ] ;
-  } CygPadding ;
+    if ( !scriptNameTmp ) return NULL ;
 
-  static CygPadding *g_pad ;
+    scriptNameD = jst_append( NULL, NULL, "-Dscript.name=", scriptNameTmp, NULL ) ;
 
-#endif
-
-
-
-int main( int argc, char** argv ) {
-
-// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-// cygwin compatibility code begin
-
-#if defined ( _WIN32 ) && defined ( _cwcompat )
-
-
-  // NOTE: This code is experimental and is not compiled into the executable by default.
-  //       When building w/ rant, do
-  //       rant clean
-  //       rant cygwinc
-
-  // Dynamically loading the cygwin dll is a lot more complicated than the loading of an ordinary dll. Please see
-  // http://cygwin.com/faq/faq.programming.html#faq.programming.msvs-mingw
-  // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/cygwin/how-cygtls-works.txt?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
-  // "If you load cygwin1.dll dynamically from a non-cygwin application, it is
-  // vital that the bottom CYGTLS_PADSIZE bytes of the stack are not in use
-  // before you call cygwin_dll_init()."
-  // See also
-  // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.cc?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
-  // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.h?rev=1.2&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
-  size_t delta ;
-  CygPadding pad ;
-  void* sbase ;
-
-  g_pad = &pad ;
-  pad.end = pad.padding + PAD_SIZE ;
-
-  #if defined( __GNUC__ )
-  __asm__ (
-    "movl %%fs:4, %0"
-    :"=r"( sbase )
-    ) ;
-  #else
-  __asm {
-    mov eax, fs:[ 4 ]
-    mov sbase, eax
-  }
-  #endif
-  g_pad->stackbase = sbase ;
-
-  delta = (size_t)g_pad->stackbase - (size_t)g_pad->end ;
-
-  if ( delta ) {
-    g_pad->backup = malloc( delta ) ;
-    if( !( g_pad->backup) ) {
-      fprintf( stderr, "error: out of mem when copying stack state\n" ) ;
-      return -1 ;
+    if ( scriptNameTmp != scriptName ) {
+      jst_free( scriptNameTmp ) ;
     }
-    memcpy( g_pad->backup, g_pad->end, delta ) ;
+
   }
 
-  mainRval = rest_of_main( argc, argv ) ;
-
-  // clean up the stack (is it necessary? we are exiting the program anyway...)
-  if ( delta ) {
-    memcpy( g_pad->end, g_pad->backup, delta ) ;
-    free( g_pad->backup ) ;
-  }
-
-  return mainRval ;
-
+  return scriptNameD ;
 }
 
-int rest_of_main( int argc, char** argv ) {
-
-#endif
-
-// cygwin compatibility end
-//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+int startGroovy( int argc, char** argv ) {
 
   JavaLauncherOptions options ;
 
@@ -456,24 +379,11 @@ int rest_of_main( int argc, char** argv ) {
 
   // set -Dscript.name system property if applicable
   if ( numArgs > 0 ) {
-    char *scriptNameIn = jst_getParameterAfterTermination( processedActualParams, 0 ) ;
-
-    if ( scriptNameIn ) {
-
-      char *scriptNameTmp = jst_fullPathName( scriptNameIn ),
-           *scriptNameDyn ;
-
-      if ( !scriptNameTmp ) goto end ;
-
-      scriptNameDyn = jst_append( NULL, NULL, "-Dscript.name=", scriptNameTmp, NULL ) ;
-      MARK_PTR_FOR_FREEING( scriptNameDyn )
-
-      if ( !appendJvmOption( &extraJvmOptions, scriptNameDyn, NULL ) ) goto end ;
-
-      if ( scriptNameTmp != scriptNameIn ) {
-        jst_free( scriptNameTmp ) ;
-      }
-
+    char* scriptName = jst_getParameterAfterTermination( processedActualParams, 0 ) ;
+    if ( scriptName ) {
+      char* scriptNameD = createScriptNameDParam( scriptName ) ;
+      MARK_PTR_FOR_FREEING( scriptNameD )
+      if ( !appendJvmOption( &extraJvmOptions, scriptNameD, NULL ) ) goto end ;
     }
   }
 
@@ -645,3 +555,19 @@ end:
   return rval ;
 
 }
+
+
+#if defined ( _WIN32 ) && defined ( _cwcompat )
+
+#include "jst_cygwin_compatibility.h"
+
+int main( int argc, char** argv ) {
+  return runCygwinCompatibly( argc, argv, startGroovy ) ;
+}
+#else
+int main( int argc, char** argv ) {
+  return startGroovy( argc, argv ) ;
+}
+#endif
+
+
