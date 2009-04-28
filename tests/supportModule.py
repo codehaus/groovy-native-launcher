@@ -18,6 +18,7 @@
 import os
 import re
 import tempfile
+import unittest
 
 #  The relative path to the executable.
 
@@ -37,9 +38,9 @@ def javaNameCompatibleTemporaryFile ( ) :
         file.close ( )
     return file
 
-#  Execute a Groovy activity returning a tuple of the return value and the output.  On Ubuntu and Cygwin the
+#  Execute a command returning a tuple of the return value and the output.  On Posix-compliant systems the
 #  return value is an amalgam of signal and return code.  Fortunately we know that the signal is in the low
-#  byt and the return value in the next byte.
+#  byte and the return value in the next byte.
 
 def executeCommand ( command , prefixCommand = '' ) :
     process = os.popen ( ( prefixCommand + ' ' if prefixCommand else '' ) +  executablePath + ' ' + command )
@@ -50,6 +51,16 @@ def executeCommand ( command , prefixCommand = '' ) :
         if platform in [ 'posix' , 'darwin' , 'sunos' , 'cygwin' ] :
             returnCode >>= 8
     return ( returnCode , output )
+
+#  The standard SCons entry.
+
+def runTests ( path , architecture , testClass ) :
+    global executablePath
+    executablePath = path
+    global platform
+    platform = architecture
+    return unittest.TextTestRunner ( ).run ( unittest.makeSuite ( testClass , 'test' ) ).wasSuccessful ( )
+
   
 if __name__ == '__main__' :
     print 'Run tests using command "scons test".'

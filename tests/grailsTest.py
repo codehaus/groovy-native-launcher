@@ -27,10 +27,7 @@ class GrailsTestCase ( unittest.TestCase ) :
 #  The entry point for SCons to use.
 
 def runTests ( path , architecture ) :
-    supportModule.executablePath = path
-    supportModule.platform = architecture
-    suite = unittest.makeSuite ( GrailsTestCase , 'test' )
-    return unittest.TextTestRunner ( ).run ( suite ).wasSuccessful ( )
+    return supportModule.runTests ( path , architecture , GrailsTestCase )
 
 if __name__ == '__main__' :
     print 'Run tests using command "scons test".'
