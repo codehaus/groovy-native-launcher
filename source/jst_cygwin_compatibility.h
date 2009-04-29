@@ -22,7 +22,7 @@
     extern "C" {
 #  endif
 
-  typedef void ( *cygwin_initfunc_type)() ;
+  typedef void ( *cygwin_initfunc_type)( void ) ;
   typedef void ( *cygwin_conversionfunc_type)( const char*, char* ) ;
 
   extern cygwin_initfunc_type       cygwin_initfunc            ;
@@ -35,9 +35,9 @@
   /** returns > 0 iff cygwin could be loaded. Note that it's not usually an error to be unable to load
    * cygwin1.dll - that just means the code is not executing in cygwin shell and can proceed w/out doing any
    * conversions. Returns 0 if cygwin1.dll could not be loaded. Returns < 0 on error. */
-  int jst_cygwinInit() ;
+  int jst_cygwinInit( void ) ;
 
-  void jst_cygwinRelease() ;
+  void jst_cygwinRelease( void ) ;
 
   int runCygwinCompatibly( int argc, char** argv, int (*mainproc)( int argc, char** argv ) ) ;
 

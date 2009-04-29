@@ -444,7 +444,7 @@ int startGroovy( int argc, char** argv ) {
 #else
   errno = 0 ;
   ( javaHome = getJavaHomeFromParameter( processedActualParams, "-jh" ) ) || errno ||
-  ( javaHome = jst_findJavaHome( processedActualParams ) ) ;
+  ( javaHome = jst_findJavaHome() ) ;
   MARK_PTR_FOR_FREEING( javaHome )
 #endif
 

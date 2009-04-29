@@ -248,7 +248,7 @@ static char* getJavaHomeFromStandardLocation() {
  * in a way that is very coomon. If you want to use a different order, please use the more
  * specific funtions, e.g. jst_findJavaHomeFromPath().
  * Returns NULL if java home could not be figured out. Freeing the returned value is up to the caller. */
-extern char* jst_findJavaHome( JstActualParam* processedActualParams ) {
+extern char* jst_findJavaHome( void ) {
   char* javaHome ;
 
   errno = 0 ;

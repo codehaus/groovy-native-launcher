@@ -57,7 +57,7 @@ char* jst_createFileName( const char* root, ... ) ;
  * Note that this means that if the program lives in the root dir in *nix, "" is returned.
  * Freeing the returned pointer is the responsibility of the caller.
  * Returns NULL on error. */
-char* jst_getExecutableHome() ;
+char* jst_getExecutableHome( void ) ;
 
 /** returns the full path to the given file or directory. If the given file or dir does not exist, the
  * given param is returned. Also, if the full path is identical to the param, the param is returned.

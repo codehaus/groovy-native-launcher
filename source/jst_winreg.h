@@ -1,6 +1,6 @@
 //  A library for easy creation of a native launcher for Java applications.
 //
-//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
+//  Copyright (c) 2006 Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 //
 //  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
 //  compliance with the License. You may obtain a copy of the License at
@@ -12,7 +12,7 @@
 //  implied. See the License for the specific language governing permissions and limitations under the
 //  License.
 //
-//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi) 
+//  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 
 #if defined( _WIN32 )
 
@@ -25,7 +25,7 @@
 
 
 /** errno != 0 on error. Note that not finding java home from registry is not considered an error. */
-char* jst_findJavaHomeFromWinRegistry() ;
+char* jst_findJavaHomeFromWinRegistry( void ) ;
 
 #    if defined( __cplusplus )
        }
@@ -33,6 +33,6 @@ char* jst_findJavaHomeFromWinRegistry() ;
 
 
 #  endif
-  
+
 #endif
 

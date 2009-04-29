@@ -22,7 +22,13 @@
 import os
 import re
 
+
 Import ( 'environment' )
+
+#print '-----------------------\n'
+#print environment.Dump()
+#print '-----------------------\n'
+
 
 if environment['Width'] == 64 :
     if environment['CC'] == 'gcc' :
@@ -55,7 +61,9 @@ else :
         #  The -MD option is important - it is required when using JNI. 
         #  See for example http://java.sun.com/docs/books/jni/html/start.html#27008 and
         #  http://java.sun.com/docs/books/jni/html/invoke.html#28755
-        environment.Append ( CCFLAGS = [ '-MD' , '-Ox' , '-GF' ] , LINKFLAGS = [ '-opt:ref' , '-opt:nowin98' ] )
+        environment.Append ( CCFLAGS = [ '-MD' , '-Ox' , '-GF' ] , LINKFLAGS = [ '-opt:ref' ] )
+        if float( environment[ 'MSVS_VERSION' ] ) < 9.0 :
+            environment.Append ( LINKFLAGS = [ '-opt:nowin98' ] )
         if not profile :
             #  Global optimization in msvc is incompatible w/ generating debug info (-Zi + friends).
             environment.Append ( CCFLAGS = [ '-GL' ] , LINKFLAGS = [ '-ltcg' ] )
@@ -116,21 +124,26 @@ includeDirectoryName = {
 
 environment.Append ( CPPPATH = [ os.path.join ( javaHome , 'include'  , includeDirectoryName [ environment[ 'Architecture' ] ] ) , os.path.join ( javaHome , 'include' ) ] )
 if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
-    #  -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
-    #    c4206 == translation unit is empty (if not compiling cygwin compatible binary, jst_cygwincompatibility.c is empty)
-    #    c4255 == 'function' : no function prototype given: converting '()' to '(void)'
-    #    c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
-    #    c4820 == padding added into a struct 
-    #  This one is disabled as there's a lot of this done intentionally (and there seems to be no way to tell cl that it's intentional):
-    #    c4706 == assignment in conditional expression
-    #  This one is disabled as it does not seem very interesting:
-    #    c4711 == function 'function' selected for inline expansion
+    # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
+    # c4206 == translation unit is empty (if not compiling cygwin compatible binary, jst_cygwincompatibility.c is empty)
+    # c4668 == 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
+    # c4820 == padding added into a struct 
+    # This one is disabled as there's a lot of this done intentionally (and there seems to be no way to tell cl that it's intentional):
+    # c4706 == assignment in conditional expression
+    # this one's disabled as it does not seem very interesting:
+    # c4711 == function 'function' selected for inline expansion
+    #
     environment.Append ( 
         CPPDEFINES = [ 'WIN32_LEAN_AND_MEAN' , 'VC_EXTRALEAN' , '_CRT_SECURE_NO_WARNINGS' , '_CRT_NONSTDC_NO_DEPRECATE' ] ,
-        CCFLAGS = [ '-TC' , '-Wall' , '-Wp64' , '-wd4206' , '-wd4255' , '-wd4668' , '-wd4706' , '-wd4711' , '-wd4820' ] ,
+        CCFLAGS = [ '-TC' , '-Wall' , '-wd4206' , '-wd4255' , '-wd4668' , '-wd4706' , '-wd4711' , '-wd4820' ] ,
         LIBS = [ 'advapi32' ] ,
-        LINKFLAGS = [ '-incremental:no' , '-manifest:no' ]
+        LINKFLAGS = [ '-incremental:no' ]
         )
+    if float( environment[ 'MSVS_VERSION' ] ) < 9.0 :
+        environment.Append ( CCFLAGS   = '-Wp64' )
+    else :
+        environment.Append ( LINKFLAGS = '-manifest:no' ) 
+                            
     windowsEnvironment = environment.Clone ( )
     windowsEnvironment.Append ( LINKFLAGS = [ '-subsystem:windows' , '-entry:mainCRTStartup' ] )
     environment.Append ( LINKFLAGS = [ '-subsystem:console' ] )

@@ -249,7 +249,7 @@ static int startGant( int argc, char** argv ) {
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  javaHome = jst_findJavaHome( processedActualParams ) ;
+  javaHome = jst_findJavaHome() ;
   MARK_PTR_FOR_FREEING( javaHome )
 
   {

@@ -53,7 +53,7 @@
 /** Call this function in the beginning of main to initialize the global flag telling whether to
  * print out debug information to stderr.
  * @return != 0 if debug state enabled */
-int jst_initDebugState() ;
+int jst_initDebugState( void ) ;
 
 /** set to true at startup to print debug information about what the launcher is doing to stdout */
 extern jboolean _jst_debug ;
@@ -261,7 +261,7 @@ int jst_isToBePassedToLaunchee( const JstActualParam* processedParam, JstUnrecog
 /** Tries to find Java home by looking where java command is located on PATH. Freeing the returned value
  * is up to the caller.
  * errno != 0 on error. */
-char* jst_findJavaHomeFromPath() ;
+char* jst_findJavaHomeFromPath( void ) ;
 
 /** First sees if JAVA_HOME is set and points to an existing location (the validity is not checked).
  * Next, windows registry is checked (if on windows) or if on os-x the standard location
@@ -271,7 +271,7 @@ char* jst_findJavaHomeFromPath() ;
  * in a way that is very coomon. If you want to use a different order, please use the more
  * specific funtions, e.g. jst_findJavaHomeFromPath().
  * Returns NULL if java home could not be figured out. Freeing the returned value is up to the caller. */
-char* jst_findJavaHome( JstActualParam* processedActualParams ) ;
+char* jst_findJavaHome( void ) ;
 
 /** A simple utility that returns a dynallocated copy of java home string if it is passed in in
  * the given param */
