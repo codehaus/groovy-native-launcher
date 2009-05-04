@@ -193,6 +193,11 @@ static const JstParamInfo java2groovyParameters[] = {
   { NULL,                 0,                0 }
 } ;
 
+static const JstParamInfo groovyStarterParameters[] = {
+  { groovyClasspathParam,  JST_DOUBLE_PARAM, JST_IGNORE | JST_CYGWIN_PATHLIST_CONVERT },
+  { NULL,                  0,                0 }
+} ;
+
 static const JstParamInfo noParameters[] = {
   { NULL,          0,                0 }
 } ;
@@ -201,17 +206,19 @@ typedef struct {
   char* executableName ;
   char* mainClass ;
   JstParamInfo* parameterInfos ;
+  JstUnrecognizedParamStrategy unrecognizedParamStrategy ;
 } GroovyApp ;
 
-static const GroovyApp groovyApps[] = {
-  { "groovy",        "groovy.ui.GroovyMain",                           (JstParamInfo*)groovyParameters  },
-  { "groovyc",       "org.codehaus.groovy.tools.FileSystemCompiler",   (JstParamInfo*)groovycParameters },
-  { "gant",          "gant.Gant",                                      (JstParamInfo*)gantParameters },
-  { "groovysh",      "org.codehaus.groovy.tools.shell.Main",           (JstParamInfo*)groovyshParameters },
-  { "grape",         "org.codehaus.groovy.tools.GrapeMain",            (JstParamInfo*)noParameters },
-  { "java2groovy",   "org.codehaus.groovy.antlr.java.Java2GroovyMain", (JstParamInfo*)java2groovyParameters },
-  { "groovyconsole", "groovy.ui.Console",                              (JstParamInfo*)noParameters },
-  { "graphicspad",   "groovy.swing.j2d.app.GraphicsPad",               (JstParamInfo*)noParameters },
+static GroovyApp groovyApps[] = {
+  { "groovy",        "groovy.ui.GroovyMain",                           (JstParamInfo*)groovyParameters,        JST_UNRECOGNIZED_TO_JVM },
+  { "groovyc",       "org.codehaus.groovy.tools.FileSystemCompiler",   (JstParamInfo*)groovycParameters,       JST_UNRECOGNIZED_TO_JVM },
+  { "gant",          "gant.Gant",                                      (JstParamInfo*)gantParameters,          JST_UNRECOGNIZED_TO_JVM },
+  { "groovysh",      "org.codehaus.groovy.tools.shell.Main",           (JstParamInfo*)groovyshParameters,      JST_UNRECOGNIZED_TO_JVM },
+  { "grape",         "org.codehaus.groovy.tools.GrapeMain",            (JstParamInfo*)noParameters,            JST_UNRECOGNIZED_TO_JVM },
+  { "java2groovy",   "org.codehaus.groovy.antlr.java.Java2GroovyMain", (JstParamInfo*)java2groovyParameters,   JST_UNRECOGNIZED_TO_JVM },
+  { "groovyconsole", "groovy.ui.Console",                              (JstParamInfo*)noParameters,            JST_UNRECOGNIZED_TO_JVM },
+  { "graphicspad",   "groovy.swing.j2d.app.GraphicsPad",               (JstParamInfo*)noParameters,            JST_UNRECOGNIZED_TO_JVM },
+  { "startgroovy",   NULL,                                             (JstParamInfo*)groovyStarterParameters, JST_UNRECOGNIZED_TO_APP },
 
   { NULL, NULL, NULL }
 } ;
@@ -286,6 +293,12 @@ static GroovyApp* recognizeGroovyApp( const char* cmd ) {
     }
   }
 
+  if ( _jst_debug ) {
+    fprintf( stderr, "debug: starting groovy app %s", app->executableName ) ;
+    if ( strcasecmp( app->executableName, execName ) ) fprintf( stderr, " (executable name %s)", execName ) ;
+    fprintf( stderr, "\n" ) ;
+  }
+
   if ( strcasecmp( "groovysh", app->executableName ) == 0 && getenv( "OLDSHELL" ) ) {
     app->mainClass = "groovy.ui.InteractiveShell" ;
   }
@@ -316,6 +329,12 @@ static char* createScriptNameDParam( const char* scriptName ) {
   return scriptNameD ;
 }
 
+static void printProgramArgs( int argc, char** argv ) {
+  int i = 0 ;
+  fprintf( stderr, "parameters passed to the launcher:\n" ) ;
+  for ( ; i < argc ; i++ ) fprintf( stderr, "\t%d : %s\n", i, argv[ i ] ) ;
+}
+
 int startGroovy( int argc, char** argv ) {
 
   JavaLauncherOptions options ;
@@ -344,7 +363,8 @@ int startGroovy( int argc, char** argv ) {
 
   int  numArgs = argc - 1 ;
 
-  int  rval = -1 ;
+  int  rval = -1,
+       numSkippedCommandLineParams = 1 ;
 
   JVMSelectStrategy jvmSelectStrategy = JST_CLIENT_FIRST ;
 
@@ -360,6 +380,8 @@ int startGroovy( int argc, char** argv ) {
 
   jst_initDebugState() ;
 
+  if ( _jst_debug ) printProgramArgs( argc, argv ) ;
+
   memset( &extraJvmOptions, 0, sizeof( extraJvmOptions ) ) ;
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
@@ -369,11 +391,23 @@ int startGroovy( int argc, char** argv ) {
   groovyApp = recognizeGroovyApp( argv[ 0 ] ) ;
 
   if ( !groovyApp ) goto end ;
+
+  if ( strcasecmp( "startgroovy", groovyApp->executableName ) == 0 ) {
+    if ( numArgs < 2 ) {
+      fprintf( stderr, "error: too few parameters to groovyStarter\n" ) ;
+      goto end ;
+    }
+    groovyApp->mainClass = argv[ 2 ] ;
+    numSkippedCommandLineParams += 2 ;
+    numArgs -= 2 ;
+  }
+
   extraProgramOptions[ 1 ] = groovyApp->mainClass ;
+
 
   if ( displayHelp && strcmp( "groovy", groovyApp->executableName ) != 0 ) displayHelp = JNI_FALSE ;
 
-  processedActualParams = jst_processInputParameters( argv + 1, argc - 1, groovyApp->parameterInfos, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
+  processedActualParams = jst_processInputParameters( argv + numSkippedCommandLineParams, argc - numSkippedCommandLineParams, groovyApp->parameterInfos, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
 
   MARK_PTR_FOR_FREEING( processedActualParams )
 
@@ -507,7 +541,7 @@ int startGroovy( int argc, char** argv ) {
   options.javaHome            = javaHome ;
   options.jvmSelectStrategy   = jvmSelectStrategy ;
   options.initialClasspath    = NULL ;
-  options.unrecognizedParamStrategy = JST_UNRECOGNIZED_TO_JVM ;
+  options.unrecognizedParamStrategy = groovyApp->unrecognizedParamStrategy ;
   options.parameters          = processedActualParams ;
   options.jvmOptions          = &extraJvmOptions ;
   options.extraProgramOptions = extraProgramOptions ;
