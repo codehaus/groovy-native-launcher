@@ -76,6 +76,11 @@ else :
     Exit ( 1 )
 environment['Width'] = width
 
+#  The Client VM test in tests/groovyTest.py has to know whether this is a 32-bit or 64-bit VM test, so put
+#  the width value into the shell environment so that it can be picked up during the test.
+
+os.environ['Width'] = str ( width )
+
 #  Distinguish the build directory and the sconsign file by architecture, shell, processor, and compiler so
 #  that multiple builds for different architectures can happen concurrently using the same source tree.
  

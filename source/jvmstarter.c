@@ -82,7 +82,6 @@ typedef BOOL (WINAPI *SetDllDirFunc)( LPCTSTR lpPathname ) ;
 #      define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #      define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
 #    elif defined( __amd64__ )
-// no client jvm exists on this platform:
 #      define PATHS_TO_SERVER_JVM "lib/amd64/server/libjvm.so"
 #      define PATHS_TO_CLIENT_JVM ""
 #    else
@@ -90,17 +89,18 @@ typedef BOOL (WINAPI *SetDllDirFunc)( LPCTSTR lpPathname ) ;
 #    endif
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  elif defined( __sun__ )
-
 #    if defined( __sparc__ ) || defined( __sparc ) || defined( __sparcv9 )
-
-#      define PATHS_TO_SERVER_JVM "lib/sparc/server/libjvm.so", "lib/sparcv9/server/libjvm.so"
-#      define PATHS_TO_CLIENT_JVM "lib/sparc/client/libjvm.so", "lib/sparc/libjvm.so"
-
+#      if defined ( _LP64 ) || defined ( __LP64__ ) || defined ( __arch64__ )
+#        define PATHS_TO_SERVER_JVM "lib/sparcv9/server/libjvm.so"
+#        define PATHS_TO_CLIENT_JVM ""
+#      else
+#        define PATHS_TO_SERVER_JVM "lib/sparc/server/libjvm.so"
+#        define PATHS_TO_CLIENT_JVM "lib/sparc/client/libjvm.so"
+#      endif
 #    elif defined( __i386__ ) || defined( __i386 )
         // these are just educated guesses, I have no access to solaris running on x86...
 #      define PATHS_TO_SERVER_JVM "lib/i386/server/libjvm.so"
 #      define PATHS_TO_CLIENT_JVM "lib/i386/client/libjvm.so"
-
 #    else
        // should not happen, but this does not hurt either
 #      error "You are running solaris on an architecture that is currently not supported. Please contact the author to have support added."
