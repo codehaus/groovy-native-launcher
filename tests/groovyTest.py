@@ -58,10 +58,13 @@ class GroovyTestCase ( unittest.TestCase ) :
         self.groovyExecutionTest ( '-server -e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'server vm' , re.IGNORECASE ) , prefixCommand = "LD_LIBRARY_PATH='/usr/jdk/latest/jre/lib/sparc/server'" if supportModule.platform == 'sunos' else '' )
 
     def testClientVM ( self ) :
-        #  It seems that there are no client JVMs for 64-bit JVMs, only server JVMs.  Certainly this is true
-        #  for the Solaris 10 Sparc and Codehaus Bamboo test machines.  For the moment hack the test so that
-        #  it works:  os.environ['Width'] should be either 32 or 64.
-        self.groovyExecutionTest ( '-e "println System.getProperty ( \'java.vm.name\' )"' , re.compile( 'server vm' if os.environ['Width'] == '64' else 'client vm' , re.IGNORECASE ) )
+        #  It seems that there is no 64-bit client JVMs, only server JVMs for 64-bit.  Certainly this is
+        #  true for the Solaris 10 Sparc and Codehaus Bamboo test machines.  For the moment hack the test so
+        #  that it works: os.environ['Width'] should be either 32 or 64.  In fact, Codehaus' Bamboo server
+        #  doesn't have the client VM installed at all only the 64-bit server VM, we must treat this as a
+        #  special case.  Experiment indicates the name of the machine is as given.
+        self.groovyExecutionTest ( '-e "println System.getProperty ( \'java.vm.name\' )"' , re.compile(
+            'server vm' if ( os.environ['Width'] == '64' ) or ( platform.node ( ) == 'codehaus04.managed.contegix.com' ) else 'client vm' , re.IGNORECASE ) )
 
     def testExitStatus ( self ) :
         self.groovyExecutionTest ( '-e "System.exit ( 123 )"' , '' , 123 )
