@@ -59,8 +59,21 @@ def runTests ( path , architecture , testClass ) :
     executablePath = path
     global platform
     platform = architecture
-    return unittest.TextTestRunner ( ).run ( unittest.makeSuite ( testClass , 'test' ) ).wasSuccessful ( )
-
+    if os.environ['xmlOutputRequired'] == 'True' :
+        resultsDirectory = os.environ['xmlTestOutputDirectory']
+        if not os.path.exists ( resultsDirectory ) : os.mkdir ( resultsDirectory )
+        outputFile = file ( os.path.join ( resultsDirectory , 'TEST-' + testClass.__name__ + '.xml' ) , 'w' )
+        #  Shouldn't have to do this next bit, it should be done for us but isn't :-(
+        outputFile.write('<?xml version="1.0" encoding="utf-8"?>\n')
+        try :
+            import xmltestrunner , glob
+            testrunner = xmltestrunner.XMLTestRunner ( outputFile )
+            returnCode = testrunner.run ( unittest.defaultTestLoader.loadTestsFromTestCase ( testClass ) ).wasSuccessful ( )
+        finally :
+            outputFile.close ( )
+    else :
+        returnCode = unittest.TextTestRunner ( ).run ( unittest.defaultTestLoader.loadTestsFromTestCase ( testClass ) ).wasSuccessful ( )
+    return returnCode
   
 if __name__ == '__main__' :
     print 'Run tests using command "scons test".'

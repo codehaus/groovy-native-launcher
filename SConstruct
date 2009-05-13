@@ -23,6 +23,15 @@ import platform
 import os
 import sys
 
+#  For Bamboo continuous integration, the test results need to be output as XML files.  Provide a command
+#  line option to switch the feature on.  Have to put the value into the shell environment so that its value
+#  is available in other Python code.  Because of this always use strings.
+
+xmlTestOutputDirectory = 'test-results'
+xmlOutputRequired = ARGUMENTS.get ( 'xmlOutputRequired' , 'False' )
+os.environ['xmlTestOutputDirectory'] = xmlTestOutputDirectory
+os.environ['xmlOutputRequired' ] = xmlOutputRequired
+
 #  Once we have an environment, we can distinguish things according to the PLATFORM which is one of posix,
 #  darwin, sunos, cygwin, win32 for the machines tested to date.  This does not distinguish the same OS on
 #  different architectures where this is an issue.  For Python this is not an issue, but we are compiling C
@@ -44,7 +53,7 @@ toolchain = ARGUMENTS.get ( 'toolchain' , False )
 msvsVersion = ARGUMENTS.get ( 'msvsversion' , False ) 
 if ( toolchain ) :
     if msvsVersion :
-        environment = Environment ( tools = [ toolchain ], MSVS_VERSION = msvsVersion )
+        environment = Environment ( tools = [ toolchain ] , MSVS_VERSION = msvsVersion )
     else :
         environment = Environment ( tools = [ toolchain ] )
 elif msvsVersion :
@@ -114,7 +123,12 @@ Command ( 'test' , executables , runLauncherTests )
 #  Have to take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
 #  does arise on Solaris 10.
 
-Clean ( '.' , Glob ( '*~' ) + Glob ( '.*~' ) + Glob ( '*/*~' ) + Glob ( '*.pyc' ) + Glob ( '*/*.pyc' ) + Glob ( 'hs_err_pid*.log' ) + [ buildDirectory , 'core' ] )
+Clean ( '.' ,
+        Glob ( '*~' ) + Glob ( '.*~' ) + Glob ( '*/*~' )
+        + Glob ( '*.pyc' ) + Glob ( '*/*.pyc' )
+        + Glob ( 'hs_err_pid*.log' )
+        + [ buildDirectory , xmlTestOutputDirectory , 'core' ]
+        )
 
 defaultPrefix = '/usr/local'
 defaultInstallBinDirSubdirectory = 'bin'
