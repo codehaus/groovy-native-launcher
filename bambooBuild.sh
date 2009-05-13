@@ -37,4 +37,4 @@ export GANT_HOME=$gantInstallPath
 #  the return code of the script?
 
 #__JLAUNCHER_DEBUG=true JAVA_OPTS=  scons $widthParameter test
-JAVA_OPTS=  scons $widthParameter test
+JAVA_OPTS=  scons $widthParameter xmlOutputRequired=True test

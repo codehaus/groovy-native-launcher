@@ -27,7 +27,7 @@ import sys
 #  line option to switch the feature on.  Have to put the value into the shell environment so that its value
 #  is available in other Python code.  Because of this always use strings.
 
-xmlTestOutputDirectory = 'test-results'
+xmlTestOutputDirectory = 'test-reports'
 xmlOutputRequired = ARGUMENTS.get ( 'xmlOutputRequired' , 'False' )
 os.environ['xmlTestOutputDirectory'] = xmlTestOutputDirectory
 os.environ['xmlOutputRequired' ] = xmlOutputRequired
