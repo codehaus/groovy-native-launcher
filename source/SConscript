@@ -142,7 +142,8 @@ if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
     if float( environment[ 'MSVS_VERSION' ] ) < 9.0 :
         environment.Append ( CCFLAGS   = '-Wp64' )
     else :
-        environment.Append ( LINKFLAGS = '-manifest:no' ) 
+        environment[ 'SHLINKCOM' ] = [ environment[ 'SHLINKCOM' ], 'mt -nologo -manifest ${TARGET}.manifest -outputresource:${TARGET};2' ]
+        environment[ 'LINKCOM'   ] = [ environment[ 'LINKCOM'   ], 'mt -nologo -manifest ${TARGET}.manifest -outputresource:${TARGET};1' ]
                             
     windowsEnvironment = environment.Clone ( )
     windowsEnvironment.Append ( LINKFLAGS = [ '-subsystem:windows' , '-entry:mainCRTStartup' ] )

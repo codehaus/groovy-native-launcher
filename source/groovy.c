@@ -394,7 +394,7 @@ int startGroovy( int argc, char** argv ) {
 
   if ( strcasecmp( "startgroovy", groovyApp->executableName ) == 0 ) {
     if ( numArgs < 2 ) {
-      fprintf( stderr, "error: too few parameters to groovyStarter\n" ) ;
+      fprintf( stderr, "error: too few parameters to startGroovy\n" ) ;
       goto end ;
     }
     groovyApp->mainClass = argv[ 2 ] ;
