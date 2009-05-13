@@ -228,9 +228,9 @@ static char* getJavaHomeFromEnvVar() {
 #if defined( __APPLE__ )
 
 static char* getJavaHomeFromStandardLocation() {
-  char* javaHome = "/System/Library/Frameworks/JavaVM.framework" ;
+  char* javaHome = "/System/Library/Frameworks/JavaVM.framework/Home" ;
   if ( !jst_fileExists( javaHome ) ) {
-     fprintf( stderr, "warning: java home not found in standard location %s\n", javaHome ) ;
+     fprintf( stderr, "warning: Java home not found in standard location %s\n", javaHome ) ;
      javaHome = NULL ;
    } else {
      javaHome = jst_strdup( javaHome ) ;
