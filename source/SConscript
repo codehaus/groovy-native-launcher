@@ -22,13 +22,11 @@
 import os
 import re
 
-
 Import ( 'environment' )
 
 #print '-----------------------\n'
 #print environment.Dump()
 #print '-----------------------\n'
-
 
 if environment['Width'] == 64 :
     if environment['CC'] == 'gcc' :
@@ -90,7 +88,7 @@ except :
     javaHome = '' 
 if javaHome == '' :
     if environment['PLATFORM'] == 'darwin' :
-        putativeDirectory = '/System/Library/Frameworks/JavaVM.framework'
+        putativeDirectory = '/System/Library/Frameworks/JavaVM.framework/Home'
         if os.path.isdir ( putativeDirectory ) :
             javaHome = putativeDirectory
             environment.Append ( CPPPATH = [ javaHome ] )
