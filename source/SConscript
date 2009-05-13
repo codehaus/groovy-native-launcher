@@ -82,21 +82,29 @@ extraMacrosString = ARGUMENTS.get ( 'extramacros' , '' )
 for macro in extraMacrosString.split ( ) :
     environment.Append ( CPPDEFINES = [ macro ] )
 
+defaultJDKLocations = {
+    'Darwin' : [ '/System/Library/Frameworks/JavaVM.framework/Home' ] ,
+    'Linux' : [ '/usr/lib/jvm/java-6-sun' , '/usr/lib/jvm/java-6-openjdk' , '/usr/lib/jvm/java-5-sun' , '/usr/lib/jvm/java-5-openjdk' ] ,
+    'Solaris' : [ '/usr/jdk/latest' ] ,
+    }
+
 try :
     javaHome = os.environ['JAVA_HOME']
 except :
     javaHome = '' 
 if javaHome == '' :
-    if environment['PLATFORM'] == 'darwin' :
-        putativeDirectory = '/System/Library/Frameworks/JavaVM.framework/Home'
+    try :
+        putativeDirectoryList = defaultJDKLocations [ environment['Architecture'] ]
+    except :
+        print 'JAVA_HOME is not defined and no default location can be inferred.'
+        Exit ( 1 )
+    for putativeDirectory in putativeDirectoryList :
         if os.path.isdir ( putativeDirectory ) :
             javaHome = putativeDirectory
             environment.Append ( CPPPATH = [ javaHome ] )
-        else :
-            print 'JAVA_HOME not defined and', putativeDirectory, 'not found.'
-            Exit ( 1 )
+            break
     else :
-        print 'JAVA_HOME not defined.'
+        print 'JAVA_HOME not defined and none of', putativeDirectoryList , 'found.'
         Exit ( 1 )
 
 if environment['PLATFORM'] == 'cygwin' :
