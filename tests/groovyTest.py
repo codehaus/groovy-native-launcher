@@ -119,7 +119,7 @@ class CygwinGroovyTestCase ( GroovyTestCase ) :
 #  The entry point for SCons to use.
 
 def runTests ( path , architecture ) :
-    return supportModule.runTests ( path , architecture , CygwinGroovyTestCase if supportModule.platform == 'cygwin' else GroovyTestCase )
+    return supportModule.runTests ( path , architecture , CygwinGroovyTestCase if architecture == 'cygwin' else GroovyTestCase )
 
 if __name__ == '__main__' :
     print 'Run tests using command "scons test".'
