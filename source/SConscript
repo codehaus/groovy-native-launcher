@@ -146,25 +146,27 @@ if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
         LINKFLAGS = [ '-incremental:no' ]
         )
     if float( environment[ 'MSVS_VERSION' ] ) < 9.0 :
-        environment.Append ( CCFLAGS   = '-Wp64' )
+        environment.Append ( CCFLAGS = [ '-Wp64' ] )
     else :
         environment[ 'SHLINKCOM' ] = [ environment[ 'SHLINKCOM' ], 'mt -nologo -manifest ${TARGET}.manifest -outputresource:${TARGET};2' ]
         environment[ 'LINKCOM'   ] = [ environment[ 'LINKCOM'   ], 'mt -nologo -manifest ${TARGET}.manifest -outputresource:${TARGET};1' ]
+        # does not work
+        #Clean( '.', '*.manifest' )
                             
     windowsEnvironment = environment.Clone ( )
     windowsEnvironment.Append ( LINKFLAGS = [ '-subsystem:windows' , '-entry:mainCRTStartup' ] )
     environment.Append ( LINKFLAGS = [ '-subsystem:console' ] )
-elif environment['CC'] == 'gcc' :
+elif environment[ 'CC' ] == 'gcc' :
     #  Cygwin specific options were set earlier.
-    environment.Append ( CCFLAGS = ' -W -Wall -Wundef -Wcast-align -Wno-unused-parameter -Wshadow -Wredundant-decls' )
-    if environment['PLATFORM'] == 'win32' :
+    environment.Append ( CCFLAGS = [ '-W', '-Wall', '-Wundef', '-Wcast-align', '-Wno-unused-parameter', '-Wshadow', '-Wredundant-decls' ] )
+    if environment[ 'PLATFORM' ] == 'win32' :
         # TODO:  Find out what the right options are here for the MinGW GCC.
         windowsEnvironment = environment.Clone ( )
-        windowsEnvironment.Append ( LINKFLAGS = '-mwindows' )
+        windowsEnvironment.Append ( LINKFLAGS = [ '-mwindows' ] )
 else :
-    print 'Assuming default options for compiler' , environment['CC']
+    print 'Assuming default options for compiler' , environment[ 'CC' ]
 
-if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = [ 'dl' ] )
+if environment[ 'Architecture' ] in [ 'Linux' ] : environment.Append ( LIBS = [ 'dl' ] )
 
 #  Search for any file with what appears to be a main function and assume that file is the main file of an
 #  application to be built.  Assume all other source files should be compiled and linked with each of the
