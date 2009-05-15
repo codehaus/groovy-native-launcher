@@ -773,6 +773,19 @@ static void printPathLookupDebugMessage( const char* pathname, const char* locat
                                                           }
 
 
+static int fileExistsInDir( const char* dirname, const char* filename ) {
+  char* pathToFile ;
+  int exists = 0 ;
+
+  CREATE_PATH_TO_FILE_A( pathToFile, dirname, filename )
+
+  exists = jst_fileExists( pathToFile ) ;
+
+  jst_freea( pathToFile ) ;
+
+  return exists ;
+}
+
 /** Checks that the given file exists and if validator func is given, checks against that, too. */
 static int validateFile( const char* dirname, const char* filename, int (*validator)( const char* dirname, const char* filename ) ) {
 
@@ -797,8 +810,10 @@ static int validateFile( const char* dirname, const char* filename, int (*valida
 }
 
 
-/** Returns  the path entry containing the given file AND (if given) accepted by the validator. On error errno will be set.
- * The pointer is to a part of the given path buffer. */
+/** Returns the path entry containing the given file AND (if given) accepted by the validator. On error errno will be set.
+ * The pointed memory must be freed by the caller.
+ * Note: the returned dir is not necessarily what is on the path - the location of the file is resolved
+ * for any symlinks / relative paths. */
 static char* findPathEntryContainingFile( char* path, const char* file, int (*validator)( const char* dirname, const char* filename ) ) {
 
   char     *dirname ;
@@ -810,7 +825,30 @@ static char* findPathEntryContainingFile( char* path, const char* file, int (*va
 
     if ( !*dirname ) continue ;
 
-    if ( ( found = validateFile( dirname, file, validator ) ) ) break ;
+    if ( fileExistsInDir( dirname, file ) ) {
+      char* realFileName ;
+#if defined( _WIN32 )
+      realFileName = (char*)file ;
+#else
+      char resolvedPath[ PATH_MAX + 1 ] ;
+      char *originalFile ;
+
+      CREATE_PATH_TO_FILE_A( originalFile, dirname, file )
+      realpath( resolvedPath, originalFile ) ;
+      realFileName = strrchr( resolvedPath, JST_FILE_SEPARATOR[ 0 ] ) ;
+      *realFileName++ = '\0' ;
+      dirname = resolvedPath ;
+#endif
+
+      if ( !validator || validator( dirname, realFileName ) ) {
+        found = JNI_TRUE ;
+        dirname = jst_strdup( dirname ) ;
+      }
+#if !defined( _WIN32 )
+      jst_freea( resolvedPath ) ;
+#endif
+      if ( found ) break ;
+    }
 
   }
 
@@ -839,8 +877,6 @@ extern char* jst_findFromPath( const char* execName, int (*validator)( const cha
   }
 
   dirname = findPathEntryContainingFile( path, execName, validator ) ;
-
-  if ( dirname ) dirname = jst_strdup( dirname ) ;
 
   end:
   if ( path ) { jst_freea( path ) ; }
