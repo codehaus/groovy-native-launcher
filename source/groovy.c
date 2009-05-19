@@ -220,7 +220,7 @@ static GroovyApp groovyApps[] = {
   { "graphicspad",   "groovy.swing.j2d.app.GraphicsPad",               (JstParamInfo*)noParameters,            JST_UNRECOGNIZED_TO_JVM },
   { "startgroovy",   NULL,                                             (JstParamInfo*)groovyStarterParameters, JST_UNRECOGNIZED_TO_APP },
 
-  { NULL, NULL, NULL }
+  { NULL, NULL, NULL, 0 }
 } ;
 
 
