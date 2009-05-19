@@ -183,6 +183,10 @@
 
 
   }
+#elif defined( _WIN32 )
+
+// this is here just to keep (ms cl) compiler from complaining about empty translation units
+static void cygDummy() {} 
 
 #endif
 

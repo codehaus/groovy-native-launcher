@@ -70,6 +70,12 @@
 #include "jst_cygwin_compatibility.h"
 #endif
 
+// FIXME - remove this - just for debugging on ms visual studio
+//#if defined( _WIN32 ) && defined( _MSC_VER ) && _MSC_VER >= 1500
+//#  define stat _stat
+//#  define S_IFDIR _S_IFDIR
+//#endif
+
 /** Returns != 0 if the given file exists. In case of error, errno != 0 */
 extern int jst_fileExists( const char* fileName ) {
 
@@ -134,21 +140,25 @@ extern char* jst_pathToParentDir( char* path ) {
 
 #if defined( _WIN32 )
 
-/** returns true if there is an error, changes value of errorOccurred accordingly */
+/** returns true if there is an error or the given handle is invalid, changes value of errorOccurred accordingly */
 static jboolean checkForInvalidFileHandle( HANDLE fileHandle, const char* dirName, jboolean* errorOccurred ) {
+
+  int notFound = 0 ;
 
   if ( fileHandle == INVALID_HANDLE_VALUE ) {
 
     DWORD lastError = GetLastError() ;
 
-    if ( lastError != ERROR_FILE_NOT_FOUND ) {
+    notFound = lastError == ERROR_FILE_NOT_FOUND ;
+
+    if ( !notFound ) { // some other error than not found, which is not really an error here
       fprintf( stderr, "error: opening directory %s failed\n", dirName ) ;
       jst_printWinError( lastError ) ;
       *errorOccurred = JNI_TRUE ;
     }
   }
 
-  return *errorOccurred ;
+  return notFound ? JNI_TRUE : *errorOccurred ;
 
 }
 
@@ -242,7 +252,7 @@ static jboolean getFileNamesToArray( char* dirName, char* fileNamePrefix, char* 
   }
 
   if ( !lastError ) lastError = GetLastError() ;
-  if ( lastError != ERROR_NO_MORE_FILES ) {
+  if ( lastError != ERROR_NO_MORE_FILES && lastError != ERROR_FILE_NOT_FOUND ) {
     fprintf( stderr, "error: error occurred reading directory %s\n", dirName ) ;
     jst_printWinError( lastError ) ;
     errorOccurred = JNI_TRUE ;
@@ -295,6 +305,8 @@ static jboolean getFileNamesToArray( char* dirName, char* fileNamePrefix, char* 
 
 #endif
 
+// FIXME - if an error occurs, the caller has no way of distinguishing it from a situation where no files were found
+
 extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileNameSuffix, int (*selector)( const char* dirname, const char* filename ) ) {
 
   char     **fileNamesTmp ;
@@ -308,7 +320,7 @@ extern char** jst_getFileNames( char* dirName, char* fileNamePrefix, char* fileN
   errorOccurred = getFileNamesToArray( dirName, fileNamePrefix, fileNameSuffix, &fileNamesTmp, &resultSize, &fileNameCount, selector ) ;
 
 
-  if ( fileNamesTmp ) {
+  if ( fileNamesTmp && fileNameCount > 0 ) {
     fileNamesTmp = jst_appendArrayItem( fileNamesTmp, fileNameCount, &resultSize, NULL, sizeof( char* ) ) ;
     if ( !fileNamesTmp ) errorOccurred = JNI_TRUE ;
   }

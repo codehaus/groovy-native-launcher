@@ -190,6 +190,7 @@ extern char* jst_findJavaHomeFromPath() {
   // we are checking whether the executable is in "bin" dir
   // TODO: this is rather elementary test (but works unless there is a java executable in
   //       a bin dir of some other app) - a better one is needed.
+  // FIXME - use a different test on OS-X
   char *javaBinDir = jst_findFromPath( JAVA_EXECUTABLE, validateThatFileIsInBinDir ) ;
   if ( javaBinDir ) javaBinDir = jst_pathToParentDir( javaBinDir ) ;
   return javaBinDir ;
@@ -224,6 +225,8 @@ static char* getJavaHomeFromEnvVar() {
   return NULL ;
 
 }
+
+// TODO: add lookup from "standard locations" on linux and solaris, too
 
 #if defined( __APPLE__ )
 
@@ -316,7 +319,7 @@ static char* getJvmSelectStrategy( JVMSelectStrategy jvmSelectStrategy, char*** 
 /** Sets the pathBuffer[0]=0 if dll setter func is found, to current dir otherwise. */
 static SetDllDirFunc getDllDirSetterFuncOrPathToCurrentDir( char* pathBuffer, size_t bufsize ) {
 
-  SetDllDirFunc dllDirSetterFunc = dllDirSetterFunc = getDllDirSetterFunc() ;
+  SetDllDirFunc dllDirSetterFunc = getDllDirSetterFunc() ;
 
   *pathBuffer = '\0' ;
 

@@ -222,7 +222,7 @@ typedef struct {
 //#include "Windows.h"
 // DWORD is defined as unsigned long, so we'll just use that
 /** Prints an error message for the given windows error code. */
-void jst_printWinError( unsigned long errcode ) ;
+void jst_printWinError( unsigned long errorCode ) ;
 
 #endif
 
