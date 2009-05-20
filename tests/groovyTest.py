@@ -38,6 +38,8 @@ class GroovyTestCase ( unittest.TestCase ) :
     def groovyExecutionTest ( self , command , expectedOutput = '' , expectedReturnCode = None , extraMessage = None , prefixCommand = '' ) :
         '''Execute a Groovy command and then test that the return code is right and the output is right.'''
         ( returnCode , output ) = supportModule.executeCommand ( command , prefixCommand )
+        #print "return code ", returnCode
+        #print "output ", output
         self.assertEqual ( returnCode , expectedReturnCode )
         if type ( expectedOutput ) == type ( re.compile ( 'a' ) ) :
             assert expectedOutput.search ( output ) != None , 'Failed to match ' +  ( extraMessage if extraMessage else output + ' against ' + str ( expectedOutput ) )

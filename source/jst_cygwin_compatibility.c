@@ -35,10 +35,10 @@
 #  endif
 
 
-  cygwin_initfunc_type       cygwin_initfunc            = NULL ;
+  extern cygwin_initfunc_type       cygwin_initfunc            = NULL ;
   // see http://cygwin.com/cygwin-api/func-cygwin-conv-to-win32-path.html
-  cygwin_conversionfunc_type cygwin_posix2win_path      = NULL ;
-  cygwin_conversionfunc_type cygwin_posix2win_path_list = NULL ;
+  extern cygwin_conversionfunc_type cygwin_posix2win_path      = NULL ;
+  extern cygwin_conversionfunc_type cygwin_posix2win_path_list = NULL ;
 
   static HINSTANCE g_cygwinDllHandle = NULL ;
 
@@ -81,8 +81,6 @@
   static char* convertPath( cygwin_conversionfunc_type conversionFunc, char* path ) {
     char  temp[ MAX_PATH + 1 ] ;
 
-    // FIXME
-
     if ( conversionFunc ) {
       conversionFunc( path, temp ) ;
     } else {
@@ -120,8 +118,6 @@
   extern int runCygwinCompatibly( int argc, char** argv, int (*mainproc)( int argc, char** argv ) ) {
 
 
-    int mainRval ;
-
       // NOTE: This code is experimental and is not compiled into the executable by default.
       //       When building w/ rant, do
       //       scons -c
@@ -140,9 +136,10 @@
       // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.cc?rev=1.1&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
       // http://sources.redhat.com/cgi-bin/cvsweb.cgi/winsup/testsuite/winsup.api/cygload.h?rev=1.2&content-type=text/x-cvsweb-markup&cvsroot=uberbaum
 
-      size_t delta ;
+      static int mainRval ;
+      static size_t delta ;
       CygPadding pad ;
-      void* sbase ;
+      static void* sbase ;
 
       g_pad = &pad ;
       pad.end = pad.padding + PAD_SIZE ;
@@ -154,8 +151,10 @@
         ) ;
     #else
       __asm {
+          push eax
           mov eax, fs:[ 4 ]
           mov sbase, eax
+          pop eax
       }
     #endif
       g_pad->stackbase = sbase ;
@@ -186,7 +185,7 @@
 #elif defined( _WIN32 )
 
 // this is here just to keep (ms cl) compiler from complaining about empty translation units
-static void cygDummy() {} 
+static void cygDummy() {}
 
 #endif
 

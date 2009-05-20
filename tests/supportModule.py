@@ -35,7 +35,9 @@ def javaNameCompatibleTemporaryFile ( ) :
 #  byte and the return value in the next byte.
 
 def executeCommand ( command , prefixCommand = '' ) :
-    process = os.popen ( ( prefixCommand + ' ' if prefixCommand else '' ) +  executablePath + ' ' + command )
+    commandLine = ( prefixCommand + ' ' if prefixCommand else '' ) +  executablePath + ' ' + command
+#    print "executing: " + commandLine
+    process = os.popen ( commandLine )
     output = process.read ( ).strip ( )
     returnCode = process.close ( )
     if returnCode != None :
