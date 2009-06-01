@@ -38,6 +38,12 @@
 #include "jst_dynmem.h"
 #include "jst_stringutils.h"
 
+// FIXME - remove this - just for debugging on ms visual studio
+//#if defined( _WIN32 ) && defined( _MSC_VER ) && _MSC_VER >= 1500
+//#  define strdup _strdup
+//#endif
+
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 // the only difference to originals is that these print an error msg if they fail

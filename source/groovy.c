@@ -24,6 +24,8 @@
 #include <stdarg.h>
 #include <ctype.h>
 
+#include <assert.h>
+
 #if defined ( __APPLE__ )
 #  include <TargetConditionals.h>
 
@@ -249,19 +251,21 @@ static char* findGroovyStartupJar( const char* groovyHome ) {
  * If false is returned, check errno to see if there was an error (in mem allocation) */
 static int isValidGroovyHome( const char* dir ) {
   char *gconfFile = NULL ;
-  jboolean rval = JNI_FALSE ;
+  jboolean isValid = JNI_FALSE ;
+
+  assert( dir ) ;
 
   errno = 0 ;
 
   gconfFile = jst_createFileName( dir, "conf", GROOVY_CONF_FILE, NULL ) ;
   if ( gconfFile ) {
-    rval = jst_fileExists( gconfFile ) ? JNI_TRUE : JNI_FALSE ;
+    isValid = jst_fileExists( gconfFile ) ? JNI_TRUE : JNI_FALSE ;
     free( gconfFile ) ;
   }
 
-  if ( _jst_debug ) fprintf( stderr, "debug: %s is %sa valid groovy installation\n", dir, rval ? "" : "not " ) ;
+  if ( _jst_debug ) fprintf( stderr, "debug: %s is %sa valid groovy installation\n", dir, isValid ? "" : "not " ) ;
 
-  return rval ;
+  return isValid ;
 }
 
 /** returns null on error, otherwise pointer to groovy home.
@@ -350,7 +354,7 @@ int startGroovy( int argc, char** argv ) {
   void** dynReservedPointers = NULL ; // free all reserved pointers at at end of func
   size_t dreservedPtrsSize   = 0 ;
 
-# define MARK_PTR_FOR_FREEING( garbagePtr ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) goto end ;
+# define MARK_PTR_FOR_FREEING( garbagePtr ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) { fprintf( stderr, "debug: exiting " __FILE__ " due to a memory problem on line %d. Please report this bug.\n", __LINE__ ) ; goto end ; }
 
   /** terminatingSuffixes contains the suffixes that, if matched, indicate that the matching param and all the rest of the params
    * are launcheeParams, e.g. {".groovy", ".gy", NULL}.
@@ -363,7 +367,7 @@ int startGroovy( int argc, char** argv ) {
 
   int  numArgs = argc - 1 ;
 
-  int  rval = -1,
+  int  exitCode = -1,
        numSkippedCommandLineParams = 1 ;
 
   JVMSelectStrategy jvmSelectStrategy = JST_CLIENT_FIRST ;
@@ -376,7 +380,6 @@ int startGroovy( int argc, char** argv ) {
   JstActualParam *processedActualParams = NULL ;
 
   GroovyApp* groovyApp = NULL ;
-
 
   jst_initDebugState() ;
 
@@ -405,7 +408,7 @@ int startGroovy( int argc, char** argv ) {
   extraProgramOptions[ 1 ] = groovyApp->mainClass ;
 
 
-  if ( displayHelp && strcmp( "groovy", groovyApp->executableName ) != 0 ) displayHelp = JNI_FALSE ;
+  if ( displayHelp && strcasecmp( "groovy", groovyApp->executableName ) != 0 ) displayHelp = JNI_FALSE ;
 
   processedActualParams = jst_processInputParameters( argv + numSkippedCommandLineParams, argc - numSkippedCommandLineParams, groovyApp->parameterInfos, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
 
@@ -436,11 +439,8 @@ int startGroovy( int argc, char** argv ) {
 
   }
 
-// FIXME - remove this. Just for simple testing
-// #define GROOVY_HOME /usr/local/something
-
 #if defined( GROOVY_HOME )
-  // TODO: for some reason this won't accept something that begins w a "/"
+  // TODO: for some reason this won't accept something that begins with a "/"
   groovyHome = JST_STRINGIZER( GROOVY_HOME ) ;
   if ( _jst_debug ) fprintf( stderr, "debug: using groovy home set at compile time: %s\n", groovyHome ) ;
 #else
@@ -552,7 +552,7 @@ int startGroovy( int argc, char** argv ) {
   options.classpathStrategy   = jst_getParameterValue( processedActualParams, "--quickstart" ) ? JST_BOOTSTRAP_CLASSPATH_A : JST_NORMAL_CLASSPATH ;
   options.pointersToFreeBeforeRunningMainMethod = &dynReservedPointers ;
 
-  rval = jst_launchJavaApp( &options ) ;
+  exitCode = jst_launchJavaApp( &options ) ;
 
   // In GROOVY-3340, SimonS reports that things do not work properly if Cygwin is released before the JVM is
   // launched, but things are fine the other way around.  This ordering doesn't matter except in the Cygwin
@@ -586,7 +586,9 @@ end:
 
   jst_freeAll( &dynReservedPointers ) ;
 
-  return rval ;
+  if ( _jst_debug ) fprintf( stderr, "debug: exiting launcher with code %d\n", exitCode ) ;
+
+  return exitCode ;
 
 }
 

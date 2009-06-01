@@ -82,6 +82,8 @@ extraMacrosString = ARGUMENTS.get ( 'extramacros' , '' )
 for macro in extraMacrosString.split ( ) :
     environment.Append ( CPPDEFINES = [ macro ] )
 
+# TODO: maybe add looking up jdk location from windows registry on windows?
+
 defaultJDKLocations = {
     'Darwin' : [ '/System/Library/Frameworks/JavaVM.framework/Home' ] ,
     'Linux' : [ '/usr/lib/jvm/java-6-sun' , '/usr/lib/jvm/java-6-openjdk' , '/usr/lib/jvm/java-5-sun' , '/usr/lib/jvm/java-5-openjdk' ] ,

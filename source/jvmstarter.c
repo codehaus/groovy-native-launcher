@@ -226,18 +226,74 @@ static char* getJavaHomeFromEnvVar() {
 
 }
 
-// TODO: add lookup from "standard locations" on linux and solaris, too
+#if !defined( _WIN32 )
 
-#if defined( __APPLE__ )
+static char* checkExistenceAndResolvePath( const char* javaHome ) {
+
+  if ( jst_fileExists( javaHome ) ) {
+    char resolvedJavaHome[ PATH_MAX + 1 ] ;
+
+    if ( !realpath( resolvedJavaHome, javaHome ) ) {
+      fprintf( stderr, "error: could not resolve the real path of %s\n%d: %s\n", javaHome, errno, strerror( errno ) ) ;
+      javaHome = NULL ;
+    } else {
+      javaHome = jst_strdup( resolvedJavaHome ) ;
+    }
+
+  } else {
+    if ( _jst_debug ) fprintf( stderr, "info: Java home not found in standard location %s\n", javaHome ) ;
+
+    javaHome = NULL ;
+
+  }
+
+  return javaHome ;
+
+}
+
+#if defined( __linux__ )
+
+static int isLinuxJvmDir( const char* dirname, const char* filename ) {
+  // java-\n+-\w+ dirs are java installations.
+  int isJvmDir = JNI_FALSE ;
+  size_t len = strlen( filename ) ;
+
+  if ( len > 8 ) {
+    char* s = filename + 5 ;
+    unsigned int numberCount = 0 ;
+
+    while ( isdigit( *s++ ) ) {
+      numberCount++ ;
+    }
+
+    if ( numberCount > 0 && *s++ == '-' ) {
+      while ( isalpha( *s ) ) s++ ;
+      isJvmDir = !*s ;
+    }
+  }
+
+  return isJvmDir ;
+}
+
+#endif
 
 static char* getJavaHomeFromStandardLocation() {
-  char* javaHome = "/System/Library/Frameworks/JavaVM.framework/Home" ;
-  if ( !jst_fileExists( javaHome ) ) {
-     fprintf( stderr, "warning: Java home not found in standard location %s\n", javaHome ) ;
-     javaHome = NULL ;
-   } else {
-     javaHome = jst_strdup( javaHome ) ;
-   }
+
+  char* javaHome ;
+
+#if defined( __APPLE__ )
+  javaHome = "/System/Library/Frameworks/JavaVM.framework/Home" ;
+#elif defined( __linux__notyetreadyforprimetime )
+  char** javaHomes = jst_getFileNames( "/usr/lib/jvm", "java-", NULL, isLinuxJvmDir ) ;
+  if ( javaHomes[ 0 ] ) javaHome = jst_strdup( javaHomes[ 0 ] ) ;
+  jst_free( javaHomes ) ;
+#elif defined( __sun__ )
+  if ( !( javaHome = checkExistenceAndResolvePath( "/usr/jdk/latest" ) ) )
+    javaHome = checkExistenceAndResolvePath( "/usr/java" ) ;
+#else
+  javaHome = NULL ;
+#endif
+
   return javaHome ;
 }
 
@@ -245,7 +301,7 @@ static char* getJavaHomeFromStandardLocation() {
 
 /** First sees if JAVA_HOME is set and points to an existing location (the validity is not checked).
  * Next, windows registry is checked (if on windows) or if on os-x the standard location
- * /System/Library/Frameworks/JavaVM.framework is checked for existence.
+ * /System/Library/Frameworks/JavaVM.framework/Home is checked for existence.
  * Last, java is looked up from the PATH.
  * This is just a composite function putting together the ways to search for a java installation
  * in a way that is very coomon. If you want to use a different order, please use the more
@@ -260,7 +316,7 @@ extern char* jst_findJavaHome( void ) {
   || ( javaHome = jst_findJavaHomeFromPath() ) || errno
 #if defined( _WIN32 )
   || ( javaHome = jst_findJavaHomeFromWinRegistry() )
-#elif defined( __APPLE__ )
+#else
   || ( javaHome = getJavaHomeFromStandardLocation() )
 #endif
     ;

@@ -88,7 +88,11 @@ extern int jst_fileExists( const char* fileName ) {
 
   assert( i != 0 || errno != ENOENT ) ; // errno == ENOENT => i != 0
 
-  if ( errno == ENOENT ) errno = 0 ;
+  if ( errno == ENOENT ) {
+    errno = 0 ;
+  } else {
+    fprintf( stderr, "unexpected error when checking the existence of %s\n%d: %s\n", fileName, errno, strerror( errno ) ) ;
+  }
 
   return i == 0 ;
 
