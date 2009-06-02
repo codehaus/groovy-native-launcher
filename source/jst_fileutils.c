@@ -90,7 +90,7 @@ extern int jst_fileExists( const char* fileName ) {
 
   if ( errno == ENOENT ) {
     errno = 0 ;
-  } else {
+  } else if ( errno ) {
     fprintf( stderr, "unexpected error when checking the existence of %s\n%d: %s\n", fileName, errno, strerror( errno ) ) ;
   }
 
