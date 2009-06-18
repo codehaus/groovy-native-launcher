@@ -586,7 +586,7 @@ end:
 
   jst_freeAll( &dynReservedPointers ) ;
 
-  if ( _jst_debug ) fprintf( stderr, "debug: exiting launcher with code %d\n", exitCode ) ;
+  if ( _jst_debug ) fprintf( stderr, "debug: exiting %s with code %d\n", argv[ 0 ], exitCode ) ;
 
   return exitCode ;
 

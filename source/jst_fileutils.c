@@ -82,9 +82,29 @@ extern int jst_fileExists( const char* fileName ) {
   struct stat buf ;
   int i ;
 
+#if defined( _WIN32 ) // stat function on windows freaks out if given a directory path that includes a trailing \
+
+  char*  fileNameWithPossibleTrailingSlashRemoved = NULL ;
+  jboolean fileNameEndsWithTrailingSlash = 0 ;
+  size_t fileNameLen = strlen( fileName ) ;
+
+  if ( fileName[ fileNameLen - 1 ] == JST_FILE_SEPARATOR[ 0 ] ) {
+    fileNameEndsWithTrailingSlash = 1 ;
+    JST_STRDUPA( fileNameWithPossibleTrailingSlashRemoved, fileName ) ;
+    fileNameWithPossibleTrailingSlashRemoved[ fileNameLen - 1 ] = '\0' ;
+  } else {
+    fileNameWithPossibleTrailingSlashRemoved = fileName ;
+  }
+
+#endif
+
   errno = 0 ;
 
+#if defined( _WIN32 )
+  i = stat( fileNameWithPossibleTrailingSlashRemoved, &buf ) ;
+#else
   i = stat( fileName, &buf ) ;
+#endif
 
   assert( i != 0 || errno != ENOENT ) ; // errno == ENOENT => i != 0
 
@@ -93,6 +113,10 @@ extern int jst_fileExists( const char* fileName ) {
   } else if ( errno ) {
     fprintf( stderr, "unexpected error when checking the existence of %s\n%d: %s\n", fileName, errno, strerror( errno ) ) ;
   }
+
+#if defined( _WIN32 )
+  if ( fileNameEndsWithTrailingSlash ) jst_freea( fileNameWithPossibleTrailingSlashRemoved ) ;
+#endif
 
   return i == 0 ;
 
@@ -478,13 +502,15 @@ extern char* jst_createFileName( const char* root, ... ) {
   static char* filesep = JST_FILE_SEPARATOR ; // we can not pass a reference to a define, so this is read into a var
 
   va_list args ;
-  char    **strings = NULL,
+  char    **pathElements = NULL,
           *s,
           *previous,
-          *rval = NULL ;
-  size_t  stringsSize = 0 ;
+          *fileName = NULL ;
+  size_t  pathElementsSize = 0 ;
 
-  if ( !jst_appendPointer( (void***)(void*)&strings, &stringsSize, (void*)root ) ) return NULL ;
+  assert( root ) ;
+
+  if ( !jst_appendPointer( (void***)(void*)&pathElements, &pathElementsSize, (void*)root ) ) return NULL ;
 
   // empty string denotes root dir. In case of empty string, add that explicitly so the following
   // loop does not get confused (it assumes skipping empty strings).
@@ -498,22 +524,22 @@ extern char* jst_createFileName( const char* root, ... ) {
 
       if ( ( s[ 0 ] != filesep[ 0 ] ) &&
            ( previous[ strlen( previous ) - 1 ] != filesep[ 0 ] ) &&
-           !jst_appendPointer( (void***)(void*)&strings, &stringsSize, filesep ) ) goto end ;
+           !jst_appendPointer( (void***)(void*)&pathElements, &pathElementsSize, filesep ) ) goto end ;
 
-      if ( !jst_appendPointer( (void***)(void*)&strings, &stringsSize, s ) ) goto end ;
+      if ( !jst_appendPointer( (void***)(void*)&pathElements, &pathElementsSize, s ) ) goto end ;
       previous = s ;
     }
   }
 
 
-  rval = jst_concatenateStrArray( strings ) ;
+  fileName = jst_concatenateStrArray( pathElements ) ;
 
   end:
 
   va_end( args ) ;
 
-  if ( strings ) free( strings ) ;
-  return rval ;
+  if ( pathElements ) free( pathElements ) ;
+  return fileName ;
 
 }
 
@@ -705,7 +731,7 @@ static char* getAppHomeFromEnvVar( const char* envVarName, int (*validator)( con
       int isvalid ;
       errno = 0 ;
       isvalid = validator( appHome ) ;
-      if ( errno ) {
+      if ( errno ) { // TODO: debug messages
 #if defined( _WIN32 ) && defined( _cwcompat )
         if ( CYGWIN_LOADED ) free( appHome ) ;
 #endif
@@ -781,7 +807,8 @@ static void printPathLookupDebugMessage( const char* pathname, const char* locat
 //                                      filename, NULL ) ;
 //}
 
-#define CREATE_PATH_TO_FILE_A( target, dirname, filename ) target = jst_malloca( strlen( dirname ) + strlen( filename ) + 1 ) ; \
+// allocates + 2 bytes in addition to str lengths to occupy terminating null AND potential file separator
+#define CREATE_PATH_TO_FILE_A( target, dirname, filename ) target = jst_malloca( strlen( dirname ) + strlen( filename ) + 2 ) ; \
                                                           if ( target ) { \
                                                             strcpy( target, dirname ) ; \
                                                             if ( !jst_dirNameEndsWithSeparator( dirname ) ) strcat( target, JST_FILE_SEPARATOR ) ; \
@@ -850,10 +877,15 @@ static char* findPathEntryContainingFile( char* path, const char* file, int (*va
       char *originalFile ;
 
       CREATE_PATH_TO_FILE_A( originalFile, dirname, file )
-      realpath( resolvedPath, originalFile ) ;
-      realFileName = strrchr( resolvedPath, JST_FILE_SEPARATOR[ 0 ] ) ;
-      *realFileName++ = '\0' ;
-      dirname = resolvedPath ;
+      if ( realpath( resolvedPath, originalFile ) ) {
+        realFileName = strrchr( resolvedPath, JST_FILE_SEPARATOR[ 0 ] ) ;
+        *realFileName++ = '\0' ;
+        dirname = resolvedPath ;
+      } else {
+        fprintf( stderr, "error: resolving realpath for %s\n%d: %s\n", originalFile, errno, strerror( errno ) ) ;
+        jst_freea( originalFile ) ;
+        return NULL ;
+      }
 #endif
 
       if ( !validator || validator( dirname, realFileName ) ) {
@@ -861,7 +893,7 @@ static char* findPathEntryContainingFile( char* path, const char* file, int (*va
         dirname = jst_strdup( dirname ) ;
       }
 #if !defined( _WIN32 )
-      jst_freea( resolvedPath ) ;
+      jst_freea( originalFile ) ;
 #endif
       if ( found ) break ;
     }

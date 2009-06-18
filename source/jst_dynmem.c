@@ -48,21 +48,21 @@
 
 // the only difference to originals is that these print an error msg if they fail
 extern void* jst_malloc( size_t size ) {
-  void* rval = malloc( size ) ;
-  if ( !rval ) fprintf( stderr, "error %d in malloc: %s", errno, strerror( errno ) ) ;
-  return rval ;
+  void* buffer = malloc( size ) ;
+  if ( !buffer ) fprintf( stderr, "error %d in malloc: %s", errno, strerror( errno ) ) ;
+  return buffer ;
 }
 
 extern void* jst_calloc( size_t nelem, size_t elsize ) {
-  void* rval = calloc( nelem, elsize ) ;
-  if ( !rval ) fprintf( stderr, "error %d in calloc: %s", errno, strerror( errno ) ) ;
-  return rval ;
+  void* buffer = calloc( nelem, elsize ) ;
+  if ( !buffer ) fprintf( stderr, "error %d in calloc: %s", errno, strerror( errno ) ) ;
+  return buffer ;
 }
 
 extern void* jst_realloc( void* ptr, size_t size ) {
-  void* rval = realloc( ptr, size ) ;
-  if ( !rval ) fprintf( stderr, "error %d in realloc: %s", errno, strerror( errno ) ) ;
-  return rval ;
+  void* buffer = realloc( ptr, size ) ;
+  if ( !buffer ) fprintf( stderr, "error %d in realloc: %s", errno, strerror( errno ) ) ;
+  return buffer ;
 }
 
 extern char* jst_strdup( const char* s ) {
@@ -110,7 +110,7 @@ extern void* jst_appendArrayItem( void* array, int indx, size_t* arlen, void* it
 extern char** jst_packStringArray( char** nullTerminatedStringArray ) {
   size_t totalByteSize = sizeof( char* ) ; // space for the terminating NULL
   char   *s,
-         **rval,
+         **packedStringArray,
          *temp ;
   int    i = 0 ;
 
@@ -118,19 +118,19 @@ extern char** jst_packStringArray( char** nullTerminatedStringArray ) {
     totalByteSize += sizeof( char* ) + strlen( s ) + 1 ;
   }
 
-  if ( !( rval = jst_malloc( totalByteSize ) ) ) return NULL ;
+  if ( !( packedStringArray = jst_malloc( totalByteSize ) ) ) return NULL ;
 
   // make temp point to the position after the char*, i.e. where the contents of the strings starts
   // NOTE: i now equals the string count + 1, i.e. the number of char* to be stored (including the terminating NULL)
-  temp = (char*)( rval + i ) ;
+  temp = (char*)( packedStringArray + i ) ;
 
   for ( i = 0 ; ( s = nullTerminatedStringArray[ i ] ) ; i++ ) {
-    rval[ i ] = temp ;
+    packedStringArray[ i ] = temp ;
     while ( ( *temp++ = *s++ ) ) ;
   }
-  rval[ i ] = NULL ;
+  packedStringArray[ i ] = NULL ;
 
-  return rval ;
+  return packedStringArray ;
 }
 
 extern char* jst_concat_overwrite( char* target, ... ) {
@@ -308,20 +308,20 @@ extern char* jst_concatenateStrArray( char** nullTerminatedStringArray ) {
   size_t totalSize ;
   char   *s,
          *t,
-         *rval ;
+         *resultString ;
   int i = 0 ;
 
   totalSize = jst_totalLenghtOfStringsInArray( nullTerminatedStringArray ) + 1 ; // + 1 for the terminating nul char
 
-  if ( !( rval = jst_malloc( totalSize ) ) ) return NULL ;
+  if ( !( resultString = jst_malloc( totalSize ) ) ) return NULL ;
 
-  t = rval ;
+  t = resultString ;
   for ( i = 0 ; ( s = nullTerminatedStringArray[ i++ ] ) ; ) {
     while ( *s ) *t++ = *s++ ;
   }
   *t = '\0' ;
 
-  return rval ;
+  return resultString ;
 }
 
 extern int jst_arrayContainsString( const char** nullTerminatedArray, const char* searchString, SearchMode mode ) {
