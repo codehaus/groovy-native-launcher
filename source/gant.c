@@ -23,6 +23,7 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <assert.h>
 
 #if defined ( __APPLE__ )
 #  include <TargetConditionals.h>
@@ -106,17 +107,21 @@ static char* findGroovyStartupJar( const char* groovyHome, jboolean errorMsgOnFa
  * If false is returned, check errno to see if there was an error (in mem allocation) */
 static int isValidGantHome( const char* dir ) {
   char *gconfFile = NULL ;
-  jboolean rval = JNI_FALSE ;
+  jboolean isValid = JNI_FALSE ;
+
+  assert( dir ) ;
 
   errno = 0 ;
 
   gconfFile = jst_createFileName( dir, "conf", GANT_CONF_FILE, NULL ) ;
   if ( gconfFile ) {
-    rval = jst_fileExists( gconfFile ) ? JNI_TRUE : JNI_FALSE ;
+    isValid = jst_fileExists( gconfFile ) ? JNI_TRUE : JNI_FALSE ;
     free( gconfFile ) ;
+  } else {
+    fprintf( "error: memory error while checking potential gant home %s\n", dir ) ;
   }
 
-  return rval ;
+  return isValid ;
 }
 
 
@@ -191,7 +196,7 @@ static int startGant( int argc, char** argv ) {
   char *extraProgramOptions[]       = { "--main", "gant.Gant", "--conf", NULL, "--classpath", ".", NULL },
        *jars[]                      = { NULL, NULL, NULL } ;
 
-  int  rval = -1 ;
+  int  exitCode = -1 ;
 
   JstActualParam *processedActualParams ;
 
@@ -364,14 +369,16 @@ static int startGant( int argc, char** argv ) {
 //  jst_cygwinRelease() ;
 #endif
 
-  rval = jst_launchJavaApp( &options ) ;
+  exitCode = jst_launchJavaApp( &options ) ;
 
 
 end:
 
   jst_freeAll( &dynReservedPointers ) ;
 
-  return rval ;
+  if ( _jst_debug ) fprintf( stderr, "debug: exiting %s with code %d\n", argv[ 0 ], exitCode ) ;
+
+  return exitCode ;
 
 }
 
