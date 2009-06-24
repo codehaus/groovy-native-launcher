@@ -118,7 +118,7 @@ static int isValidGantHome( const char* dir ) {
     isValid = jst_fileExists( gconfFile ) ? JNI_TRUE : JNI_FALSE ;
     free( gconfFile ) ;
   } else {
-    fprintf( "error: memory error while checking potential gant home %s\n", dir ) ;
+    fprintf( stderr, "error: memory error while checking potential gant home %s\n", dir ) ;
   }
 
   return isValid ;

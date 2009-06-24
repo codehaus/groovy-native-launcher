@@ -82,7 +82,7 @@ extern int jst_fileExists( const char* fileName ) {
   struct stat buf ;
   int i ;
 
-#if defined( _WIN32 ) // stat function on windows freaks out if given a directory path that includes a trailing \
+#if defined( _WIN32 ) // stat function on windows freaks out if given a directory path that includes a trailing "\"
 
   char*  fileNameWithPossibleTrailingSlashRemoved = NULL ;
   jboolean fileNameEndsWithTrailingSlash = 0 ;
@@ -93,7 +93,7 @@ extern int jst_fileExists( const char* fileName ) {
     JST_STRDUPA( fileNameWithPossibleTrailingSlashRemoved, fileName ) ;
     fileNameWithPossibleTrailingSlashRemoved[ fileNameLen - 1 ] = '\0' ;
   } else {
-    fileNameWithPossibleTrailingSlashRemoved = fileName ;
+    fileNameWithPossibleTrailingSlashRemoved = (char*)fileName ;
   }
 
 #endif

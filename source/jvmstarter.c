@@ -230,24 +230,26 @@ static char* getJavaHomeFromEnvVar() {
 
 static char* checkExistenceAndResolvePath( const char* javaHome ) {
 
-  if ( jst_fileExists( javaHome ) ) {
+  char* jHome = (char*)javaHome ;
+
+  if ( jst_fileExists( jHome ) ) {
     char resolvedJavaHome[ PATH_MAX + 1 ] ;
 
-    if ( !realpath( resolvedJavaHome, javaHome ) ) {
-      fprintf( stderr, "error: could not resolve the real path of %s\n%d: %s\n", javaHome, errno, strerror( errno ) ) ;
-      javaHome = NULL ;
+    if ( !realpath( jHome, resolvedJavaHome ) ) {
+      fprintf( stderr, "error: could not resolve the real path of %s\n%d: %s\n", jHome, errno, strerror( errno ) ) ;
+      jHome = NULL ;
     } else {
-      javaHome = jst_strdup( resolvedJavaHome ) ;
+      jHome = jst_strdup( resolvedJavaHome ) ;
     }
 
   } else {
-    if ( _jst_debug ) fprintf( stderr, "info: Java home not found in standard location %s\n", javaHome ) ;
+    if ( _jst_debug ) fprintf( stderr, "info: Java home not found in standard location %s\n", jHome ) ;
 
-    javaHome = NULL ;
+    jHome = NULL ;
 
   }
 
-  return javaHome ;
+  return jHome ;
 
 }
 
@@ -259,7 +261,7 @@ static int isLinuxJvmDir( const char* dirname, const char* filename ) {
   size_t len = strlen( filename ) ;
 
   if ( len > 8 ) {
-    char* s = filename + 5 ;
+    char* s = ((char*)filename) + 5 ;
     unsigned int numberCount = 0 ;
 
     while ( isdigit( *s++ ) ) {
@@ -432,7 +434,7 @@ static JstDLHandle openDynLib( const char* pathToLib ) {
   errno = 0 ;
   if ( !( libraryHandle = dlopen( pathToLib, RTLD_LAZY ) ) )  {
     fprintf( stderr, "error: dynamic library %s exists but could not be loaded!\n", pathToLib ) ;
-    if ( errno ) fprintf( stderr, strerror( errno ) ) ;
+    if ( errno ) fprintf( stderr, "%d: %s\n", errno, strerror( errno ) ) ;
 #if defined( _WIN32 )
     jst_printWinError( GetLastError() ) ;
 #else
