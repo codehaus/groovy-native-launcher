@@ -877,7 +877,7 @@ static char* findPathEntryContainingFile( char* path, const char* file, int (*va
       char *originalFile ;
 
       CREATE_PATH_TO_FILE_A( originalFile, dirname, file )
-      if ( realpath( resolvedPath, originalFile ) ) {
+      if ( realpath( originalFile, resolvedPath ) ) {
         realFileName = strrchr( resolvedPath, JST_FILE_SEPARATOR[ 0 ] ) ;
         *realFileName++ = '\0' ;
         dirname = resolvedPath ;
