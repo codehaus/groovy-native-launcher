@@ -354,7 +354,9 @@ int startGroovy( int argc, char** argv ) {
   void** dynReservedPointers = NULL ; // free all reserved pointers at at end of func
   size_t dreservedPtrsSize   = 0 ;
 
-# define MARK_PTR_FOR_FREEING( garbagePtr ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) { fprintf( stderr, "debug: exiting " __FILE__ " due to a memory problem on line %d. Please report this bug.\n", __LINE__ ) ; goto end ; }
+# define MARK_PTR_FOR_FREEING( garbagePtr, nullMeansError ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) { fprintf( stderr, nullMeansError ? "debug: exiting " __FILE__ " due to a memory problem on line %d. Please report this bug.\n" : "", __LINE__ ) ; goto end ; }
+# define NULL_MEANS_ERROR 1
+# define NO_NULL_CHECK 0
 
   /** terminatingSuffixes contains the suffixes that, if matched, indicate that the matching param and all the rest of the params
    * are launcheeParams, e.g. {".groovy", ".gy", NULL}.
@@ -412,14 +414,14 @@ int startGroovy( int argc, char** argv ) {
 
   processedActualParams = jst_processInputParameters( argv + numSkippedCommandLineParams, argc - numSkippedCommandLineParams, groovyApp->parameterInfos, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
 
-  MARK_PTR_FOR_FREEING( processedActualParams )
+  MARK_PTR_FOR_FREEING( processedActualParams, NULL_MEANS_ERROR )
 
   // set -Dscript.name system property if applicable
   if ( numArgs > 0 ) {
     char* scriptName = jst_getParameterAfterTermination( processedActualParams, 0 ) ;
     if ( scriptName ) {
       char* scriptNameD = createScriptNameDParam( scriptName ) ;
-      MARK_PTR_FOR_FREEING( scriptNameD )
+      MARK_PTR_FOR_FREEING( scriptNameD, NULL_MEANS_ERROR )
       if ( !appendJvmOption( &extraJvmOptions, scriptNameD, NULL ) ) goto end ;
     }
   }
@@ -433,7 +435,7 @@ int startGroovy( int argc, char** argv ) {
   if ( classpath ) {
 
     classpath = jst_append( NULL, NULL, classpath, JST_PATH_SEPARATOR ".", NULL ) ;
-    MARK_PTR_FOR_FREEING( classpath )
+    MARK_PTR_FOR_FREEING( classpath, NULL_MEANS_ERROR )
 
     extraProgramOptions[ 5 ] = classpath ;
 
@@ -445,7 +447,7 @@ int startGroovy( int argc, char** argv ) {
   if ( _jst_debug ) fprintf( stderr, "debug: using groovy home set at compile time: %s\n", groovyHome ) ;
 #else
   groovyHome = getGroovyHome() ;
-  MARK_PTR_FOR_FREEING( groovyHome )
+  MARK_PTR_FOR_FREEING( groovyHome, NO_NULL_CHECK )
 #endif
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -457,14 +459,14 @@ int startGroovy( int argc, char** argv ) {
 
   if ( !groovyConfFile ) {
     groovyConfFile = jst_createFileName( groovyHome, "conf", GROOVY_CONF_FILE, NULL ) ;
-    MARK_PTR_FOR_FREEING( groovyConfFile )
+    MARK_PTR_FOR_FREEING( groovyConfFile, NULL_MEANS_ERROR )
   }
 
 #if defined( GROOVY_STARTUP_JAR )
   jars[ 0 ] = JST_STRINGIZER( GROOVY_STARTUP_JAR ) ;
   if ( _jst_debug ) fprintf( stderr, "debug: using groovy startup jar set at compile time: %s\n", jars[ 0 ] ) ;
 #else
-  MARK_PTR_FOR_FREEING( jars[ 0 ] = findGroovyStartupJar( groovyHome ) )
+  MARK_PTR_FOR_FREEING( jars[ 0 ] = findGroovyStartupJar( groovyHome ), NO_NULL_CHECK )
 #endif
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // set -Dgroovy.home and -Dgroovy.starter.conf as jvm options
@@ -479,7 +481,7 @@ int startGroovy( int argc, char** argv ) {
   errno = 0 ;
   ( javaHome = getJavaHomeFromParameter( processedActualParams, "-jh" ) ) || errno ||
   ( javaHome = jst_findJavaHome() ) ;
-  MARK_PTR_FOR_FREEING( javaHome )
+  MARK_PTR_FOR_FREEING( javaHome, NO_NULL_CHECK )
 #endif
 
   {
@@ -502,20 +504,20 @@ int startGroovy( int argc, char** argv ) {
   }
 
   groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", groovyConfFile, NULL ) ;
-  MARK_PTR_FOR_FREEING( groovyDConf )
+  MARK_PTR_FOR_FREEING( groovyDConf, NULL_MEANS_ERROR )
 
 
   if ( !appendJvmOption( &extraJvmOptions, groovyDConf, NULL ) ) goto end ;
 
   groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome, NULL ) ;
-  MARK_PTR_FOR_FREEING( groovyDHome )
+  MARK_PTR_FOR_FREEING( groovyDHome, NULL_MEANS_ERROR )
 
   if ( !appendJvmOption( &extraJvmOptions, groovyDHome, NULL ) ) goto end ;
 
   {
     char* javaOptsFromEnvVar = getenv( "JAVA_OPTS" ) ;
     if ( javaOptsFromEnvVar ) {
-      MARK_PTR_FOR_FREEING( javaOptsFromEnvVar = jst_strdup( javaOptsFromEnvVar ) )
+      MARK_PTR_FOR_FREEING( javaOptsFromEnvVar = jst_strdup( javaOptsFromEnvVar ), NULL_MEANS_ERROR )
       if ( !handleJVMOptsString( javaOptsFromEnvVar, &extraJvmOptions, &jvmSelectStrategy ) ) goto end ;
     }
   }
@@ -523,7 +525,7 @@ int startGroovy( int argc, char** argv ) {
 
 
 
-  MARK_PTR_FOR_FREEING( extraJvmOptions.options )
+  MARK_PTR_FOR_FREEING( extraJvmOptions.options, NULL_MEANS_ERROR )
 
 
   if ( jst_getParameterValue( processedActualParams, "-client" ) ) {

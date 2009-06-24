@@ -314,6 +314,7 @@ extern char* jst_findJavaHome( void ) {
 
   errno = 0 ;
 
+  if (
      ( javaHome = getJavaHomeFromEnvVar()    ) || errno
   || ( javaHome = jst_findJavaHomeFromPath() ) || errno
 #if defined( _WIN32 )
@@ -321,11 +322,13 @@ extern char* jst_findJavaHome( void ) {
 #else
   || ( javaHome = getJavaHomeFromStandardLocation() )
 #endif
-    ;
+    ) {
+    return javaHome ;
+  }
 
-  if ( !javaHome ) fprintf( stderr, "error: could not locate java home\n" ) ;
+  fprintf( stderr, "error: could not locate java home\n" ) ;
 
-  return javaHome ;
+  return NULL ;
 }
 
 
