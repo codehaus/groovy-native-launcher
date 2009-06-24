@@ -634,6 +634,8 @@ extern char* findStartupJar( const char* basedir, const char* subdir, const char
        **jarNames  = NULL ;
   int numJarsFound = 0 ;
 
+  assert( basedir ) ;
+
   if ( subdir && subdir[ 0 ] ) {
     if ( !( libDir = jst_createFileName( basedir, subdir, NULL ) ) ) goto end ;
   }

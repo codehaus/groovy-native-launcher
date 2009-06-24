@@ -190,7 +190,9 @@ static int startGant( int argc, char** argv ) {
   void** dynReservedPointers = NULL ; // free all reserved pointers at at end of func
   size_t dreservedPtrsSize   = 0 ;
 
-# define MARK_PTR_FOR_FREEING( garbagePtr ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) goto end ;
+# define MARK_PTR_FOR_FREEING( garbagePtr, nullMeansError ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) { fprintf( stderr, nullMeansError ? "debug: exiting " __FILE__ " due to a memory problem on line %d. Please report this bug.\n" : "", __LINE__ ) ; goto end ; }
+# define NULL_MEANS_ERROR 1
+# define NO_NULL_CHECK 0
 
   const char *terminatingSuffixes[] = { ".gant", NULL } ;
   char *extraProgramOptions[]       = { "--main", "gant.Gant", "--conf", NULL, "--classpath", ".", NULL },
@@ -212,7 +214,7 @@ static int startGant( int argc, char** argv ) {
 
   processedActualParams = jst_processInputParameters( argv + 1, argc - 1, (JstParamInfo*)gantParameters, terminatingSuffixes, JST_CYGWIN_PATH_CONVERSION ) ;
 
-  MARK_PTR_FOR_FREEING( processedActualParams )
+  MARK_PTR_FOR_FREEING( processedActualParams, NULL_MEANS_ERROR )
 
   classpath = getenv( "CLASSPATH" ) ;
 
@@ -220,16 +222,16 @@ static int startGant( int argc, char** argv ) {
   if ( classpath ) {
 
     classpath = jst_append( NULL, NULL, classpath, JST_PATH_SEPARATOR ".", NULL ) ;
-    MARK_PTR_FOR_FREEING( classpath )
+    MARK_PTR_FOR_FREEING( classpath, NULL_MEANS_ERROR )
 
     extraProgramOptions[ 5 ] = classpath ;
 
   }
 
   gantHome = getGantHome() ;
-  MARK_PTR_FOR_FREEING( gantHome )
+  MARK_PTR_FOR_FREEING( gantHome, NO_NULL_CHECK )
 
-  MARK_PTR_FOR_FREEING( jars[ 0 ] = findGantStartupJar( gantHome ) )
+  MARK_PTR_FOR_FREEING( jars[ 0 ] = findGantStartupJar( gantHome ), NO_NULL_CHECK )
 
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -239,14 +241,14 @@ static int startGant( int argc, char** argv ) {
 
   if ( !gantConfFile ) {
     gantConfFile = jst_createFileName( gantHome, "conf", GANT_CONF_FILE, NULL ) ;
-    MARK_PTR_FOR_FREEING( gantConfFile )
+    MARK_PTR_FOR_FREEING( gantConfFile, NULL_MEANS_ERROR )
   }
 
   extraProgramOptions[ 3 ] = gantConfFile ;
 
   {
     char *groovyDConf = jst_append( NULL, NULL, "-Dgroovy.starter.conf=", gantConfFile, NULL ) ;
-    MARK_PTR_FOR_FREEING( groovyDConf )
+    MARK_PTR_FOR_FREEING( groovyDConf, NULL_MEANS_ERROR )
 
 
     if ( !appendJvmOption( &extraJvmOptions, groovyDConf, NULL ) ) goto end ;
@@ -255,7 +257,7 @@ static int startGant( int argc, char** argv ) {
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   javaHome = jst_findJavaHome() ;
-  MARK_PTR_FOR_FREEING( javaHome )
+  MARK_PTR_FOR_FREEING( javaHome, NO_NULL_CHECK )
 
   {
     char* toolsJarFile = jst_createFileName( javaHome, "lib", "tools.jar", NULL ) ;
@@ -278,7 +280,7 @@ static int startGant( int argc, char** argv ) {
 
 
   gantDHome = jst_append( NULL, NULL, "-Dgant.home=", gantHome, NULL ) ;
-  MARK_PTR_FOR_FREEING( gantDHome )
+  MARK_PTR_FOR_FREEING( gantDHome, NULL_MEANS_ERROR )
 
   if ( !appendJvmOption( &extraJvmOptions, gantDHome, NULL ) ) goto end ;
 
@@ -302,15 +304,15 @@ static int startGant( int argc, char** argv ) {
           if ( errno ) goto end ;
         }
 #endif
-        if ( groovyHome ) { MARK_PTR_FOR_FREEING( groovyHome ) }
+        if ( groovyHome ) { MARK_PTR_FOR_FREEING( groovyHome, NO_NULL_CHECK ) }
       }
       if ( groovyHome ) jars[ 1 ] = findGroovyStartupJar( groovyHome, JNI_FALSE ) ;
     }
 
-    MARK_PTR_FOR_FREEING( jars[ 1 ] )
+    MARK_PTR_FOR_FREEING( jars[ 1 ], NO_NULL_CHECK )
 
     groovyDHome = jst_append( NULL, NULL, "-Dgroovy.home=", groovyHome ? groovyHome : gantHome, NULL ) ;
-    MARK_PTR_FOR_FREEING( groovyDHome )
+    MARK_PTR_FOR_FREEING( groovyDHome, NULL_MEANS_ERROR )
 
     if ( !appendJvmOption( &extraJvmOptions, groovyDHome, NULL ) ) goto end ;
 
@@ -332,20 +334,20 @@ static int startGant( int argc, char** argv ) {
         if ( errno ) goto end ;
       }
 #endif
-      if ( antHome ) { MARK_PTR_FOR_FREEING( antHome ) }
+      if ( antHome ) { MARK_PTR_FOR_FREEING( antHome, NO_NULL_CHECK ) }
     }
 
     if ( !antHome ) { fprintf( stderr, "error: could not locate ant installation\n" ) ; goto end ; }
 
     antDHome = jst_append( NULL, NULL, "-Dant.home=", antHome, NULL ) ;
-    MARK_PTR_FOR_FREEING( antDHome )
+    MARK_PTR_FOR_FREEING( antDHome, NO_NULL_CHECK )
 
     if ( !appendJvmOption( &extraJvmOptions, antDHome, NULL ) ) goto end ;
 
   }
 
 
-  MARK_PTR_FOR_FREEING( extraJvmOptions.options )
+  MARK_PTR_FOR_FREEING( extraJvmOptions.options, NULL_MEANS_ERROR )
 
 
   // populate the startup parameters
