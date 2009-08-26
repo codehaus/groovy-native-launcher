@@ -125,6 +125,7 @@ includeDirectoryName = {
     'SunOS' : 'solaris' ,
     'Darwin' : 'darwin' ,
     'CYGWIN_NT-5.1' : 'win32' ,
+    'CYGWIN_NT-5.2' : 'win32' ,
     'CYGWIN_NT-6.0-WOW64' : 'win32', #  Quick hack to solve part of GROOVY-3340
     'MINGW32_NT-5.1' : 'win32' ,
     'Windows' : 'win32'
