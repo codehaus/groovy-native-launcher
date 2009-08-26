@@ -35,10 +35,10 @@
 #  endif
 
 
-  extern cygwin_initfunc_type       cygwin_initfunc            = NULL ;
+  cygwin_initfunc_type       cygwin_initfunc            = NULL ;
   // see http://cygwin.com/cygwin-api/func-cygwin-conv-to-win32-path.html
-  extern cygwin_conversionfunc_type cygwin_posix2win_path      = NULL ;
-  extern cygwin_conversionfunc_type cygwin_posix2win_path_list = NULL ;
+  cygwin_conversionfunc_type cygwin_posix2win_path      = NULL ;
+  cygwin_conversionfunc_type cygwin_posix2win_path_list = NULL ;
 
   static HINSTANCE g_cygwinDllHandle = NULL ;
 

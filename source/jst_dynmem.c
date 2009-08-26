@@ -391,3 +391,27 @@ extern int jst_nullTerminatedArrayLen( void* array, size_t elementSizeInBytes ) 
 
 }
 
+void printMemoryErrorExitDebugMessage( const char* file, int line, int iserror ) {
+  if ( iserror ) {
+    fprintf( stderr, "debug: exiting %s due to a memory problem on line %d. Please report this bug.\n", file, line ) ;
+  }
+}
+
+extern JstDynamicPointerArray* jst_initializeDynamicPointerArray( JstDynamicPointerArray* array, size_t initialCapacity, size_t sizeIncrement ) {
+
+  if ( initialCapacity > 0 ) {
+    array->count = 0 ;
+    // FIXME - allocate space to array->pointers
+    array->capacity = initialCapacity ;
+  } else {
+    memset( array, 0, sizeof( JstDynamicPointerArray ) ) ;
+  }
+
+  return array ;
+}
+
+// TODO:
+//void* jst_appendPointerToDynamicArray( JstDynamicPointerArray* array, void* item ) ;
+
+//void jst_freeDynamicArray( JstDynamicPointerArray* array, jboolean freeContents ) ;
+

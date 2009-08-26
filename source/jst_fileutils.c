@@ -115,7 +115,7 @@ extern int jst_fileExists( const char* fileName ) {
   }
 
 #if defined( _WIN32 )
-  if ( fileNameEndsWithTrailingSlash ) jst_freea( fileNameWithPossibleTrailingSlashRemoved ) ;
+  if ( fileNameEndsWithTrailingSlash ) { jst_freea( fileNameWithPossibleTrailingSlashRemoved ) ; }
 #endif
 
   return i == 0 ;

@@ -133,6 +133,30 @@ char* jst_concat_overwrite( char* target, ... ) ;
 /** Frees all the pointers in the given array, the array itself and sets the reference to NULL */
 void jst_freeAll( void*** pointerToNullTerminatedPointerArray ) ;
 
+/** The members of this struct should not be manipulated except via the provided functions. */
+typedef struct {
+  size_t count ;
+  size_t capacity ;
+  /** number of elements by which the array size is grown if more items are inserted than currently fits. */
+  size_t sizeIncrement ;
+  /** NULL terminated even though size can be looked up from count field. This enables using as param to funcs that expect NULL terminated pointer array */
+  void** pointers ;
+} JstDynamicPointerArray ;
+
+JstDynamicPointerArray* jst_initializeDynamicPointerArray( JstDynamicPointerArray* array, size_t initialCapacity, size_t sizeIncrement ) ;
+/** returns the given item or NULL on error. */
+void* jst_appendPointerToDynamicArray( JstDynamicPointerArray* array, void* item ) ;
+
+void jst_freeDynamicArray( JstDynamicPointerArray* array, jboolean freeContents ) ;
+
+/** Used to print debug messages from the below macro. If iserror==0 then this is a nop. */
+void printMemoryErrorExitDebugMessage( const char* file, int line, int iserror ) ;
+
+#define MARK_PTR_FOR_FREEING( dynReservedPointers, dreservedPtrsSize, garbagePtr, nullMeansError ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) { /* printMemoryErrorExitDebugMessage( __FILE__, __LINE__, nullMeansError ) */ ; goto end ; }
+#define NULL_MEANS_ERROR 1
+#define NULL_IS_NOT_ERROR 0
+
+
 #if defined( __cplusplus )
   } // end extern "C"
 #endif

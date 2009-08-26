@@ -120,18 +120,20 @@ if environment['PLATFORM'] == 'darwin' :
 
 #  Map from uname operating system names (environment['Architecture']) to include directory names.
 
-includeDirectoryName = {
-    'Linux' : 'linux' ,
-    'SunOS' : 'solaris' ,
-    'Darwin' : 'darwin' ,
-    'CYGWIN_NT-5.1' : 'win32' ,
-    'CYGWIN_NT-5.2' : 'win32' ,
-    'CYGWIN_NT-6.0-WOW64' : 'win32', #  Quick hack to solve part of GROOVY-3340
-    'MINGW32_NT-5.1' : 'win32' ,
-    'Windows' : 'win32'
-    }
+def includeDirectoryName( architecture ) :
+    if architecture.startswith( 'CYGWIN' ) or architecture.startswith( 'MINGW' ) or architecture == 'Windows' :
+        return 'win32'
+    return {
+        'Linux' : 'linux' ,
+        'SunOS' : 'solaris' ,
+        'Darwin' : 'darwin' ,
+#    'CYGWIN_NT-5.1' : 'win32' ,
+#    'CYGWIN_NT-6.0-WOW64' : 'win32', #  Quick hack to solve part of GROOVY-3340
+#    'MINGW32_NT-5.1' : 'win32' ,
+#    'Windows' : 'win32'
+    }[ architecture ]
 
-environment.Append ( CPPPATH = [ os.path.join ( javaHome , 'include'  , includeDirectoryName [ environment[ 'Architecture' ] ] ) , os.path.join ( javaHome , 'include' ) ] )
+environment.Append ( CPPPATH = [ os.path.join ( javaHome , 'include'  , includeDirectoryName( environment[ 'Architecture' ] ) ) , os.path.join ( javaHome , 'include' ) ] )
 if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
     # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
     # c4206 == translation unit is empty (if not compiling cygwin compatible binary, jst_cygwincompatibility.c is empty)
