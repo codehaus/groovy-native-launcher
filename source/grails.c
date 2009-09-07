@@ -130,6 +130,10 @@ int startGrails( int argc, char** argv ) {
   void** dynReservedPointers = NULL ; // free all reserved pointers at at end of func
   size_t dreservedPtrsSize   = 0 ;
 
+// FIXME - go through this source file and replace with the new definition from jst_dynmem.c
+#if defined( MARK_PTR_FOR_FREEING )
+#  undef MARK_PTR_FOR_FREEING
+#endif
 # define MARK_PTR_FOR_FREEING( garbagePtr ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) goto end ;
 
   /** terminatingSuffixes contains the suffixes that, if matched, indicate that the matching param and all the rest of the params

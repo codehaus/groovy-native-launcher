@@ -273,7 +273,7 @@ static int isValidGroovyHome( const char* dir ) {
  * home env var is looked up. If neither succeed, an error msg is printed.
  * freeing the returned pointer must be done by the caller. */
 char* getGroovyHome() {
-
+// TODO: add looking up "standard locations" if this fails
   return jst_getAppHome( JST_USE_PARENT_OF_EXEC_LOCATION_AS_HOME, "GROOVY_HOME", &isValidGroovyHome ) ;
 
 }
@@ -475,8 +475,9 @@ int startGroovy( int argc, char** argv ) {
   if ( _jst_debug ) fprintf( stderr, "debug: using java home set at compile time: %s\n", javaHome ) ;
 #else
   errno = 0 ;
-  ( javaHome = getJavaHomeFromParameter( processedActualParams, "-jh" ) ) || errno ||
-  ( javaHome = jst_findJavaHome() ) ;
+  if ( !( javaHome = getJavaHomeFromParameter( processedActualParams, "-jh" ) ) && !errno ) {
+    javaHome = jst_findJavaHome() ;
+  }
   MARK_PTR_FOR_FREEING( dynReservedPointers, dreservedPtrsSize, javaHome, NULL_IS_NOT_ERROR )
 #endif
 

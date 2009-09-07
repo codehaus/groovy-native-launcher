@@ -215,6 +215,8 @@ static jboolean addFileToList( char ***fileNames, int *fileNameCount, size_t *re
 }
 
 
+#if defined( _WIN32 )
+
 static void changeEmptyPrefixAndSuffixToNULL( char** fileNamePrefix, char** fileNameSuffix ) {
 
   if ( *fileNamePrefix && !**fileNamePrefix ) *fileNamePrefix = NULL ;
@@ -229,11 +231,16 @@ static void changeEmptyPrefixAndSuffixToNULL( char** fileNamePrefix, char** file
 
 }
 
+#else
+
 extern int matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* suffix ) {
 
   return jst_startsWith( fileName, prefix ) && jst_endsWith( fileName, suffix ) ;
 
 }
+
+#endif
+
 
 #if defined( _WIN32 )
 
@@ -829,29 +836,6 @@ static int fileExistsInDir( const char* dirname, const char* filename ) {
   jst_freea( pathToFile ) ;
 
   return exists ;
-}
-
-/** Checks that the given file exists and if validator func is given, checks against that, too. */
-static int validateFile( const char* dirname, const char* filename, int (*validator)( const char* dirname, const char* filename ) ) {
-
-  int  isvalid ;
-  char *executablePath ;
-
-  CREATE_PATH_TO_FILE_A( executablePath, dirname, filename )
-
-#if defined( _WIN32 )
-  if ( !executablePath ) {
-    if ( !errno ) errno = ENOMEM ;
-    return 0 ;
-  }
-#endif
-
-  isvalid = jst_fileExists( executablePath ) && ( !validator || validator( dirname, filename ) ) ;
-
-  jst_freea( executablePath ) ;
-
-  return isvalid ;
-
 }
 
 

@@ -152,7 +152,7 @@ void jst_freeDynamicArray( JstDynamicPointerArray* array, jboolean freeContents 
 /** Used to print debug messages from the below macro. If iserror==0 then this is a nop. */
 void printMemoryErrorExitDebugMessage( const char* file, int line, int iserror ) ;
 
-#define MARK_PTR_FOR_FREEING( dynReservedPointers, dreservedPtrsSize, garbagePtr, nullMeansError ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) { /* printMemoryErrorExitDebugMessage( __FILE__, __LINE__, nullMeansError ) */ ; goto end ; }
+#define MARK_PTR_FOR_FREEING( dynReservedPointers, dreservedPtrsSize, garbagePtr, nullMeansError ) if ( !jst_appendPointer( &dynReservedPointers, &dreservedPtrsSize, ( garbagePtr ) ) ) { printMemoryErrorExitDebugMessage( __FILE__, __LINE__, nullMeansError ) ; goto end ; }
 #define NULL_MEANS_ERROR 1
 #define NULL_IS_NOT_ERROR 0
 

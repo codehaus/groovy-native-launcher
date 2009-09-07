@@ -228,6 +228,8 @@ static char* getJavaHomeFromEnvVar() {
 
 #if !defined( _WIN32 )
 
+#if defined( __sun__ )
+
 static char* checkExistenceAndResolvePath( const char* javaHome ) {
 
   char* jHome = (char*)javaHome ;
@@ -253,7 +255,9 @@ static char* checkExistenceAndResolvePath( const char* javaHome ) {
 
 }
 
-#if defined( __linux__ )
+#endif
+
+#if defined( __linux__notusedyet )
 
 static int isLinuxJvmDir( const char* dirname, const char* filename ) {
   // java-\n+-\w+ dirs are java installations.
@@ -284,7 +288,7 @@ static char* getJavaHomeFromStandardLocation() {
   char* javaHome ;
 
 #if defined( __APPLE__ )
-  javaHome = "/System/Library/Frameworks/JavaVM.framework/Home" ;
+  javaHome = jst_strdup( "/System/Library/Frameworks/JavaVM.framework/Home" ) ;
 #elif defined( __linux__notyetreadyforprimetime )
   char** javaHomes = jst_getFileNames( "/usr/lib/jvm", "java-", NULL, isLinuxJvmDir ) ;
   if ( javaHomes[ 0 ] ) javaHome = jst_strdup( javaHomes[ 0 ] ) ;
