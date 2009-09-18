@@ -25,3 +25,15 @@ extern void clearException( JNIEnv* env ) {
 
 }
 
+extern jclass getJavaStringClass( JNIEnv* env ) {
+
+  static jclass strClass = NULL ;
+
+  if ( !strClass && !( strClass = (*env)->FindClass(env, "java/lang/String" ) ) ) {
+    clearException( env ) ;
+    fprintf( stderr, "error: could not find java.lang.String class\n" ) ; // should never happen
+  }
+
+  return strClass ;
+
+}

@@ -22,6 +22,9 @@
 import os
 import re
 
+import distutils.sysconfig
+import copy
+
 Import ( 'environment' )
 
 #print '-----------------------\n'
@@ -211,5 +214,14 @@ for name in mainFiles :
             ]
     else :
         returnValue += environment.Program ( root , sources )
+
+environment.Append ( SWIGFLAGS = [ '-python' ],
+                     CPPPATH = [ distutils.sysconfig.get_python_inc() ],
+                     SHLIBPREFIX = '' )
+
+sources_for_test_dynlib = copy.copy( otherSources ) 
+sources_for_test_dynlib.append( 'nativelauncher.i' )
+# FIXME - platform specific extension for dyn lib
+environment.SharedLibrary( '_nativelauncher.dll', sources_for_test_dynlib )
 
 Return ( 'returnValue' )

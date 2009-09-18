@@ -14,23 +14,66 @@
 //
 //  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 
-#include "jni.h"
+#include "applejnifix.h"
+#include <jni.h>
 #include "jniutils.h"
+#include <string.h>
 
-static jstring createJString( const JNIEnv* env, const char* stringInPlatformDefaultEncoding ) {
-  jstring jstr = (*env)->NewStringUTF( env, stringInPlatformDefaultEncoding ) ;
+static jmethodID getStringConstructorB( JNIEnv* env ) {
 
-  if ( !jstr ) {
-    fprintf( stderr, "error: could not convert %s to java string\n", stringInPlatformDefaultEncoding ) ;
+  static jmethodID _stringConstructor = NULL ;
+
+  if ( !_stringConstructor ) {
+    jclass stringClass = getJavaStringClass( env ) ;
+    if ( !stringClass ) return NULL ;
+    _stringConstructor = (*env)->GetMethodID( env, stringClass, "<init>", "([B)V" ) ;
+    if ( !_stringConstructor ) {
+      clearException( env ) ;
+    }
+  }
+  return _stringConstructor ;
+}
+
+
+
+
+static jstring createJStringFromPlatformEncodedCString( JNIEnv* env, const char* stringInPlatformDefaultEncoding ) {
+  jstring jstr = NULL ;
+  size_t  len  = strlen( stringInPlatformDefaultEncoding ) ;
+  jbyteArray bytes ;
+  jmethodID stringConstructorB = getStringConstructorB( env ) ;
+  jclass stringClass = getJavaStringClass( env ) ;
+
+  if ( !stringConstructorB || !stringClass ) {
+    clearException( env ) ;
+    return NULL ;
+  }
+
+  bytes = (*env)->NewByteArray( env, len ) ;
+  if ( bytes ) {
+
+    (*env)->SetByteArrayRegion( env, bytes, 0, len, (jbyte*)stringInPlatformDefaultEncoding ) ;
+
+    jstr = (*env)->NewObject( env, stringClass, stringConstructorB, bytes ) ;
+
+    if ( !jstr ) {
+      fprintf( stderr, "error: could not convert %s to java string\n", stringInPlatformDefaultEncoding ) ;
+      clearException( env ) ;
+    }
+
+    (*env)->DeleteLocalRef( env, bytes ) ;
+  } else {
     clearException( env ) ;
   }
+
   return jstr ;
+
 }
 
 
 extern jboolean addStringToJStringArray( JNIEnv* env, char *strToAdd, jobjectArray jstrArr, jint ind ) {
   jboolean success = JNI_FALSE ;
-  jstring  arg     = createJString( env, strToAdd ) ;
+  jstring  arg     = createJStringFromPlatformEncodedCString( env, strToAdd ) ;
 
   if ( !arg ) return JNI_FALSE ;
 

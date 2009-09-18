@@ -27,6 +27,8 @@
  * irrecoverable error in this startup program. Clears the exception and prints its description. */
 void clearException( JNIEnv* env ) ;
 
+jclass getJavaStringClass( JNIEnv* env ) ;
+
 #if defined( __cplusplus )
   } // end extern "C"
 #endif
