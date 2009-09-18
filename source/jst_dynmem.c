@@ -13,8 +13,6 @@
 //  License.
 //
 //  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
-//  $Revision$
-//  $Date$
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,26 +20,11 @@
 #include <stdarg.h>
 #include <errno.h>
 
-#if defined ( __APPLE__ )
-#  include <TargetConditionals.h>
-
-/*
- *  The Mac OS X Leopard version of jni_md.h (Java SE 5 JDK) is broken in that it tests the value of
- *  __LP64__ instead of the presence of _LP64 as happens in Sun's Java 6.0 JDK.  To prevent spurious
- *  warnings define this with a false value.
- */
-#define __LP64__ 0
-
-#endif
+#include "applejnifix.h"
 
 #include "jvmstarter.h"
 #include "jst_dynmem.h"
 #include "jst_stringutils.h"
-
-// FIXME - remove this - just for debugging on ms visual studio
-//#if defined( _WIN32 ) && defined( _MSC_VER ) && _MSC_VER >= 1500
-//#  define strdup _strdup
-//#endif
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -49,19 +32,19 @@
 // the only difference to originals is that these print an error msg if they fail
 extern void* jst_malloc( size_t size ) {
   void* buffer = malloc( size ) ;
-  if ( !buffer ) fprintf( stderr, "error %d in malloc: %s", errno, strerror( errno ) ) ;
+  if ( !buffer ) fprintf( stderr, "error %d in malloc: %s\n", errno, strerror( errno ) ) ;
   return buffer ;
 }
 
 extern void* jst_calloc( size_t nelem, size_t elsize ) {
   void* buffer = calloc( nelem, elsize ) ;
-  if ( !buffer ) fprintf( stderr, "error %d in calloc: %s", errno, strerror( errno ) ) ;
+  if ( !buffer ) fprintf( stderr, "error %d in calloc: %s\n", errno, strerror( errno ) ) ;
   return buffer ;
 }
 
 extern void* jst_realloc( void* ptr, size_t size ) {
   void* buffer = realloc( ptr, size ) ;
-  if ( !buffer ) fprintf( stderr, "error %d in realloc: %s", errno, strerror( errno ) ) ;
+  if ( !buffer ) fprintf( stderr, "error %d in realloc: %s\n", errno, strerror( errno ) ) ;
   return buffer ;
 }
 
@@ -69,7 +52,7 @@ extern char* jst_strdup( const char* s ) {
   char* result ;
   if ( !s ) return NULL ;
   result = strdup( s ) ;
-  if ( !result ) fprintf( stderr, "error: out of memory when copying string \"%s\"\n", s ) ;
+  if ( !result ) fprintf( stderr, "error: out of memory when copying string \"%s\"\n%d: %s", s, errno, strerror( errno ) ) ;
 
   return result ;
 }

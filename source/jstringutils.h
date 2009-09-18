@@ -14,29 +14,26 @@
 //
 //  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 
-#ifndef JST_STRINGUTILS_H_
-#  define JST_STRINGUTILS_H_
+#include "jni.h"
+
+#ifndef JST_JSTRINGUTILS_H_
+#  define JST_JSTRINGUTILS_H_
 
 #if defined( __cplusplus )
   extern "C" {
 #endif
 
-/** returns != 0 iff str starts with the given prefix or prefix == NULL.
- * Empty prefix always matches. */
-int jst_startsWith( const char* str, const char* prefix ) ;
+/** Returns false on error. */
+jboolean addStringToJStringArray( JNIEnv* env, char *strToAdd, jobjectArray jstrArr, jint ind ) ;
 
-/** returns != 0 iff str ends with the given suffix or suffix == NULL.
- * Empty suffix always matches. */
-int jst_endsWith( const char* str, const char* suffix ) ;
+/** @param strings must be NULL terminated. May be NULL.
+ * @param indx start at this index
+ * @return != 0 on error */
+int addStringsToJavaStringArray( JNIEnv* env, jobjectArray jstrings, char** strings, jint indx ) ;
 
-/** prints each of the strings in strings to the given file using the given formatstring,
- * which defaults to just printing the string. strings may be NULL.
- */
-void jst_printStringArray( FILE* file, char* formatstring, char** strings ) ;
 
 #if defined( __cplusplus )
   } // end extern "C"
 #endif
 
-
-#endif /* JST_STRINGUTILS_H_ */
+#endif /* JST_JSTRINGUTILS_H_ */

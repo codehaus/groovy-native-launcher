@@ -13,13 +13,12 @@
 //  License.
 //
 //  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
-//  $Revision$
-//  $Date$
 
 
 #if !defined( _JVMSTARTER_H_ )
 #define _JVMSTARTER_H_
 
+#include "applejnifix.h"
 #include <jni.h>
 
 #if defined( __cplusplus )

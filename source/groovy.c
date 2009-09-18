@@ -26,28 +26,14 @@
 
 #include <assert.h>
 
-#if defined ( __APPLE__ )
-#  include <TargetConditionals.h>
-
-/*
- *  The Mac OS X Leopard version of jni_md.h (Java SE 5 JDK) is broken in that it tests the value of
- *  __LP64__ instead of the presence of _LP64 as happens in Sun's Java 6.0 JDK.  To prevent spurious
- *  warnings define this with a false value.
- */
-#define __LP64__ 0
-
-#elif defined ( _WIN32 )
-
+#if defined ( _WIN32 )
 #  include <Windows.h>
-
-#endif
-
-#if defined( _WIN32 )
 #  define strcasecmp stricmp
 #else
 #  include <strings.h>
 #endif
 
+#include "applejnifix.h"
 #include <jni.h>
 
 #include "jvmstarter.h"
@@ -600,9 +586,36 @@ int main( int argc, char** argv ) {
   return runCygwinCompatibly( argc, argv, startGroovy ) ;
 }
 #else
+
 int main( int argc, char** argv ) {
-  return startGroovy( argc, argv ) ;
+
+  int rval ;
+
+#if defined( _WIN32_NOT_USED_ATM )
+
+  char **originalArgv = argv, // for debugging
+       **utf8Argv ;
+  int nArgs;
+  LPWSTR *szArglist = CommandLineToArgvW(GetCommandLineW(), &nArgs);
+
+  if ( !szArglist ) {
+    jst_printWinError( GetLastError() ) ;
+    return -1 ;
+  }
+
+  // TODO: convert to utf-8
+
+#endif
+
+  rval = startGroovy( argc, argv ) ;
+
+#if defined( _WIN32_NOT_USED_ATM )
+  LocalFree( szArglist ) ;
+#endif
+
+  return rval ;
 }
+
 #endif
 
 

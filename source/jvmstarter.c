@@ -25,24 +25,15 @@
 
 #include <limits.h>
 
-#if defined ( __APPLE__ )
-#  include <TargetConditionals.h>
-
-/*
- *  The Mac OS X Leopard version of jni_md.h (Java SE 5 JDK) is broken in that it tests the value of
- *  __LP64__ instead of the presence of _LP64 as happens in Sun's Java 6.0 JDK.  To prevent spurious
- *  warnings define this with a false value.
- */
-#define __LP64__ 0
-
-#endif
-
+#include "applejnifix.h"
 #include <jni.h>
 
 #include "jvmstarter.h"
 #include "jst_dynmem.h"
 #include "jst_fileutils.h"
 #include "jst_stringutils.h"
+#include "jstringutils.h"
+#include "jniutils.h"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // NOTE: when compiling w/ gcc on cygwin, pass -mno-cygwin, which makes gcc define _WIN32 and handle the win headers ok
@@ -579,21 +570,6 @@ static int findJVMDynamicLibrary( JstJVM* javavm_out, char* java_home, JVMSelect
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-/** To be called when there is a pending exception that is the result of some
- * irrecoverable error in this startup program. Clears the exception and prints its description. */
-static void clearException( JNIEnv* env ) {
-
-  (*env)->ExceptionDescribe( env ) ;
-  (*env)->ExceptionClear( env ) ;
-
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-// TODO: move jni utilities to a separate source file (for clarity)
-
-
-
 extern JavaVMOption* appendJvmOption( JstJvmOptions* opts, char* optStr, void* extraInfo ) {
   JavaVMOption tmp ;
 
@@ -668,32 +644,6 @@ static jboolean appendJarsFromDir( JarDirSpecification* dirSpec, char** target, 
   free( jarNames ) ;
   return errorOccurred ;
 
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-/** Returns false on error. */
-static jboolean addStringToJStringArray( JNIEnv* env, char *strToAdd, jobjectArray jstrArr, jint ind ) {
-  jboolean success = JNI_FALSE ;
-  jstring  arg     = (*env)->NewStringUTF( env, strToAdd ) ;
-
-  if ( !arg ) {
-    fprintf( stderr, "error: could not convert %s to java string\n", strToAdd ) ;
-    clearException( env ) ;
-    return JNI_FALSE ;
-  }
-
-  (*env)->SetObjectArrayElement( env, jstrArr, ind, arg ) ;
-  if ( (*env)->ExceptionCheck( env ) ) {
-    fprintf( stderr, "error: error when writing %dth element %s to Java String[]\n", (int)ind, strToAdd ) ;
-    clearException( env ) ;
-  } else {
-    success = JNI_TRUE ;
-  }
-
-  (*env)->DeleteLocalRef( env, arg ) ;
-
-  return success ;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -913,30 +863,10 @@ static int ensureJNILocalCapacity( JNIEnv* env, jint requiredCapacity ) {
   return result ;
 }
 
-/** @param strings must be NULL terminated. May be NULL.
- * @param indx start at this index
- * @return != 0 on error */
-static int addStringsToJavaStringArray( JNIEnv* env, jobjectArray jstrings, char** strings, jint indx ) {
-
-  int errorOccurred = 0 ;
-
-  if ( !strings ) return 0 ;
-
-  for ( ; *strings ; strings++ ) {
-    if ( ( errorOccurred = !addStringToJStringArray( env, *strings, jstrings, indx++ ) ) ) {
-      break ;
-    }
-  }
-
-  return errorOccurred ;
-
-}
 
 /** Returns NULL on error, and sets rval output param accordingly.
  * On successfull execution rval is not touched. */
 void printParameterDebugInformation( JstActualParam* parameter, JstParamInfo* paramInfo ) {
-
-  // FIXME - transform the integer code that constainsinfo on what to do with the param into a readable string
 
   if ( _jst_debug ) {
 

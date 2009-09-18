@@ -24,23 +24,11 @@
 #include <stdarg.h>
 #include <ctype.h>
 
-#if defined ( __APPLE__ )
-#  include <TargetConditionals.h>
-
-/*
- *  The Mac OS X Leopard version of jni_md.h (Java SE 5 JDK) is broken in that it tests the value of
- *  __LP64__ instead of the presence of _LP64 as happens in Sun's Java 6.0 JDK.  To prevent spurious
- *  warnings define this with a false value.
- */
-#define __LP64__ 0
-
-#elif defined ( _WIN32 )
-
+#if defined ( _WIN32 )
 #  include <Windows.h>
-
 #endif
 
-
+#include "applejnifix.h"
 #include <jni.h>
 
 #include "jvmstarter.h"
