@@ -384,12 +384,13 @@ end:
 
 #include "jst_cygwin_compatibility.h"
 
-int main( int argc, char** argv ) {
-  return runCygwinCompatibly( argc, argv, startGant ) ;
-}
-#else
-int main( int argc, char** argv ) {
-  return startGant( argc, argv ) ;
-}
 #endif
 
+int main( int argc, char** argv ) {
+#if defined ( _WIN32 ) && defined ( _cwcompat )
+  if ( jst_loadCygwinDll() )
+    return runCygwinCompatibly( argc, argv, startGant ) ;
+  else
+#endif
+  return startGant( argc, argv ) ;
+}

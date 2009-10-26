@@ -42,9 +42,14 @@
 
   static HINSTANCE g_cygwinDllHandle = NULL ;
 
-  int jst_cygwinInit() {
+  HINSTANCE jst_loadCygwinDll() {
+    if ( !g_cygwinDllHandle ) {
+      g_cygwinDllHandle = LoadLibrary( "cygwin1.dll" ) ;
+    }
+    return g_cygwinDllHandle ;
+  }
 
-    g_cygwinDllHandle = LoadLibrary( "cygwin1.dll" ) ;
+  int jst_cygwinInit() {
 
     if ( g_cygwinDllHandle ) {
       SetLastError( 0 ) ;

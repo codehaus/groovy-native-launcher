@@ -32,9 +32,12 @@
 // if cygwin is loaded, the above pointers are != NULL, otherwise they are NULL
 #define CYGWIN_LOADED cygwin_posix2win_path
 
-  /** returns > 0 iff cygwin could be loaded. Note that it's not usually an error to be unable to load
-   * cygwin1.dll - that just means the code is not executing in cygwin shell and can proceed w/out doing any
-   * conversions. Returns 0 if cygwin1.dll could not be loaded. Returns < 0 on error. */
+  /** Returns the handle to cygwin dll if it is found and can be loaded, 0 otherwise.
+   * This needs to be called before jst_cygwinInit */
+  HINSTANCE jst_loadCygwinDll( void ) ;
+
+  /** returns > 0 iff necessary cygwin functions could be loaded. Returns 0 if cygwin1.dll is not be loaded. Returns < 0 on error.
+   * NOTE: call jst_loadCygwinDll before calling this function. */
   int jst_cygwinInit( void ) ;
 
   void jst_cygwinRelease( void ) ;

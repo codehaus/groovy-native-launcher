@@ -582,40 +582,16 @@ end:
 
 #include "jst_cygwin_compatibility.h"
 
-int main( int argc, char** argv ) {
-  return runCygwinCompatibly( argc, argv, startGroovy ) ;
-}
-#else
+#endif
 
 int main( int argc, char** argv ) {
-
-  int rval ;
-
-#if defined( _WIN32_NOT_USED_ATM )
-
-  char **originalArgv = argv, // for debugging
-       **utf8Argv ;
-  int nArgs;
-  LPWSTR *szArglist = CommandLineToArgvW(GetCommandLineW(), &nArgs);
-
-  if ( !szArglist ) {
-    jst_printWinError( GetLastError() ) ;
-    return -1 ;
-  }
-
-  // TODO: convert to utf-8
-
+#if defined ( _WIN32 ) && defined ( _cwcompat )
+  if ( jst_loadCygwinDll() )
+    return runCygwinCompatibly( argc, argv, startGroovy ) ;
+  else
 #endif
-
-  rval = startGroovy( argc, argv ) ;
-
-#if defined( _WIN32_NOT_USED_ATM )
-  LocalFree( szArglist ) ;
-#endif
-
-  return rval ;
+  return startGroovy( argc, argv ) ;
 }
 
-#endif
 
 
