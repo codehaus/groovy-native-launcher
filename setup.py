@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 
 # before this gets integrated into the build, you need to build it like this:
-# swig -python -outdir . -o tests/nativelauncher_wrap.c nativelauncher.i
+# swig -python -Isource -outdir . -o tests/nativelauncher_wrap.c source/nativelauncher.i
 # python setup.py build_ext --inplace
+
+# TODO: there may be separate issues in 64-bit compilation, 
+#       see swig documentation 30.2.7 "Compiling for 64-bit platforms"
+#       if there are problems
 
 """
 setup.py file for SWIG example
@@ -23,9 +27,9 @@ testCSources = findCFilesWithoutMain( 'source' )
 for f in glob( 'tests/*.c' ) :
     testCSources.append( f )
 
-print '--- c sources '
-print testCSources
-print '<<<<'
+#print '--- c sources '
+#print testCSources
+#print '<<<<'
 
 includeDirs = [ 'source' ]
 

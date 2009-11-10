@@ -20,9 +20,14 @@
 
 %module nativelauncher
 
+%import "jni.h"
+%import "jni_md.h"
+
 %{
 #include "jvmstarter.h"
 %}
+
+%include "jvmstarter.h"
 
 %inline %{
 
