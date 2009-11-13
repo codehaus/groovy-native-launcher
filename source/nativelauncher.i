@@ -20,20 +20,20 @@
 
 %module nativelauncher
 
-//%import "jni.h"
-//%import "jni_md.h"
+#if defined( SWIGWIN ) || 1 
+  %import "windows.i"
+#endif
+
+%import "jni_md.h"
+%import "jni.h"
 
 %{
 #include "jvmstarter.h"
 %}
 
-// for some reason swig can't handle jni.h / jni_md.h so for now I'll define the necessary jni types here
-//%apply unsigned char { jboolean } ;
-typedef unsigned char jboolean ;
-
-
 %include "jvmstarter.h"
 
+// FIXME - remove this
 %inline %{
 
 // just to test getting swig integrated into the build

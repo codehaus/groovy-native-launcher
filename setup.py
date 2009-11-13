@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # before this gets integrated into the build, you need to build it like this:
-# swig -python -Isource -outdir . -o tests/nativelauncher_wrap.c source/nativelauncher.i
+# swig -Wall -python -Isource -I%JAVA_HOME%\include -I%JAVA_HOME%\include\win32 -outdir . -o tests/nativelauncher_wrap.c source/nativelauncher.i
 # python setup.py build_ext --inplace
 
 # TODO: there may be separate issues in 64-bit compilation, 
@@ -26,10 +26,6 @@ testCSources = findCFilesWithoutMain( 'source' )
 
 for f in glob( 'tests/*.c' ) :
     testCSources.append( f )
-
-#print '--- c sources '
-#print testCSources
-#print '<<<<'
 
 includeDirs = [ 'source' ]
 
