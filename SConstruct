@@ -22,6 +22,7 @@ import os
 import sys
 
 from distutils.sysconfig import get_python_inc as getPythonIncludePaths
+from distutils.sysconfig import get_python_lib as getPythonLibraryPaths
 
 #  For Bamboo continuous integration, the test results need to be output as XML files.  Provide a command
 #  line option to switch the feature on.  Have to put the value into the shell environment so that its value
@@ -101,7 +102,7 @@ os.environ['Width'] = str ( width )
 #  Distinguish the build directory and the sconsign file by architecture, shell, processor, and compiler so
 #  that multiple builds for different architectures can happen concurrently using the same source tree.
  
-discriminator = environment['Architecture'] + '_' + unameResult[4] + '_' + environment['CC'] + '_' + str ( width )
+discriminator = environment['Architecture'] + '_' + unameResult[4] + '_' + environment['CC'] + '_' + str ( width )  
 buildDirectory = 'build_scons_' + discriminator
 
 environment.SConsignFile ( '.sconsign_' + discriminator )
@@ -154,7 +155,7 @@ else :
 
 cygwinsupport = eval ( ARGUMENTS.get ( 'cygwinsupport' , 'True' ) )
 if cygwinsupport :
-    if environment['PLATFORM'] in [ 'Windows' , 'mingw' , 'cygwin' ] :
+    if environment['PLATFORM'] in [ 'win32' , 'mingw' , 'cygwin' ] : # TODO: add win64 once it is figured out what name it goes by
         environment.Append ( CPPDEFINES = [ '_cwcompat' ] )
 
 extraMacrosString = ARGUMENTS.get ( 'extramacros' , '' )
@@ -196,6 +197,7 @@ if environment['PLATFORM'] == 'cygwin' :
     Export ( 'windowsEnvironment' )
 
 if environment['PLATFORM'] == 'darwin' :
+    # FIXME: I think this is only needed with swigEnvironment?
     environment.Append ( LINKFLAGS = [ '-framework' ,  'CoreFoundation' , '-framework' , 'Python' ] )
 
 #  Map from uname operating system names (environment['Architecture']) to include directory names.
@@ -259,10 +261,15 @@ if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = [ 'd
 #  different from object files for executables.  This is true on Linux, Mac OS X and Solaris using GCC.
 
 swigEnvironment = environment.Clone (
-    SWIGFLAGS = [ '-python' ] ,
+    SWIGFLAGS = [ '-Wall', '-python' ] ,
     SWIGPATH = environment['CPPPATH'] ,
-    SHLIBPREFIX = '' )
+    SHLIBPREFIX = '' ,
+    SHLIBSUFFIX = '.pyd'
+    )
 swigEnvironment.Append ( CPPPATH = [ getPythonIncludePaths ( ) , '#source' ] )
+
+if environment[ 'PLATFORM' ] in [ 'win32' , 'mingw' , 'cygwin' ] :
+    swigEnvironment.Append ( LIBPATH = [ getPythonLibraryPaths( standard_lib = True ) + 's' ] )
 
 Export ( 'swigEnvironment' )
 
@@ -275,11 +282,16 @@ Export ( 'swigEnvironment' )
 Default ( Alias ( 'compile' , executables ) )
 
 def runLauncherTests ( target , source , env ) :
+    sys.path.append ( 'tests' )
+    sys.path.append ( buildDirectory )
     for item in source :
         ( root , ext ) = os.path.splitext ( item.name )
-        sys.path.append ( 'tests' )
+        if ext in [ '.ext', '.lib' ] : continue
+        root = root.lstrip( '_' )
+        testModuleName = root + 'Test'
         try :
-            module = __import__ ( root + 'Test' )
+            module = __import__ ( testModuleName )
+            print 'running tests in ' + testModuleName
             if not module.runTests ( item.path , environment['PLATFORM'] ) :
                 Exit ( 1 )
         except ImportError :
