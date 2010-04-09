@@ -29,9 +29,18 @@ cFiles = Glob ( '*.c' )
 mainFunctionPattern = re.compile ( 'int\s+main\s*\(' )
 mainFiles = [ ]
 for f in cFiles :
-    with file ( str ( f ) ) as theFile :
+    #
+    #  As at 2010-03-18 11:15+00:00 Cygwin uses Python 2.5 which means we cannot use the with statement.
+    #
+    #with file ( str ( f ) ) as theFile :
+    #    theText = theFile.read ( )
+    #    if mainFunctionPattern.search ( theText ) : mainFiles.append ( f.name )
+    try :
+        theFile = file ( str ( f ) )
         theText = theFile.read ( )
         if mainFunctionPattern.search ( theText ) : mainFiles.append ( f.name )
+    finally :
+        theFile.close ( )
 
 otherSources =  [ f.name for f in cFiles if ( f.name not in mainFiles ) and f.name != 'nativelauncher_wrap.c' ]
 otherStaticObjects = [ environment.Object ( s ) for s in otherSources ]
