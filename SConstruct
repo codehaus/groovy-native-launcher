@@ -249,6 +249,9 @@ else :
 
 if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = [ 'dl' ] )
 
+if environment['PLATFORM'] == 'darwin' :
+    environment.Append ( LINKFLAGS = [ '-framework' ,  'CoreFoundation' ] )
+
 #  As well as preparing executables for people to use, a shared library for test is also produced and this
 #  involves SWIG.  Note the removal of the shared library prefix, this is basically to ensure the whole SWIG
 #  infrastructure works as required when making Python native extensions.
@@ -268,7 +271,7 @@ if environment[ 'PLATFORM' ] in [ 'win32' , 'mingw' , 'cygwin' ] :
     swigEnvironment.Append ( LIBPATH = [ getPythonLibraryPaths( standard_lib = True ) + 's' ] )
 
 if environment['PLATFORM'] == 'darwin' :
-    environment.Append ( LINKFLAGS = [ '-framework' ,  'CoreFoundation' , '-framework' , 'Python' ] )
+    swigEnvironment.Append ( LINKFLAGS = [ '-framework' , 'Python' ] )
     swigEnvironment.Prepend ( SWIGPATH = [ '#sourceForDarwinSWIG' ] )
 
 Export ( 'swigEnvironment' )
