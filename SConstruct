@@ -63,6 +63,10 @@ else :
 
 environment['Architecture'] = unameResult[0]
 
+#  Enforce use of the users PATH rather than just the default.
+
+environment['ENV']['PATH'] = os.environ['PATH']
+
 Export ( 'environment' )
 
 #  Windows cmd and MSYS shell present the same information to Python since both are using the Windows native
@@ -81,9 +85,12 @@ width = int ( ARGUMENTS.get ( 'width' , -1 ) )
 if width == 64 or width == 32 :
     pass
 elif width == -1 :
-    width = 32
+    if environment['Architecture'] == 'Linux' :
+        width = 64 if unameResult[4] == 'x86_64' else 32
+    else :
+        width = 32
 else :
-    print 'Width must be 32 or 64, 32 is the default if nothing specified. Value given was' , width
+    print 'Width must be 32 or 64. Value given was' , width
     Exit ( 1 )
 environment['Width'] = width
 
@@ -261,6 +268,7 @@ swigEnvironment = environment.Clone (
     SWIGPATH = environment['CPPPATH'] ,
     SHLIBPREFIX = '' )
 swigEnvironment.Append ( CPPPATH = [ getPythonIncludePaths ( ) , '#source' ] )
+
 Export ( 'swigEnvironment' )
 
 #  All information about the actual build itself is in the subsidiary script.

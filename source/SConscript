@@ -51,10 +51,13 @@ for name in mainFiles :
             environment.Program ( root + '.exe' , objects + [ resources ] ) ,
             windowsEnvironment.Program ( root + 'w.exe' , objects + [ resources ] )
             ]
-        sharedLibrary = swigEnvironment.SharedLibrary ( '_nativelauncher' , otherStaticObjects + [ 'nativelauncher.i' ] )
     else :
         executables += environment.Program ( root , [ name ] + otherStaticObjects )
-        sharedLibrary = swigEnvironment.SharedLibrary ( '_nativelauncher' , otherSources + [ 'nativelauncher.i' ] )
+
+if environment['PLATFORM'] in [ 'win32' , 'cygwin' ] :
+    sharedLibrary = swigEnvironment.SharedLibrary ( '_nativelauncher' , otherStaticObjects + [ 'nativelauncher.i' ] )
+else :
+    sharedLibrary = swigEnvironment.SharedLibrary ( '_nativelauncher' , otherSources + [ 'nativelauncher.i' ] )
 
 returnValue = ( executables , sharedLibrary )
 
