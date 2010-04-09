@@ -43,29 +43,28 @@ os.environ['xmlOutputRequired' ] = xmlOutputRequired
 
 unameResult = platform.uname ( )
 
-#  toolchain and msvsversion options are processed here, other options are processed in source/SConscript
-#  These have effects that need to be taken into account when creating the environment.
+#  There is an issue when using Windows that Visual C++ has precedence over GCC and sometimes you really
+#  have to use GCC even when Visual C++ is present.  Use the command line variables toolchain and
+#  msvsversion to handle this case.
 #
-#  There is an issue when using Windows that Visual C++ has precedence of GCC and sometimes you really have
-#  to use GCC even when Visual C++ is present.
+#  We need to make use of the users' environment, especially PATH, when initializing the tools, so as to
+#  ensure all the commands we are going to use are available.  In particular an issue arises usign SWIG on
+#  Windows, the swig.exe executable is never in one of the standard places.  So always pick up the user PATH
+#  when creating the environment.  SCons appears not to have a way of only amending the PATH.
 
 toolchain = ARGUMENTS.get ( 'toolchain' , False ) 
 msvsVersion = ARGUMENTS.get ( 'msvsversion' , False ) 
 if ( toolchain ) :
     if msvsVersion :
-        environment = Environment ( tools = [ toolchain ] , MSVS_VERSION = msvsVersion )
+        environment = Environment ( tools = [ toolchain , 'swig' ] , MSVS_VERSION = msvsVersion , ENV = os.environ )
     else :
-        environment = Environment ( tools = [ toolchain ] )
+        environment = Environment ( tools = [ toolchain , 'swig' ] , ENV = os.environ )
 elif msvsVersion :
-    environment = Environment ( MSVS_VERSION = msvsVersion )
+    environment = Environment ( MSVS_VERSION = msvsVersion , ENV = os.environ )
 else :
-    environment = Environment ( )
+    environment = Environment ( ENV = os.environ )
 
 environment['Architecture'] = unameResult[0]
-
-#  Enforce use of the users PATH rather than just the default.
-
-environment['ENV']['PATH'] = os.environ['PATH']
 
 Export ( 'environment' )
 
