@@ -196,7 +196,7 @@ if environment['PLATFORM'] == 'cygwin' :
     Export ( 'windowsEnvironment' )
 
 if environment['PLATFORM'] == 'darwin' :
-    environment.Append ( LINKFLAGS = [ '-framework' ,  'CoreFoundation' ] )
+    environment.Append ( LINKFLAGS = [ '-framework' ,  'CoreFoundation' , '-framework' , 'Python' ] )
 
 #  Map from uname operating system names (environment['Architecture']) to include directory names.
 
@@ -207,10 +207,6 @@ def includeDirectoryName( architecture ) :
         'Linux' : 'linux' ,
         'SunOS' : 'solaris' ,
         'Darwin' : 'darwin' ,
-#    'CYGWIN_NT-5.1' : 'win32' ,
-#    'CYGWIN_NT-6.0-WOW64' : 'win32', #  Quick hack to solve part of GROOVY-3340
-#    'MINGW32_NT-5.1' : 'win32' ,
-#    'Windows' : 'win32'
     }[ architecture ]
 
 environment.Append ( CPPPATH = [ os.path.join ( javaHome , 'include'  , includeDirectoryName( environment[ 'Architecture' ] ) ) , os.path.join ( javaHome , 'include' ) ] )
@@ -289,6 +285,8 @@ def runLauncherTests ( target , source , env ) :
         except ImportError :
             pass
 
+Alias ( 'testLib' , sharedLibrary )
+
 Command ( 'test' , ( executables , sharedLibrary ) , runLauncherTests )
 
 #  Have to take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
@@ -328,6 +326,7 @@ Alias ( 'install' , target , Chmod ( target , 0511 ) )
 Help ( '''The targets:
 
     compile
+    testLib
     test
     install
 
