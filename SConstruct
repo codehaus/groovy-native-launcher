@@ -21,7 +21,7 @@ import platform
 import os
 import sys
 
-import distutils.sysconfig
+from distutils.sysconfig import get_python_inc as getPythonIncludePaths
 
 #  For Bamboo continuous integration, the test results need to be output as XML files.  Provide a command
 #  line option to switch the feature on.  Have to put the value into the shell environment so that its value
@@ -72,14 +72,6 @@ Export ( 'environment' )
 if environment['Architecture'] == 'Windows' :
     result = os.popen ( 'uname -s' ).read ( ).strip ( )
     if result != '' : environment['Architecture'] = result
-
-#  As well as preparing executables for people to use, a shared library for test is also produced and this
-#  involves SWIG.  Note the removal of the shared library prefix, this is basically to ensure the whole SWIG
-#  infrastructure works as required when making Python native extensions.
-
-environment.Append ( SWIGFLAGS = [ '-python' ] ,
-                     CPPPATH = [ distutils.sysconfig.get_python_inc ( ) ] ,
-                     SHLIBPREFIX = '' )
 
 #  A platform may support both 32-bit and 64-bit builds, e,g, Solaris builds on SPARC v9.  By default we
 #  assume a 32-bit build.  Use a command line parameter width to determine if a 64-bit build is to be
@@ -233,11 +225,11 @@ if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
         LIBS = [ 'advapi32' ] ,
         LINKFLAGS = [ '-incremental:no' ]
         )
-    if float( environment[ 'MSVS_VERSION' ] ) < 9.0 :
+    if float( environment['MSVS_VERSION'] ) < 9.0 :
         environment.Append ( CCFLAGS = [ '-Wp64' ] )
     else :
-        environment[ 'SHLINKCOM' ] = [ environment[ 'SHLINKCOM' ], 'mt -nologo -manifest ${TARGET}.manifest -outputresource:${TARGET};2' ]
-        environment[ 'LINKCOM'   ] = [ environment[ 'LINKCOM'   ], 'mt -nologo -manifest ${TARGET}.manifest -outputresource:${TARGET};1' ]
+        environment['SHLINKCOM'] = [ environment['SHLINKCOM'], 'mt -nologo -manifest ${TARGET}.manifest -outputresource:${TARGET};2' ]
+        environment['LINKCOM'] = [ environment['LINKCOM'], 'mt -nologo -manifest ${TARGET}.manifest -outputresource:${TARGET};1' ]
         # does not work
         #Clean( '.', '*.manifest' )
                             
@@ -245,10 +237,10 @@ if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
     windowsEnvironment.Append ( LINKFLAGS = [ '-subsystem:windows' , '-entry:mainCRTStartup' ] )
     environment.Append ( LINKFLAGS = [ '-subsystem:console' ] )
     Export ( 'windowsEnvironment' )
-elif environment[ 'CC' ] == 'gcc' :
+elif environment['CC'] == 'gcc' :
     #  Cygwin specific options were set earlier.
     environment.Append ( CCFLAGS = [ '-W', '-Wall', '-Wundef', '-Wcast-align', '-Wno-unused-parameter', '-Wshadow', '-Wredundant-decls' ] )
-    if environment[ 'PLATFORM' ] == 'win32' :
+    if environment['PLATFORM'] == 'win32' :
         # TODO:  Find out what the right options are here for the MinGW GCC.
         windowsEnvironment = environment.Clone ( )
         windowsEnvironment.Append ( LINKFLAGS = [ '-mwindows' ] )
@@ -256,7 +248,21 @@ elif environment[ 'CC' ] == 'gcc' :
 else :
     print 'Assuming default options for compiler' , environment[ 'CC' ]
 
-if environment[ 'Architecture' ] in [ 'Linux' ] : environment.Append ( LIBS = [ 'dl' ] )
+if environment['Architecture'] in [ 'Linux' ] : environment.Append ( LIBS = [ 'dl' ] )
+
+#  As well as preparing executables for people to use, a shared library for test is also produced and this
+#  involves SWIG.  Note the removal of the shared library prefix, this is basically to ensure the whole SWIG
+#  infrastructure works as required when making Python native extensions.
+#
+#  The current way of using this environment relies on the fact that object files for shared libraries are
+#  different from object files for executables.  This is true on Linux, Mac OS X and Solaris using GCC.
+
+swigEnvironment = environment.Clone (
+    SWIGFLAGS = [ '-python' ] ,
+    SWIGPATH = environment['CPPPATH'] ,
+    SHLIBPREFIX = '' )
+swigEnvironment.Append ( CPPPATH = [ getPythonIncludePaths ( ) , '#source' ] )
+Export ( 'swigEnvironment' )
 
 #  All information about the actual build itself is in the subsidiary script.
 

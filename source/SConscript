@@ -19,23 +19,23 @@
 
 import re
 
-Import ( 'environment' )
+Import ( 'environment' , 'swigEnvironment' )
 
 #  Search for any file with what appears to be a main function and assume that file is the main file of an
 #  application to be built.  Assume all other source files should be compiled and linked with each of the
 #  main files.  Return a list of all the executables made.
 
-mainFiles = [ ]
+cFiles = Glob ( '*.c' )
 mainFunctionPattern = re.compile ( 'int\s+main\s*\(' )
-for f in Glob ( '*.c' ) :
+mainFiles = [ ]
+for f in cFiles :
     with file ( str ( f ) ) as theFile :
         theText = theFile.read ( )
         if mainFunctionPattern.search ( theText ) : mainFiles.append ( f.name )
 
-# TODO: add removing swig generated files from other than the dyn lib build        
-otherSources =  [ f.name for f in Glob ( '*.c' ) if f.name not in mainFiles ]
+otherSources =  [ f.name for f in cFiles if ( f.name not in mainFiles ) and f.name != 'nativelauncher_wrap.c' ]
 
-returnValue = [ ]
+executables = [ ]
 for name in mainFiles :
     root = name.replace ( '.c' , '' )
     sources =  [ name ] + otherSources
@@ -47,15 +47,15 @@ for name in mainFiles :
             resources = environment.Command ( name + '.coff' , root + '.rc' , 'windres $SOURCES -I source -O coff $TARGET' )
         else :
             resources = environment.RES ( target = root + '.coff' , source = root + '.rc' )
-        returnValue += [
+        executables += [
             environment.Program ( root + '.exe' , objects + [ resources ] ) ,
             windowsEnvironment.Program ( root + 'w.exe' , objects + [ resources ] )
             ]
     else :
-        returnValue += environment.Program ( root , sources )
+        executables += environment.Program ( root , sources )
 
-sharedLibrary = environment.SharedLibrary ( '_nativelauncher' , otherSources + [ 'nativelauncher.i' ] )
+sharedLibrary = swigEnvironment.SharedLibrary ( '_nativelauncher' , otherSources + [ 'nativelauncher.i' ] )
 
-returnValue = ( returnValue , sharedLibrary )
+returnValue = ( executables , sharedLibrary )
 
 Return ( 'returnValue' )
