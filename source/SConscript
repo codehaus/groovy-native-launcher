@@ -3,7 +3,7 @@
 
 #  Groovy -- A native launcher for Groovy
 #
-#  Copyright © 2007-9 Russel Winder
+#  Copyright © 2007-10 Russel Winder
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
 #  compliance with the License. You may obtain a copy of the License at
@@ -34,14 +34,14 @@ for f in cFiles :
         if mainFunctionPattern.search ( theText ) : mainFiles.append ( f.name )
 
 otherSources =  [ f.name for f in cFiles if ( f.name not in mainFiles ) and f.name != 'nativelauncher_wrap.c' ]
+otherStaticObjects = [ environment.Object ( s ) for s in otherSources ]
 
 executables = [ ]
 for name in mainFiles :
     root = name.replace ( '.c' , '' )
-    sources =  [ name ] + otherSources
     if environment['PLATFORM'] in [ 'win32' , 'cygwin' ] :
         Import ( 'windowsEnvironment' )
-        objects = environment.Object ( sources )
+        objects = [ environment.Object ( name ) ] + otherStaticObjects
         #  SCons does not provide the RES builder for the Cygwin toolchain. cf. Scons Bug 2077.
         if environment['PLATFORM'] == 'cygwin' :
             resources = environment.Command ( name + '.coff' , root + '.rc' , 'windres $SOURCES -I source -O coff $TARGET' )
@@ -51,10 +51,10 @@ for name in mainFiles :
             environment.Program ( root + '.exe' , objects + [ resources ] ) ,
             windowsEnvironment.Program ( root + 'w.exe' , objects + [ resources ] )
             ]
+        sharedLibrary = swigEnvironment.SharedLibrary ( '_nativelauncher' , otherStaticObjects + [ 'nativelauncher.i' ] )
     else :
-        executables += environment.Program ( root , sources )
-
-sharedLibrary = swigEnvironment.SharedLibrary ( '_nativelauncher' , otherSources + [ 'nativelauncher.i' ] )
+        executables += environment.Program ( root , [ name ] + otherStaticObjects )
+        sharedLibrary = swigEnvironment.SharedLibrary ( '_nativelauncher' , otherSources + [ 'nativelauncher.i' ] )
 
 returnValue = ( executables , sharedLibrary )
 

@@ -3,7 +3,7 @@
 
 #  Groovy -- A native launcher for Groovy
 #
-#  Copyright © 2007-9 Russel Winder
+#  Copyright © 2007-10 Russel Winder
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
 #  compliance with the License. You may obtain a copy of the License at
@@ -95,8 +95,7 @@ os.environ['Width'] = str ( width )
 #  Distinguish the build directory and the sconsign file by architecture, shell, processor, and compiler so
 #  that multiple builds for different architectures can happen concurrently using the same source tree.
  
-discriminator = environment['Architecture'] + '_' + unameResult[4] + '_' + environment['CC']
-if width != 32 : discriminator = discriminator + '_' + str ( width )
+discriminator = environment['Architecture'] + '_' + unameResult[4] + '_' + environment['CC'] + '_' + str ( width )
 buildDirectory = 'build_scons_' + discriminator
 
 environment.SConsignFile ( '.sconsign_' + discriminator )
