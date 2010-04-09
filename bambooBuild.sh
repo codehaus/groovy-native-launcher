@@ -15,6 +15,9 @@ then
     fi
 fi
 
+#  Having problems with PATH so find out what it is.
+/bin/echo $PATH
+
 #  Bamboo fiddles with the standard path so have to force things by using absolute paths.
  
 groovyZipName=groovy-binary-$groovyVersion.zip
