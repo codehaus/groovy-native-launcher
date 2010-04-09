@@ -196,10 +196,6 @@ if environment['PLATFORM'] == 'cygwin' :
     windowsEnvironment.Append ( LINKFLAGS = [ '-mwindows' ] )
     Export ( 'windowsEnvironment' )
 
-if environment['PLATFORM'] == 'darwin' :
-    # FIXME: I think this is only needed with swigEnvironment?
-    environment.Append ( LINKFLAGS = [ '-framework' ,  'CoreFoundation' , '-framework' , 'Python' ] )
-
 #  Map from uname operating system names (environment['Architecture']) to include directory names.
 
 def includeDirectoryName( architecture ) :
@@ -270,6 +266,10 @@ swigEnvironment.Append ( CPPPATH = [ getPythonIncludePaths ( ) , '#source' ] )
 
 if environment[ 'PLATFORM' ] in [ 'win32' , 'mingw' , 'cygwin' ] :
     swigEnvironment.Append ( LIBPATH = [ getPythonLibraryPaths( standard_lib = True ) + 's' ] )
+
+if environment['PLATFORM'] == 'darwin' :
+    environment.Append ( LINKFLAGS = [ '-framework' ,  'CoreFoundation' , '-framework' , 'Python' ] )
+    swigEnvironment.Prepend ( SWIGPATH = [ '#sourceForDarwinSWIG' ] )
 
 Export ( 'swigEnvironment' )
 
