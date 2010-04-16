@@ -93,5 +93,54 @@ def findCFilesWithoutMain( dir = '.' ) :
         files.remove( f )
     return files 
 
+# Windows specific issue:
+# Having _DEBUG will cause Python.h to try to use python26_d.lib which is not included
+# in Python installer and thus the build fails. See e.g. 
+#   http://old.nabble.com/please-include-python26_d.lib-in-the-installer-td22737890.html
+#  http://old.nabble.com/MUD-Game-Programmming---Python-Modules-in-C%2B%2B-td25880983.html#a25882369
+# for discussion on the topic. For some reason there is no issue about it in the 
+# Python bug tracker.
+# 
+# From MSDN docs: "The compiler defines _DEBUG when you specify the /MTd or /MDd option."
+# Thus, to be able to perform a debug test build, we need to either:
+#   * modify %PYTHON_HOME%\Include\pyconfig.h so python26.lib will be used instead of python26_d.lib
+#   * compile ourselves a debug version of Python
+#   * surround the #include <Python.h> in our source with #ifdef _DEBUG #undef _DEBUG #include <Python.h> style construct (see impl below)
+# Of these options, the last one is the least intrusive and requires least hassle. 
+
+# cfile needs to be opened and have write permissions. This func will not close it.
+def surroundPythonHIncludeWithGuards( cfile ) :
+    cfile.seek( 0 )
+    lines = cfile.readlines()
+    linenrOfPythonH = None
+    try : 
+      linenrOfPythonH = lines.index( '#include <Python.h>\n' )
+    except ValueError : return
+    
+    if ( lines[ linenrOfPythonH - 2 ] == "#  undef _DEBUG\n" ) : return
+
+    post = [ 
+      "#if defined( _DEBUG_WAS_DEFINED )\n",
+      "#  define _DEBUG\n",
+      "#endif\n" ]
+    post.reverse()
+
+    for line in post : lines.insert( linenrOfPythonH + 1, line )
+
+    pre = [ 
+      "#if defined( _DEBUG )\n",
+      "#  define _DEBUG_WAS_DEFINED\n",
+      "#  undef _DEBUG\n",
+      "#endif\n" ]
+    pre.reverse()
+    for line in pre : lines.insert( linenrOfPythonH, line )    
+
+    cfile.truncate( 0 )
+    cfile.seek( 0 )
+    cfile.writelines( lines )
+
 if __name__ == '__main__' :
     print 'Run tests using command "scons test".'
+    
+    
+    
