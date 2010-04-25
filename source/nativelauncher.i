@@ -29,9 +29,11 @@
 
 %{
 #include "jvmstarter.h"
+#include "groovyutils.h"
 %}
 
 %include "jvmstarter.h"
+%include "groovyutils.h"
 
 // FIXME - remove this
 %inline %{

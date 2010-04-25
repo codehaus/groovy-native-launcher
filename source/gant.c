@@ -56,6 +56,7 @@
 #include "jst_dynmem.h"
 #include "jst_fileutils.h"
 #include "jst_stringutils.h"
+#include "groovyutils.h"
 
 #if defined( _WIN32 ) && defined( _cwcompat )
 #  include "jst_cygwin_compatibility.h"
@@ -64,40 +65,16 @@
 #define GANT_CONF_FILE "gant-starter.conf"
 
 
-static int gantJarSelect( const char* dirName, const char* fileName ) {
-  int result = JNI_FALSE ;
-  size_t fileNameLen = strlen( fileName ) ;
-  // we are looking for gant-[0-9]+\.+[0-9]+.*\.jar. As tegexes
-  // aren't available, we'll just check that the char following
-  // gant- is a digit
-  if ( fileNameLen >= 9 ) result = isdigit( fileName[ 5 ] ) ;
-
-  return result ;
-}
-
-static int groovyJarSelect( const char* dirName, const char* fileName ) {
-  int result = strcmp( "groovy-starter.jar", fileName ) == 0 ;
-  if ( !result ) result = jst_startsWith( fileName, "groovy-all-" ) ;
-  if ( !result ) {
-    size_t fileNameLen = strlen( fileName ) ;
-    // we are looking for groovy-[0-9]+\.+[0-9]+.*\.jar. As tegexes
-    // aren't available, we'll just check that the char following
-    // groovy- is a digit
-    if ( fileNameLen >= 12 ) result = isdigit( fileName[ 7 ] ) ;
-  }
-  return result ;
-}
-
 /**
  * @return NULL on error, otherwise dynallocated string (which caller must free). */
 static char* findGantStartupJar( const char* gantHome ) {
-  char *gantStartupJar = findStartupJar( gantHome, "lib", "gant-", "gant", &gantJarSelect ) ;
+  char *gantStartupJar = findStartupJar( gantHome, "lib", "gant", "gant", &gantJarSelect ) ;
 //  if ( !gantStartupJar ) fprintf( stderr, "error: could not locate gant startup jar\n" ) ;
   return gantStartupJar ;
 }
 
 static char* findGroovyStartupJar( const char* groovyHome, jboolean errorMsgOnFailure ) {
-  char *groovyStartupJar = findStartupJar( groovyHome, "lib", "groovy-", errorMsgOnFailure ? "groovy" : NULL, &groovyJarSelect ) ;
+  char *groovyStartupJar = findStartupJar( groovyHome, "lib", "groovy-", errorMsgOnFailure ? "groovy" : NULL, &groovyJarSelectForGant ) ;
 
   return groovyStartupJar ;
 

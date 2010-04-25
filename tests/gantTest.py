@@ -19,6 +19,8 @@ import re
 import unittest
 
 import supportModule
+import nativelauncher
+
 
 #  The actual test cases are collected together in this class.
 
@@ -38,6 +40,19 @@ class GantTestCase ( unittest.TestCase ) :
     def testVersion ( self ) :
         pattern = 'Gant version '
         self.gantExecutionTest ( '-V' , re.compile ( pattern ) , None , pattern )
+
+    def testGantJarRecognition( self ) :
+
+        assert not nativelauncher.cvar._jst_debug
+
+        assert nativelauncher.gantJarSelect( '', 'gant-5.jar' )
+        assert nativelauncher.gantJarSelect( '', 'gant_groovy6.jar' )
+
+        assert not nativelauncher.gantJarSelect( '', 'rant_groovy6.jar' )
+        assert not nativelauncher.gantJarSelect( '', 'gant-5.exe' )
+        assert not nativelauncher.gantJarSelect( '', 'gant-5.dll' )
+        assert not nativelauncher.gantJarSelect( '', 'gant-5.7.so' )
+
 
 #  The entry point for SCons to use.
 
