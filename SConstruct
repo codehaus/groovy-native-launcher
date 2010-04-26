@@ -17,7 +17,6 @@
 #
 #  Author : Russel Winder <russel.winder@concertant.com>
 
-import platform
 import os
 import sys
 
@@ -42,7 +41,7 @@ os.environ['xmlOutputRequired' ] = xmlOutputRequired
 #  other systems.  Combine this with the compiler in use and we have a complete platform specification so
 #  that we can have multiple concurrent builds for different architectures all in the same source hierarchy.
 
-unameResult = platform.uname ( )
+unameResult = os.uname ( )
 
 #  There is an issue when using Windows that Visual C++ has precedence over GCC and sometimes you really
 #  have to use GCC even when Visual C++ is present.  Use the command line variables toolchain and
@@ -262,13 +261,13 @@ if environment['PLATFORM'] == 'darwin' :
 swigEnvironment = environment.Clone (
     SWIGFLAGS = [ '-Wall', '-python' ] ,
     SWIGPATH = environment['CPPPATH'] ,
-    SHLIBPREFIX = '' ,
-    SHLIBSUFFIX = '.pyd'
+    SHLIBPREFIX = ''
     )
 swigEnvironment.Append ( CPPPATH = [ getPythonIncludePaths ( ) , '#source' ] )
 
 if environment[ 'PLATFORM' ] in [ 'win32' , 'mingw' , 'cygwin' ] :
     swigEnvironment.Append ( LIBPATH = [ getPythonLibraryPaths( standard_lib = True ) + 's' ] )
+    swigEnvironment['SHLIBSUFFIX'] = '.pyd'
 
 if environment['PLATFORM'] == 'darwin' :
     swigEnvironment.Append ( LINKFLAGS = [ '-framework' , 'Python' ] )
@@ -285,20 +284,25 @@ Export ( 'swigEnvironment' )
 Default ( Alias ( 'compile' , executables ) )
 
 def runLauncherTests ( target , source , env ) :
-    sys.path.append ( 'tests' )
-    sys.path.append ( buildDirectory )
+    testsFailed = False
     for item in source :
         ( root , ext ) = os.path.splitext ( item.name )
-        if ext in [ '.ext', '.lib' ] : continue
-        root = root.lstrip( '_' )
+        if ext in [ '.ext', '.lib' , '.pyd' , '.so' ] : continue
+        sys.path.append ( 'tests' )
+        sys.path.append ( buildDirectory )
         testModuleName = root + 'Test'
         try :
             module = __import__ ( testModuleName )
-            print 'running tests in ' + testModuleName
+            print 'Running tests in' , testModuleName
             if not module.runTests ( item.path , environment['PLATFORM'] ) :
-                Exit ( 1 )
-        except ImportError :
-            pass
+                print '  Tests failed.'
+                testsFailed = True
+            else :
+                print '  Tests succeeded.'
+        except ImportError , ie :
+            print 'Cannot execute test for' , root
+            testsFailed = True
+    if testsFailed : Exit ( 1 )
 
 Alias ( 'testLib' , sharedLibrary )
 
