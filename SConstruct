@@ -291,7 +291,8 @@ if environment[ 'PLATFORM' ] in [ 'win32' , 'mingw' , 'cygwin' ] :
 
 if environment['PLATFORM'] == 'darwin' :
     swigEnvironment.Append ( LINKFLAGS = [ '-framework' , 'Python' ] )
-    swigEnvironment.Prepend ( SWIGPATH = [ '#sourceForDarwinSWIG' ] )
+    #  Python uses .so for extensions even on Mac OS X where dynamic libraries are normally .dylib.
+    swigEnvironment['SHLIBSUFFIX'] = '.so'
 
 Export ( 'swigEnvironment' )
 
