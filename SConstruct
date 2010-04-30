@@ -18,6 +18,7 @@
 #  Author : Russel Winder <russel.winder@concertant.com>
 
 import os
+import platform
 import sys
 
 from distutils.sysconfig import get_python_inc as getPythonIncludePaths
@@ -41,12 +42,7 @@ os.environ[ 'xmlOutputRequired' ] = xmlOutputRequired
 #  other systems.  Combine this with the compiler in use and we have a complete platform specification so
 #  that we can have multiple concurrent builds for different architectures all in the same source hierarchy.
 
-unameResult = None
-
-try :
-    unameResult = os.uname ( )
-except AttributeError :
-    unameResult = [ 'Windows', None, None, None, None ]
+unameResult = platform.uname ( )
 
 #  There is an issue when using Windows that Visual C++ has precedence over GCC and sometimes you really
 #  have to use GCC even when Visual C++ is present.  Use the command line variables toolchain and
