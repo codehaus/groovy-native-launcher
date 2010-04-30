@@ -51,10 +51,10 @@
 #  define dlsym( libraryhandle, funcname ) GetProcAddress( libraryhandle, funcname )
 #  define dlclose( handle ) FreeLibrary( handle )
 
-// for dynamically loading SetDllDirectoryA. See the explanation later in this file.
-typedef BOOL (WINAPI *SetDllDirFunc)( LPCTSTR lpPathname ) ;
+   // for dynamically loading SetDllDirectoryA. See the explanation later in this file.
+   typedef BOOL (WINAPI *SetDllDirFunc)( LPCTSTR lpPathname ) ;
 
-#define JAVA_EXECUTABLE "java.exe"
+#  define JAVA_EXECUTABLE "java.exe"
 
 // PATH_MAX is defined when compiling w/ e.g. msys gcc, but not w/ ms cl compiler (the visual studio c compiler)
 #  if !defined( PATH_MAX )
@@ -65,7 +65,7 @@ typedef BOOL (WINAPI *SetDllDirFunc)( LPCTSTR lpPathname ) ;
 
 #else
 
-#define JAVA_EXECUTABLE "java"
+#  define JAVA_EXECUTABLE "java"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  if defined( __linux__ )

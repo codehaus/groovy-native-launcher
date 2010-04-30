@@ -38,7 +38,7 @@ extern int gantJarSelect( const char* dirName, const char* fileName ) {
     switch ( fileName[ 4 ] ) {
 
       case '-' :
-        result = isdigit( fileName[ 5 ] ) ? JNI_TRUE : JNI_FALSE ;
+        result = isdigit( fileName[ 5 ] ) ;
         break ;
 
       case '_' :

@@ -29,8 +29,8 @@ from distutils.sysconfig import get_python_lib as getPythonLibraryPaths
 
 xmlTestOutputDirectory = 'test-reports'
 xmlOutputRequired = ARGUMENTS.get ( 'xmlOutputRequired' , 'False' )
-os.environ['xmlTestOutputDirectory'] = xmlTestOutputDirectory
-os.environ['xmlOutputRequired' ] = xmlOutputRequired
+os.environ[ 'xmlTestOutputDirectory' ] = xmlTestOutputDirectory
+os.environ[ 'xmlOutputRequired' ] = xmlOutputRequired
 
 #  Once we have an environment, we can distinguish things according to the PLATFORM which is one of posix,
 #  darwin, sunos, cygwin, win32 for the machines tested to date.  This does not distinguish the same OS on
@@ -41,7 +41,12 @@ os.environ['xmlOutputRequired' ] = xmlOutputRequired
 #  other systems.  Combine this with the compiler in use and we have a complete platform specification so
 #  that we can have multiple concurrent builds for different architectures all in the same source hierarchy.
 
-unameResult = os.uname ( )
+unameResult = None
+
+try :
+    unameResult = os.uname ( )
+except AttributeError :
+    unameResult = [ 'Windows', None, None, None, None ]
 
 #  There is an issue when using Windows that Visual C++ has precedence over GCC and sometimes you really
 #  have to use GCC even when Visual C++ is present.  Use the command line variables toolchain and
@@ -52,19 +57,33 @@ unameResult = os.uname ( )
 #  Windows, the swig.exe executable is never in one of the standard places.  So always pick up the user PATH
 #  when creating the environment.  SCons appears not to have a way of only amending the PATH.
 
-toolchain = ARGUMENTS.get ( 'toolchain' , False ) 
-msvsVersion = ARGUMENTS.get ( 'msvsversion' , False ) 
-if ( toolchain ) :
-    if msvsVersion :
-        environment = Environment ( tools = [ toolchain , 'swig' ] , MSVS_VERSION = msvsVersion , ENV = os.environ )
-    else :
-        environment = Environment ( tools = [ toolchain , 'swig' ] , ENV = os.environ )
-elif msvsVersion :
-    environment = Environment ( MSVS_VERSION = msvsVersion , ENV = os.environ )
-else :
-    environment = Environment ( ENV = os.environ )
+toolchain   = ARGUMENTS.get ( 'toolchain'   , False ) 
+msvsVersion = ARGUMENTS.get ( 'msvsversion' , False )
+width       = int ( ARGUMENTS.get ( 'width' , 0 ) )
+targetArch  = ARGUMENTS.get( 'TARGET_ARCH'  , None ) # "x86" or "x86_64" 
 
-environment['Architecture'] = unameResult[0]
+environmentInitializationPars = { 'ENV' : os.environ }
+
+ 
+if ( toolchain ) :
+    environmentInitializationPars[ 'tools' ] = [ toolchain , 'swig' ] 
+if msvsVersion :
+    environmentInitializationPars[ 'MSVS_VERSION' ] = msvsVersion 
+if ( width ) :
+    pass # TODO
+if ( targetArch ) :
+    environmentInitializationPars[ 'TARGET_ARCH' ] = targetArch
+
+# FIXME - add support for 64 bit cross compilation on windows
+#if environment[ 'CC' ] == 'cl' and width :
+#    environment[ 'TARGET_ARCH' ] = 'x64'
+
+environment = Environment ( **environmentInitializationPars )
+
+if ( not unameResult[ 4 ] ) :
+    unameResult[ 4 ] = environment[ 'TARGET_ARCH' ]
+
+environment[ 'Architecture' ] = unameResult[ 0 ]
 
 Export ( 'environment' )
 
@@ -72,7 +91,7 @@ Export ( 'environment' )
 #  Python.  We need to distinguish these.  Try executing uname directly as a command, if it fails this is
 #  Windows native, if it succeeds then we are using MSYS.
 
-if environment['Architecture'] == 'Windows' :
+if environment[ 'Architecture' ] == 'Windows' :
     result = os.popen ( 'uname -s' ).read ( ).strip ( )
     if result != '' : environment['Architecture'] = result
 
@@ -80,28 +99,28 @@ if environment['Architecture'] == 'Windows' :
 #  assume a 32-bit build.  Use a command line parameter width to determine if a 64-bit build is to be
 #  attempted.
 
-width = int ( ARGUMENTS.get ( 'width' , -1 ) )
 if width == 64 or width == 32 :
     pass
-elif width == -1 :
-    if environment['Architecture'] == 'Linux' :
-        width = 64 if unameResult[4] == 'x86_64' else 32
+elif not width :
+    if environment[ 'Architecture' ] == 'Linux' :
+        width = 64 if unameResult[ 4 ] == 'x86_64' else 32
     else :
         width = 32
 else :
     print 'Width must be 32 or 64. Value given was' , width
     Exit ( 1 )
-environment['Width'] = width
+environment[ 'Width' ] = width
+
 
 #  The Client VM test in tests/groovyTest.py has to know whether this is a 32-bit or 64-bit VM test, so put
 #  the width value into the shell environment so that it can be picked up during the test.
 
-os.environ['Width'] = str ( width )
+os.environ[ 'Width' ] = str ( width )
 
 #  Distinguish the build directory and the sconsign file by architecture, shell, processor, and compiler so
 #  that multiple builds for different architectures can happen concurrently using the same source tree.
  
-discriminator = environment['Architecture'] + '_' + unameResult[4] + '_' + environment['CC'] + '_' + str ( width )  
+discriminator = environment[ 'Architecture' ] + '_' + unameResult[ 4 ] + '_' + environment[ 'CC' ] + '_' + str ( width )  
 buildDirectory = 'build_scons_' + discriminator
 
 environment.SConsignFile ( '.sconsign_' + discriminator )
@@ -263,7 +282,12 @@ swigEnvironment = environment.Clone (
     SWIGPATH = environment['CPPPATH'] ,
     SHLIBPREFIX = ''
     )
-swigEnvironment.Append ( CPPPATH = [ getPythonIncludePaths ( ) , '#source' ] )
+swigEnvironment.Append ( CPPPATH = [ getPythonIncludePaths ( ) , '#source' ] ) # , 
+#                         CPPDEFINES = [ '' ] )
+#if ( on windows and debug ) :
+# TODO Somehow schedule this to be executed after swig is run but before c compilation
+#    supportModule.surroundPythonHIncludeWithGuards 
+    
 
 if environment[ 'PLATFORM' ] in [ 'win32' , 'mingw' , 'cygwin' ] :
     swigEnvironment.Append ( LIBPATH = [ getPythonLibraryPaths( standard_lib = True ) + 's' ] )
@@ -284,24 +308,40 @@ Export ( 'swigEnvironment' )
 Default ( Alias ( 'compile' , executables ) )
 
 def runLauncherTests ( target , source , env ) :
+    
     testsFailed = False
+    sys.path.append ( 'tests' )
+    sys.path.append ( buildDirectory )
+
+    alreadyExecuted = []
+
+    print
+
     for item in source :
         ( root , ext ) = os.path.splitext ( item.name )
-        if ext in [ '.ext', '.lib' , '.pyd' , '.so' ] : continue
-        sys.path.append ( 'tests' )
-        sys.path.append ( buildDirectory )
+        #if ext in [ '.ext', '.lib' ] : continue
         testModuleName = root + 'Test'
+        testModuleName = testModuleName.lstrip( '_' ) 
+        if not os.path.exists( os.path.join( 'tests', testModuleName + '.py' ) ) : 
+            print "info: no tests exist for ", item.name, "\n"
+            continue
+        
+        if testModuleName in alreadyExecuted : continue
+
         try :
             module = __import__ ( testModuleName )
-            print 'Running tests in' , testModuleName
-            if not module.runTests ( item.path , environment['PLATFORM'] ) :
+        except ImportError , ie :
+            print 'Error loading tests for ' , root, ' :: ' , ie 
+            testsFailed = True
+        else :
+            print 'Running test ' , testModuleName
+            if not module.runTests ( item.path , environment[ 'PLATFORM' ] ) :
                 print '  Tests failed.'
                 testsFailed = True
-            else :
-                print '  Tests succeeded.'
-        except ImportError , ie :
-            print 'Cannot execute test for' , root
-            testsFailed = True
+                
+        alreadyExecuted.append( testModuleName )
+        print
+        
     if testsFailed : Exit ( 1 )
 
 Alias ( 'testLib' , sharedLibrary )

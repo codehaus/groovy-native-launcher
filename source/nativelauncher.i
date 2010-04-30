@@ -24,6 +24,11 @@
   %import "windows.i"
 #endif
 
+// for os-x  
+#define visibility( x ) x
+#define __attribute__( x )
+
+
 %import "jni_md.h"
 %import "jni.h"
 
@@ -35,15 +40,6 @@
 %include "jvmstarter.h"
 %include "groovyutils.h"
 
-// FIXME - remove this
-%inline %{
-
-// just to test getting swig integrated into the build
-int returnFive() {
-  return 5 ;
-}
-
-%}
 
 
 
