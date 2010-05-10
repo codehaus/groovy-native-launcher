@@ -21,8 +21,10 @@ import os
 import platform
 import sys
 
+import nativelauncherbuild
+
 from distutils.sysconfig import get_python_inc as getPythonIncludePaths
-from distutils.sysconfig import get_python_lib as getPythonLibraryPaths
+
 
 #  For Bamboo continuous integration, the test results need to be output as XML files.  Provide a command
 #  line option to switch the feature on.  Have to put the value into the shell environment so that its value
@@ -54,9 +56,8 @@ unameResult = platform.uname ( )
 #  when creating the environment.  SCons appears not to have a way of only amending the PATH.
 
 toolchain   = ARGUMENTS.get ( 'toolchain'   , False ) 
-msvsVersion = ARGUMENTS.get ( 'msvsversion' , False )
+msvsVersion = ARGUMENTS.get ( 'msvcversion' , False )
 width       = int ( ARGUMENTS.get ( 'width' , 0 ) )
-targetArch  = ARGUMENTS.get( 'TARGET_ARCH'  , None ) # "x86" or "x86_64" 
 
 environmentInitializationPars = { 'ENV' : os.environ }
 
@@ -64,20 +65,18 @@ environmentInitializationPars = { 'ENV' : os.environ }
 if ( toolchain ) :
     environmentInitializationPars[ 'tools' ] = [ toolchain , 'swig' ] 
 if msvsVersion :
-    environmentInitializationPars[ 'MSVS_VERSION' ] = msvsVersion 
-if ( width ) :
-    pass # TODO
-if ( targetArch ) :
-    environmentInitializationPars[ 'TARGET_ARCH' ] = targetArch
+    environmentInitializationPars[ 'MSVC_VERSION' ] = msvsVersion 
+if ( unameResult[ 0 ] == 'Windows' and width ) : # FIXME - this does not work correctly yet - there is a strange exception from scons (might be our fault, though)
+    if   width == 64 :
+      environmentInitializationPars[ 'TARGET_ARCH' ] = "x86_64"
+    elif width == 32 :
+      environmentInitializationPars[ 'TARGET_ARCH' ] = "x86"
+    else :
+        raise Exception, 'Illegal width ' + str( width )
 
-# FIXME - add support for 64 bit cross compilation on windows
-#if environment[ 'CC' ] == 'cl' and width :
-#    environment[ 'TARGET_ARCH' ] = 'x64'
 
 environment = Environment ( **environmentInitializationPars )
 
-if ( not unameResult[ 4 ] ) :
-    unameResult[ 4 ] = environment[ 'TARGET_ARCH' ]
 
 environment[ 'Architecture' ] = unameResult[ 0 ]
 
@@ -100,12 +99,16 @@ if width == 64 or width == 32 :
 elif not width :
     if environment[ 'Architecture' ] == 'Linux' :
         width = 64 if unameResult[ 4 ] == 'x86_64' else 32
+# FIXME - why do we default to 32 bit build? I think we should default according to the host os. 
+#         Scons defaults to this automatically on Windows/visual studio.
     else :
         width = 32
 else :
     print 'Width must be 32 or 64. Value given was' , width
     Exit ( 1 )
-environment[ 'Width' ] = width
+    
+if ( width ) :    
+    environment[ 'Width' ] = width
 
 
 #  The Client VM test in tests/groovyTest.py has to know whether this is a 32-bit or 64-bit VM test, so put
@@ -286,8 +289,10 @@ swigEnvironment.Append ( CPPPATH = [ getPythonIncludePaths ( ) , '#source' ] ) #
     
 
 if environment[ 'PLATFORM' ] in [ 'win32' , 'mingw' , 'cygwin' ] :
-    swigEnvironment.Append ( LIBPATH = [ getPythonLibraryPaths( standard_lib = True ) + 's' ] )
+    swigEnvironment.Append ( LIBPATH = [ nativelauncherbuild.getPythonLibraryPathOnWindows()  ] )
     swigEnvironment['SHLIBSUFFIX'] = '.pyd'
+    if ( environment[ 'Architecture' ].startswith( 'MINGW' ) ) :
+        swigEnvironment.Append ( LIBS = [ nativelauncherbuild.getPythonLibNameOnWindows() ] )
 
 if environment['PLATFORM'] == 'darwin' :
     swigEnvironment.Append ( LINKFLAGS = [ '-framework' , 'Python' ] )
@@ -304,46 +309,13 @@ Export ( 'swigEnvironment' )
 
 Default ( Alias ( 'compile' , executables ) )
 
-def runLauncherTests ( target , source , env ) :
-    
-    testsFailed = False
-    sys.path.append ( 'tests' )
-    sys.path.append ( buildDirectory )
 
-    alreadyExecuted = []
-
-    print
-
-    for item in source :
-        ( root , ext ) = os.path.splitext ( item.name )
-        #if ext in [ '.ext', '.lib' ] : continue
-        testModuleName = root + 'Test'
-        testModuleName = testModuleName.lstrip( '_' ) 
-        if not os.path.exists( os.path.join( 'tests', testModuleName + '.py' ) ) : 
-            print "info: no tests exist for ", item.name, "\n"
-            continue
-        
-        if testModuleName in alreadyExecuted : continue
-
-        try :
-            module = __import__ ( testModuleName )
-        except ImportError , ie :
-            print 'Error loading tests for ' , root, ' :: ' , ie 
-            testsFailed = True
-        else :
-            print 'Running test ' , testModuleName
-            if not module.runTests ( item.path , environment[ 'PLATFORM' ] ) :
-                print '  Tests failed.'
-                testsFailed = True
-                
-        alreadyExecuted.append( testModuleName )
-        print
-        
-    if testsFailed : Exit ( 1 )
 
 Alias ( 'testLib' , sharedLibrary )
 
-Command ( 'test' , ( executables , sharedLibrary ) , runLauncherTests )
+tester = nativelauncherbuild.NativeLauncherTester( buildDirectory )
+Command ( 'test' , ( executables , sharedLibrary ) , tester.runLauncherTests )
+
 
 #  Have to take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
 #  does arise on Solaris 10.
@@ -391,6 +363,6 @@ are provided.  compile is the default.  Possible options are:
     debug=<True|*False*>
     cygwinsupport=<True|*False*>
     toolchain=mingw (to use mingw even if msvs is installed)
-    msvsversion=<version> (to use specific version if several versions are installed)
+    msvcversion=<version> (to use specific version if several versions are installed)
     extramacros=<list-of-c-macro-definitions>
 ''' )
