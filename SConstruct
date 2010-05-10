@@ -125,7 +125,7 @@ buildDirectory = 'build_scons_' + discriminator
 environment.SConsignFile ( '.sconsign_' + discriminator )
 
 if environment['CC'] == 'gcc' : environment.Append ( CCFLAGS = [ '-m' + str ( width ) ] , LINKFLAGS = [ '-m' + str ( width ) ] )
-else :
+elif environment[ 'Architecture' ] != 'Windows' :
     if environment['Width'] == 64 :
         raise Exception , '64-bit build for non-GCC not yet set up.'
 
@@ -361,7 +361,7 @@ Help ( '''The targets:
 are provided.  compile is the default.  Possible options are:
 
     debug=<True|*False*>
-    cygwinsupport=<True|*False*>
+    cygwinsupport=<*True*|False>
     toolchain=mingw (to use mingw even if msvs is installed)
     msvcversion=<version> (to use specific version if several versions are installed)
     extramacros=<list-of-c-macro-definitions>
