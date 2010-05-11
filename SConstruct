@@ -21,7 +21,7 @@ import os
 import platform
 import sys
 
-import nativelauncherbuild
+import nativelaunchertester
 
 #  For Bamboo continuous integration, the test results need to be output as XML files.  Provide a command
 #  line option to switch the feature on.  Have to put the value into the shell environment so that its value
@@ -337,8 +337,8 @@ Default ( Alias ( 'compile' , executables ) )
 
 Alias ( 'testLib' , sharedLibrary )
 
-tester = nativelauncherbuild.NativeLauncherTester ( buildDirectory )
-Command ( 'test' , ( executables , sharedLibrary ) , tester.runLauncherTests )
+Command ( 'test' , ( executables , sharedLibrary ) ,
+          nativelaunchertester.NativeLauncherTester ( buildDirectory ).runLauncherTests )
 
 #  Have to take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
 #  does arise on Solaris 10.
