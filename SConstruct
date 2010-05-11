@@ -23,9 +23,6 @@ import sys
 
 import nativelauncherbuild
 
-from distutils.sysconfig import get_python_inc as getPythonIncludePaths
-
-
 #  For Bamboo continuous integration, the test results need to be output as XML files.  Provide a command
 #  line option to switch the feature on.  Have to put the value into the shell environment so that its value
 #  is available in other Python code.  Because of this always use strings.
@@ -60,7 +57,6 @@ msvsVersion = ARGUMENTS.get ( 'msvcversion' , False )
 width       = int ( ARGUMENTS.get ( 'width' , 0 ) )
 
 environmentInitializationPars = { 'ENV' : os.environ }
-
  
 if ( toolchain ) :
     environmentInitializationPars[ 'tools' ] = [ toolchain , 'swig' ] 
@@ -68,19 +64,50 @@ if msvsVersion :
     environmentInitializationPars[ 'MSVC_VERSION' ] = msvsVersion 
 if ( unameResult[ 0 ] == 'Windows' and width ) : # FIXME - this does not work correctly yet - there is a strange exception from scons (might be our fault, though)
     if   width == 64 :
-      environmentInitializationPars[ 'TARGET_ARCH' ] = "x86_64"
+        environmentInitializationPars[ 'TARGET_ARCH' ] = "x86_64"
     elif width == 32 :
-      environmentInitializationPars[ 'TARGET_ARCH' ] = "x86"
+        environmentInitializationPars[ 'TARGET_ARCH' ] = "x86"
     else :
         raise Exception, 'Illegal width ' + str( width )
 
-
 environment = Environment ( **environmentInitializationPars )
-
 
 environment[ 'Architecture' ] = unameResult[ 0 ]
 
 Export ( 'environment' )
+
+#  Discovering the location of the header files and the library files for the Python installation is
+#  non-trivial -- it is not just a question of using sys.prefix or sys.exec_prefix.  The job is handled by
+#  distutils.sysconfig.get_python_inc and distutils.sysconfig.get_python_lib respectively.  The distutils
+#  package and the distutils.sysconfig subpackage are distributed as standard with all Python distributions,
+#  so it is safe to make use of these.
+#
+#  However, there are some extra questions that are asked in this build that are not answered directly by
+#  names or functions in distutils.sysconfig, so we have these functions in order to set up that information.
+
+from distutils.sysconfig import get_python_inc as getPythonIncludePath
+from distutils.sysconfig import get_python_lib as getPythonLibraryPath
+
+if environment['Architecture'] == 'Windows' :
+
+    def getPythonLibraryPathOnWindows ( ) :
+        return getPythonLibraryPaths ( standard_lib = True ) + 's'
+
+    def getPythonLibraryNameOnWindows ( ) :
+        libdir = getPythonLibraryPathOnWindows ( )
+        allfiles = os.listdir ( libdir )
+        plibs = filter ( lambda fname : fnmatch.fnmatch ( fname, "python*.lib" ) , allfiles )
+        if len ( plibs ) == 0 : 
+            raise Exception , 'Could not locate python library in ' + libdir
+        elif len ( plibs ) > 1 :
+            raise Exception , 'Ambiguous match for python lib in ' + libdir + ' ' + plibs
+        return plibs[ 0 ].rpartition( '.' )[ 0 ]
+
+elif environment['Architecture'] == 'Darwin':
+
+    def getPythonFrameworkPathOnMac ( ) :
+        base = getPythonIncludePath ( )
+        return base[ : base.find ( '/Python.framework' )]
 
 #  Windows cmd and MSYS shell present the same information to Python since both are using the Windows native
 #  Python.  We need to distinguish these.  Try executing uname directly as a command, if it fails this is
@@ -109,7 +136,6 @@ else :
     
 if ( width ) :    
     environment[ 'Width' ] = width
-
 
 #  The Client VM test in tests/groovyTest.py has to know whether this is a 32-bit or 64-bit VM test, so put
 #  the width value into the shell environment so that it can be picked up during the test.
@@ -281,7 +307,7 @@ swigEnvironment = environment.Clone (
     SWIGPATH = environment['CPPPATH'] ,
     SHLIBPREFIX = ''
     )
-swigEnvironment.Append ( CPPPATH = [ getPythonIncludePaths ( ) , '#source' ] ) # , 
+swigEnvironment.Append ( CPPPATH = [ getPythonIncludePath ( ) , '#source' ] ) # , 
 #                         CPPDEFINES = [ '' ] )
 #if ( on windows and debug ) :
 # TODO Somehow schedule this to be executed after swig is run but before c compilation
@@ -289,13 +315,13 @@ swigEnvironment.Append ( CPPPATH = [ getPythonIncludePaths ( ) , '#source' ] ) #
     
 
 if environment[ 'PLATFORM' ] in [ 'win32' , 'mingw' , 'cygwin' ] :
-    swigEnvironment.Append ( LIBPATH = [ nativelauncherbuild.getPythonLibraryPathOnWindows()  ] )
+    swigEnvironment.Append ( LIBPATH = [ getPythonLibraryPathOnWindows ( )  ] )
     swigEnvironment['SHLIBSUFFIX'] = '.pyd'
     if ( environment[ 'Architecture' ].startswith( 'MINGW' ) ) :
-        swigEnvironment.Append ( LIBS = [ nativelauncherbuild.getPythonLibNameOnWindows() ] )
+        swigEnvironment.Append ( LIBS = [ getPythonLibraryNameOnWindows ( ) ] )
 
 if environment['PLATFORM'] == 'darwin' :
-    swigEnvironment.Append ( LINKFLAGS = [ '-framework' , 'Python' ] )
+    swigEnvironment.Append ( LINKFLAGS = [ '-F' + getPythonFrameworkPathOnMac ( ) , '-framework' , 'Python' ] )
     #  Python uses .so for extensions even on Mac OS X where dynamic libraries are normally .dylib.
     swigEnvironment['SHLIBSUFFIX'] = '.so'
 
@@ -309,13 +335,10 @@ Export ( 'swigEnvironment' )
 
 Default ( Alias ( 'compile' , executables ) )
 
-
-
 Alias ( 'testLib' , sharedLibrary )
 
-tester = nativelauncherbuild.NativeLauncherTester( buildDirectory )
+tester = nativelauncherbuild.NativeLauncherTester ( buildDirectory )
 Command ( 'test' , ( executables , sharedLibrary ) , tester.runLauncherTests )
-
 
 #  Have to take account of the detritus created by a JVM failure -- never arises on Ubuntu or Mac OS X, but
 #  does arise on Solaris 10.

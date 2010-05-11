@@ -21,25 +21,6 @@ import os
 import fnmatch
 import sys
 
-
-from distutils.sysconfig import get_python_lib as getPythonLibraryPaths
-
-
-def getPythonLibraryPathOnWindows() :
-    return getPythonLibraryPaths( standard_lib = True ) + 's'
-
-
-def getPythonLibNameOnWindows() :
-    libdir = getPythonLibraryPathOnWindows()
-    allfiles = os.listdir( libdir )
-    plibs = filter( lambda fname : fnmatch.fnmatch( fname, "python*.lib" ) , allfiles )
-    if ( len( plibs ) == 0 ) : 
-        raise Exception , 'Could not locate python library in ' + libdir
-    elif len( plibs ) > 1 :
-        raise Exception , 'Ambiguous match for python lib in ' + libdir + ' ' + plibs
-    return plibs[ 0 ].rpartition( '.' )[ 0 ]
-
-
 class NativeLauncherTester :
     
     def __init__( self, buildDirectory ) :
