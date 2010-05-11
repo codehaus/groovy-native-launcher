@@ -18,7 +18,6 @@
 #  Author : Russel Winder <russel.winder@concertant.com>, Antti Karanta <firstname dot lastname (at) hornankuusi dot fi>
 
 import os
-import fnmatch
 import sys
 
 class NativeLauncherTester :

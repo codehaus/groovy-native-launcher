@@ -88,10 +88,13 @@ Export ( 'environment' )
 from distutils.sysconfig import get_python_inc as getPythonIncludePath
 from distutils.sysconfig import get_python_lib as getPythonLibraryPath
 
+import fnmatch
+
+
 if environment['Architecture'] == 'Windows' :
 
     def getPythonLibraryPathOnWindows ( ) :
-        return getPythonLibraryPaths ( standard_lib = True ) + 's'
+        return getPythonLibraryPath ( standard_lib = True ) + 's'
 
     def getPythonLibraryNameOnWindows ( ) :
         libdir = getPythonLibraryPathOnWindows ( )
