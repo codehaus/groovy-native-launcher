@@ -199,10 +199,27 @@ else :
     else :
         print 'Strip mode not set for compiler' , environment['CC']
 
-cygwinsupport = eval ( ARGUMENTS.get ( 'cygwinsupport' , 'True' ) )
+cygwinsupportExplicitlyRequested = False
+cygwinsupport = ARGUMENTS.get ( 'cygwinsupport' , False )
+if not cygwinsupport :
+    cygwinsupport = True
+else :
+    cygwinsupport = eval( cygwinsupport )
+    if cygwinsupport : cygwinsupportExplicitlyRequested = True
+
+
 if cygwinsupport :
     if environment['PLATFORM'] in [ 'win32' , 'mingw' , 'cygwin' ] : # TODO: add win64 once it is figured out what name it goes by
-        environment.Append ( CPPDEFINES = [ '_cwcompat' ] )
+        if width == 32 :
+          environment.Append ( CPPDEFINES = [ '_cwcompat' ] )
+        elif cygwinsupportExplicitlyRequested : 
+            print "error: cygwin support only supported for 32 bit builds"
+            Exit( 1 )
+        else :
+            print "warning: cygwin support not supported in 64 bit build, disabling"
+    else :
+        print "error: cygwin support can only be used on windows"
+        Exit( 1 )
 
 extraMacrosString = ARGUMENTS.get ( 'extramacros' , '' )
 for macro in extraMacrosString.split ( ) :
@@ -216,6 +233,7 @@ defaultJDKLocations = {
     'SunOS' : [ '/usr/jdk/latest' ] ,
     }
 
+# FIXME - extract finding JAVA_HOME to a function and put that func in a library module
 try :
     javaHome = os.environ['JAVA_HOME']
 except :
