@@ -217,7 +217,7 @@ if cygwinsupport :
             Exit( 1 )
         else :
             print "warning: cygwin support not supported in 64 bit build, disabling"
-    else :
+    elif cygwinsupportExplicitlyRequested :
         print "error: cygwin support can only be used on windows"
         Exit( 1 )
 
