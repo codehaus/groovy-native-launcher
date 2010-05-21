@@ -17,30 +17,37 @@
 #
 #  Author : Russel Winder <russel.winder@concertant.com>
 
+#### As at 2010-03-18 11:15+00:00 Cygwin uses Python 2.5 which means we cannot use the with statement
+#### without using the __future__ package.  Fortunately this is a no-op in Python 2.6 and later.
+
+from __future__ import with_statement
+
 import re
 
 Import ( 'environment' , 'swigEnvironment' )
 
-#  Search for any file with what appears to be a main function and assume that file is the main file of an
-#  application to be built.  Assume all other source files should be compiled and linked with each of the
-#  main files.  Return a list of all the executables made.
+#  Statically linked executables are created for each file containing a main.  Search for any file with what
+#  appears to be a main function and assume that file is the main file of an application to be built.
+#  Assume all other source files should be compiled and linked with each of the main files.  Return a tuple
+#  of all the executables made.  The only complexity is that for Windows two executables are created for
+#  each main one for command line use the other for Windows use.
+#
+#  The real complexity for the build is that in order to use Python to write the test code, shared objects
+#  (dynamic link libraries, DLLs, on Windows) have to be prepared.  Posix systems compile without -fPIC for
+#  static systems and with -fPIC for shared objects.  The names of the object files are different in these
+#  cases so there is no conflict.  SCons knows how to do the right thing.  For Windows the same object files
+#  (with the same name) are used to create the statically linked executable and the DLL.  So as to avoid the
+#  problem of there being multiple ways to generate the same generated file, care is taken in specifying how
+#  the static object files are created.  i.e. the construction of the DAG regarding the object files has to
+#  be explicit rather than implicit.
 
 cFiles = Glob ( '*.c' )
-mainFunctionPattern = re.compile ( 'int\s+main\s*\(' )
-mainFiles = [ ]
-for f in cFiles :
-    #
-    #  As at 2010-03-18 11:15+00:00 Cygwin uses Python 2.5 which means we cannot use the with statement.
-    #
-    #with file ( str ( f ) ) as theFile :
-    #    theText = theFile.read ( )
-    #    if mainFunctionPattern.search ( theText ) : mainFiles.append ( f.name )
-    try :
-        theFile = file ( str ( f ) )
-        theText = theFile.read ( )
-        if mainFunctionPattern.search ( theText ) : mainFiles.append ( f.name )
-    finally :
-        theFile.close ( )
+
+def isMainFile ( fileName ) :
+    with file ( str ( fileName ) ) as theFile :
+        return re.compile ( 'int\s+main\s*\(' ).search ( theFile.read ( ) )
+
+mainFiles = [ f.name for f in cFiles if isMainFile ( f ) ]
 
 otherSources =  [ f.name for f in cFiles if ( f.name not in mainFiles ) and f.name != 'nativelauncher_wrap.c' ]
 otherStaticObjects = [ environment.Object ( s ) for s in otherSources ]
@@ -63,11 +70,9 @@ for name in mainFiles :
     else :
         executables += environment.Program ( root , [ name ] + otherStaticObjects )
 
-if environment['PLATFORM'] in [ 'win32' , 'cygwin' ] :
-    sharedLibrary = swigEnvironment.SharedLibrary ( '_nativelauncher' , otherStaticObjects + [ 'nativelauncher.i' ] )
-else :
-    sharedLibrary = swigEnvironment.SharedLibrary ( '_nativelauncher' , otherSources + [ 'nativelauncher.i' ] )
-
-returnValue = ( executables , sharedLibrary )
+returnValue = ( executables ,
+                swigEnvironment.SharedLibrary ( '_nativelauncher' ,
+                        ( otherStaticObjects if environment['PLATFORM'] in [ 'win32' , 'cygwin' ] else otherSources ) + [ 'nativelauncher.i' ] )
+                )
 
 Return ( 'returnValue' )
