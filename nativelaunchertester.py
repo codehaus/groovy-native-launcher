@@ -59,6 +59,3 @@ class NativeLauncherTester :
                     
             alreadyExecuted.append( testModuleName )
             print
-            
-        if testsFailed : Exit ( 1 )
-
