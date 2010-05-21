@@ -29,15 +29,15 @@ import nativelaunchertester
 
 xmlTestOutputDirectory = 'test-reports'
 xmlOutputRequired = ARGUMENTS.get ( 'xmlOutputRequired' , 'False' )
-os.environ[ 'xmlTestOutputDirectory' ] = xmlTestOutputDirectory
-os.environ[ 'xmlOutputRequired' ] = xmlOutputRequired
+os.environ['xmlTestOutputDirectory'] = xmlTestOutputDirectory
+os.environ['xmlOutputRequired'] = xmlOutputRequired
 
 #  Once we have an environment, we can distinguish things according to the PLATFORM which is one of posix,
 #  darwin, sunos, cygwin, win32 for the machines tested to date.  This does not distinguish the same OS on
 #  different architectures where this is an issue.  For Python this is not an issue, but we are compiling C
 #  so it is.  We therefore use uname to provide better discrimination.  This will give Linux, SunOS, Darwin,
 #  CYGWIN_NT-5.[12], Windows as possible values for the operating system (no different from PLATFORM
-#  really), and values like i686 for the processor where it can be determined, i.e not on Windows but on all
+#  really), and values like i686 for the processor where it can be determined, i.e. not on Windows but on all
 #  other systems.  Combine this with the compiler in use and we have a complete platform specification so
 #  that we can have multiple concurrent builds for different architectures all in the same source hierarchy.
 
@@ -52,27 +52,27 @@ unameResult = platform.uname ( )
 #  Windows, the swig.exe executable is never in one of the standard places.  So always pick up the user PATH
 #  when creating the environment.  SCons appears not to have a way of only amending the PATH.
 
-toolchain   = ARGUMENTS.get ( 'toolchain'   , False ) 
+toolchain = ARGUMENTS.get ( 'toolchain'   , False ) 
 msvsVersion = ARGUMENTS.get ( 'msvcversion' , False )
-width       = int ( ARGUMENTS.get ( 'width' , 0 ) )
+width = int ( ARGUMENTS.get ( 'width' , 0 ) )
 
 environmentInitializationPars = { 'ENV' : os.environ }
  
 if ( toolchain ) :
-    environmentInitializationPars[ 'tools' ] = [ toolchain , 'swig' ] 
+    environmentInitializationPars['tools'] = [ toolchain , 'swig' ] 
 if msvsVersion :
-    environmentInitializationPars[ 'MSVC_VERSION' ] = msvsVersion 
+    environmentInitializationPars['MSVC_VERSION'] = msvsVersion 
 if ( unameResult[ 0 ] == 'Windows' and width ) : # FIXME - this does not work correctly yet - there is a strange exception from scons (might be our fault, though)
     if   width == 64 :
-        environmentInitializationPars[ 'TARGET_ARCH' ] = "x86_64"
+        environmentInitializationPars['TARGET_ARCH'] = "x86_64"
     elif width == 32 :
-        environmentInitializationPars[ 'TARGET_ARCH' ] = "x86"
+        environmentInitializationPars['TARGET_ARCH'] = "x86"
     else :
-        raise Exception, 'Illegal width ' + str( width )
+        raise Exception ( 'Illegal width ' + str( width ) )
 
 environment = Environment ( **environmentInitializationPars )
 
-environment[ 'Architecture' ] = unameResult[ 0 ]
+environment['Architecture'] = unameResult[ 0 ]
 
 Export ( 'environment' )
 
@@ -98,12 +98,11 @@ if environment['Architecture'] == 'Windows' :
 
     def getPythonLibraryNameOnWindows ( ) :
         libdir = getPythonLibraryPathOnWindows ( )
-        allfiles = os.listdir ( libdir )
-        plibs = filter ( lambda fname : fnmatch.fnmatch ( fname, "python*.lib" ) , allfiles )
+        plibs = filter ( lambda fname : fnmatch.fnmatch ( fname, "python*.lib" ) , os.listdir ( libdir ) )
         if len ( plibs ) == 0 : 
-            raise Exception , 'Could not locate python library in ' + libdir
+            raise Exception ( 'Could not locate python library in ' + libdir )
         elif len ( plibs ) > 1 :
-            raise Exception , 'Ambiguous match for python lib in ' + libdir + ' ' + plibs
+            raise Exception ( 'Ambiguous match for python lib in ' + libdir + ' ' + plibs )
         return plibs[ 0 ].rpartition( '.' )[ 0 ]
 
 elif environment['Architecture'] == 'Darwin':
@@ -116,7 +115,7 @@ elif environment['Architecture'] == 'Darwin':
 #  Python.  We need to distinguish these.  Try executing uname directly as a command, if it fails this is
 #  Windows native, if it succeeds then we are using MSYS.
 
-if environment[ 'Architecture' ] == 'Windows' :
+if environment['Architecture'] == 'Windows' :
     result = os.popen ( 'uname -s' ).read ( ).strip ( )
     if result != '' : environment['Architecture'] = result
 
@@ -127,8 +126,8 @@ if environment[ 'Architecture' ] == 'Windows' :
 if width == 64 or width == 32 :
     pass
 elif not width :
-    if environment[ 'Architecture' ] == 'Linux' :
-        width = 64 if unameResult[ 4 ] == 'x86_64' else 32
+    if environment['Architecture'] == 'Linux' :
+        width = 64 if unameResult[4] == 'x86_64' else 32
 # FIXME - why do we default to 32 bit build? I think we should default according to the host os. 
 #         Scons defaults to this automatically on Windows/visual studio.
     else :
@@ -138,25 +137,25 @@ else :
     Exit ( 1 )
     
 if ( width ) :    
-    environment[ 'Width' ] = width
+    environment['Width'] = width
 
 #  The Client VM test in tests/groovyTest.py has to know whether this is a 32-bit or 64-bit VM test, so put
 #  the width value into the shell environment so that it can be picked up during the test.
 
-os.environ[ 'Width' ] = str ( width )
+os.environ['Width'] = str ( width )
 
 #  Distinguish the build directory and the sconsign file by architecture, shell, processor, and compiler so
 #  that multiple builds for different architectures can happen concurrently using the same source tree.
  
-discriminator = environment[ 'Architecture' ] + '_' + unameResult[ 4 ] + '_' + environment[ 'CC' ] + '_' + str ( width )  
+discriminator = environment['Architecture'] + '_' + unameResult[4] + '_' + environment['CC'] + '_' + str ( width )  
 buildDirectory = 'build_scons_' + discriminator
 
 environment.SConsignFile ( '.sconsign_' + discriminator )
 
 if environment['CC'] == 'gcc' : environment.Append ( CCFLAGS = [ '-m' + str ( width ) ] , LINKFLAGS = [ '-m' + str ( width ) ] )
-elif environment[ 'Architecture' ] != 'Windows' :
+elif environment['Architecture'] != 'Windows' :
     if environment['Width'] == 64 :
-        raise Exception , '64-bit build for non-GCC not yet set up.'
+        raise Exception ( '64-bit build for non-GCC not yet set up.' )
 
 #  Deal with debug and profile command line parameters.
 
@@ -186,7 +185,7 @@ else :
         #  See for example http://java.sun.com/docs/books/jni/html/start.html#27008 and
         #  http://java.sun.com/docs/books/jni/html/invoke.html#28755
         environment.Append ( CCFLAGS = [ '-MD' , '-Ox' , '-GF' ] , LINKFLAGS = [ '-opt:ref' ] )
-        if float( environment[ 'MSVS_VERSION' ] ) < 9.0 :
+        if float( environment['MSVS_VERSION'] ) < 9.0 :
             environment.Append ( LINKFLAGS = [ '-opt:nowin98' ] )
         if not profile :
             #  Global optimization in msvc is incompatible w/ generating debug info (-Zi + friends).
@@ -206,7 +205,6 @@ if not cygwinsupport :
 else :
     cygwinsupport = eval( cygwinsupport )
     if cygwinsupport : cygwinsupportExplicitlyRequested = True
-
 
 if cygwinsupport :
     if environment['PLATFORM'] in [ 'win32' , 'mingw' , 'cygwin' ] : # TODO: add win64 once it is figured out what name it goes by
@@ -262,8 +260,8 @@ if environment['PLATFORM'] == 'cygwin' :
 
 #  Map from uname operating system names (environment['Architecture']) to include directory names.
 
-def includeDirectoryName( architecture ) :
-    if architecture.startswith( 'CYGWIN' ) or architecture.startswith( 'MINGW' ) or architecture == 'Windows' :
+def includeDirectoryName ( architecture ) :
+    if architecture.startswith( 'CYGWIN' ) or architecture.startswith ( 'MINGW' ) or architecture == 'Windows' :
         return 'win32'
     return {
         'Linux' : 'linux' ,
@@ -271,7 +269,7 @@ def includeDirectoryName( architecture ) :
         'Darwin' : 'darwin' ,
     }[ architecture ]
 
-environment.Append ( CPPPATH = [ os.path.join ( javaHome , 'include'  , includeDirectoryName( environment[ 'Architecture' ] ) ) , os.path.join ( javaHome , 'include' ) ] )
+environment.Append ( CPPPATH = [ os.path.join ( javaHome , 'include'  , includeDirectoryName( environment['Architecture'] ) ) , os.path.join ( javaHome , 'include' ) ] )
 if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
     # -Wall produces screenfulls of useless warnings about win header files unless the following warnings are omitted:
     # c4206 == translation unit is empty (if not compiling cygwin compatible binary, jst_cygwincompatibility.c is empty)
@@ -335,10 +333,10 @@ swigEnvironment.Append ( CPPPATH = [ getPythonIncludePath ( ) , '#source' ] ) # 
 #    supportModule.surroundPythonHIncludeWithGuards 
     
 
-if environment[ 'PLATFORM' ] in [ 'win32' , 'mingw' , 'cygwin' ] :
+if environment['PLATFORM'] in [ 'win32' , 'mingw' , 'cygwin' ] :
     swigEnvironment.Append ( LIBPATH = [ getPythonLibraryPathOnWindows ( )  ] )
     swigEnvironment['SHLIBSUFFIX'] = '.pyd'
-    if ( environment[ 'Architecture' ].startswith( 'MINGW' ) ) :
+    if ( environment['Architecture'].startswith ( 'MINGW' ) ) :
         swigEnvironment.Append ( LIBS = [ getPythonLibraryNameOnWindows ( ) ] )
 
 if environment['PLATFORM'] == 'darwin' :
