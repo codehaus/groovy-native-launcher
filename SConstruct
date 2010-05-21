@@ -333,7 +333,7 @@ swigEnvironment.Append ( CPPPATH = [ getPythonIncludePath ( ) , '#source' ] ) # 
 #    supportModule.surroundPythonHIncludeWithGuards 
     
 
-if environment['PLATFORM'] in [ 'win32' , 'mingw' , 'cygwin' ] :
+if environment['PLATFORM'] in [ 'win32' , 'mingw' ] : # , 'cygwin' 
     swigEnvironment.Append ( LIBPATH = [ getPythonLibraryPathOnWindows ( )  ] )
     swigEnvironment['SHLIBSUFFIX'] = '.pyd'
     if ( environment['Architecture'].startswith ( 'MINGW' ) ) :
