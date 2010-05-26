@@ -431,7 +431,9 @@ static JstDLHandle openDynLib( const char* pathToLib ) {
 
   errno = 0 ;
   if ( !( libraryHandle = dlopen( pathToLib, RTLD_LAZY ) ) )  {
-    fprintf( stderr, "error: dynamic library %s exists but could not be loaded!\n", pathToLib ) ;
+    fprintf( stderr, "error: dynamic library %s exists but could not be loaded!\n"
+                     "This may be caused e.g. by trying to use a 32-bit executable to load a 64-bit jvm (or vice versa)\n",
+                     pathToLib ) ;
     if ( errno ) fprintf( stderr, "%d: %s\n", errno, strerror( errno ) ) ;
 #if defined( _WIN32 )
     jst_printWinError( GetLastError() ) ;
