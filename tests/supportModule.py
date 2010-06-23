@@ -54,6 +54,9 @@ def runTests ( path , architecture , testClass ) :
     executablePath = path
     global platform
     platform = architecture
+    return runTestsInClass( testClass )
+    
+def runTestsInClass( testClass ) :
     if os.environ['xmlOutputRequired'] == 'True' :
         resultsDirectory = os.environ['xmlTestOutputDirectory']
         if not os.path.exists ( resultsDirectory ) : os.mkdir ( resultsDirectory )

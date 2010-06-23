@@ -19,6 +19,7 @@
 
 import os
 import sys
+import re
 
 class NativeLauncherTester :
     
@@ -46,16 +47,29 @@ class NativeLauncherTester :
             
             if testModuleName in alreadyExecuted : continue
     
-            try :
-                module = __import__ ( testModuleName )
-            except ImportError , ie :
-                print 'Error loading tests for ' , root, ' :: ' , ie 
+            if self.runSingleTest( testModuleName, env, item ) :
                 testsFailed = True
-            else :
-                print 'Running test ' , testModuleName
-                if not module.runTests ( item.path , env[ 'PLATFORM' ] ) :
-                    print '  Tests failed.'
-                    testsFailed = True
                     
             alreadyExecuted.append( testModuleName )
             print
+
+        for testfile in os.listdir( 'tests' ) :
+            testModuleName = re.sub( '\.py\Z', '', testfile )
+            if testModuleName in alreadyExecuted or not re.search( 'Test\Z', testModuleName ) : continue
+            if self.runSingleTest( testModuleName, env ) :
+                testsFailed = True
+            
+    def runSingleTest( self, testModuleName, env, item = None ) :
+        testFailed = False
+        try :
+            module = __import__ ( testModuleName )
+        except ImportError , ie :
+            print 'Error loading test file ' , testModuleName, ' :: ' , ie 
+            testFailed = True
+        else :
+            print 'Running test ' , testModuleName
+            if not module.runTests ( item.path if item else None, env[ 'PLATFORM' ] ) :
+                print '  Tests failed.'
+                testsFailed = True
+        return testFailed
+    

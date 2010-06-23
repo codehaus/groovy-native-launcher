@@ -105,7 +105,7 @@ jboolean jst_dirNameEndsWithSeparator( const char* dirName ) ;
 
 /** Checks that the given file name has the given prefix and suffix. Give NULL to match anything. fileName may not be NULL.
  * Returns true if the given prefix and suffix match. */
-int matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* suffix ) ;
+int matchPrefixAndSuffixToFileName( const char* fileName, const char* prefix, const char* suffix ) ;
 
 /** a simple validator func that can be used as an argument to some other funcs that take a corresponding
  * function pointer as a parameter */

@@ -35,10 +35,14 @@
 %{
 #include "jvmstarter.h"
 #include "groovyutils.h"
+#include "jst_stringutils.h"
+#include "jst_fileutils.h"
 %}
 
 %include "jvmstarter.h"
 %include "groovyutils.h"
+%include "jst_stringutils.h"
+%include "jst_fileutils.h"
 
 
 

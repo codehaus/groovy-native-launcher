@@ -224,15 +224,14 @@ static void changeEmptyPrefixAndSuffixToNULL( char** fileNamePrefix, char** file
 
 }
 
-#else
+#endif
 
-extern int matchPrefixAndSuffixToFileName( char* fileName, char* prefix, char* suffix ) {
+extern int matchPrefixAndSuffixToFileName( const char* fileName, const char* prefix, const char* suffix ) {
 
   return jst_startsWith( fileName, prefix ) && jst_endsWith( fileName, suffix ) ;
 
 }
 
-#endif
 
 
 #if defined( _WIN32 )
