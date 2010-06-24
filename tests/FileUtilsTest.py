@@ -13,6 +13,7 @@
 #  implied. See the License for the specific language governing permissions and limitations under the
 #  License.
 
+import os
 import unittest
 
 import supportModule
@@ -29,6 +30,18 @@ class FileUtilsTestCase ( unittest.TestCase ) :
         self.assertTrue( nativelauncher.matchPrefixAndSuffixToFileName( 'hello.txt', 'hel', '.txt' ) )
         self.assertTrue( nativelauncher.matchPrefixAndSuffixToFileName( 'hello.txt', '', '.txt' ) )
         self.assertTrue( nativelauncher.matchPrefixAndSuffixToFileName( 'hello.txt', 'hel', '' ) )
+
+    def testIsDir( self ) :
+        self.assertFalse( nativelauncher.jst_isDir( __file__ ) )
+        self.assertTrue( nativelauncher.jst_isDir( os.path.dirname( __file__ ) ) )
+
+    def testPathToParentDir( self ) :
+        dirname = os.path.realpath( os.path.dirname( __file__ ) )
+        parentdir = os.path.join( dirname, os.path.pardir )
+        parentdir = os.path.abspath( parentdir )
+        self.assertEqual( parentdir, nativelauncher.jst_pathToParentDir( dirname ) )
+
+        
 
 def runTests ( path , architecture ) :
     return supportModule.runTests ( path , architecture , FileUtilsTestCase )

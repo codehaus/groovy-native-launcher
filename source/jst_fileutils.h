@@ -23,11 +23,11 @@
 #endif
 
 
-
+/** true iff the fileName points to an existing file or dir (or a link to either). */
 int jst_fileExists( const char* fileName ) ;
 
 /** Returns 1 if the given fileName points to a dir, 0 if a file. If the given file does not exist, the behavior is undefined, most likely
- * a crash. */
+ * a crash. Use jst_fileExists to check before calling this. */
 int jst_isDir( const char* fileName ) ;
 
 /** Figures out the path to the parent dir of the given path (which may be a file or a dir). Modifies the argument so
