@@ -11,8 +11,8 @@ fi
 
 #  Specify the version of Groovy and Gant to use for the tests.  These will be downloaded.
 
-groovyVersion=1.7.2
-gantVersion=1.9.2
+groovyVersion=1.7.4
+gantVersion=1.9.3
 
 #  By default build for 32-bit systems.  If the parameter is 64 then build for 64-bit systems.
 
