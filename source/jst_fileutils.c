@@ -186,13 +186,13 @@ static jboolean checkForInvalidFileHandle( HANDLE fileHandle, const char* dirNam
 #endif
 
 /** adds filename to list, return true on error and changes the value of errorOccurred accordingly. */
-static jboolean addFileToList( char ***fileNames, int *fileNameCount, size_t *resultSize, char* dirName, char* fileName, int (*selector)( const char* dirname, const char* filename ), jboolean *errorOccurred ) {
+static jboolean addFileToList( char ***fileNames, int *fileNameCount, size_t *resultSize, const char* dirName, const char* fileName, int (*selector)( const char* dirname, const char* filename ), jboolean *errorOccurred ) {
 
   int okToInclude = JNI_TRUE ;
 
   if ( selector ) {
     errno = 0 ;
-    okToInclude = selector( dirName, fileName ) ;
+    okToInclude = selector ? selector( dirName, fileName ) : JNI_TRUE ;
     if ( errno ) *errorOccurred = JNI_TRUE;
   }
 
@@ -498,7 +498,7 @@ extern char* jst_getExecutableHome() {
 
 extern char* jst_createFileName( const char* root, ... ) {
 
-  static char* filesep = JST_FILE_SEPARATOR ; // we can not pass a reference to a define, so this is read into a var
+  static const char* filesep = JST_FILE_SEPARATOR ; // we can not pass a reference to a define, so this is read into a var
 
   va_list args ;
   char    **pathElements = NULL,
@@ -523,7 +523,7 @@ extern char* jst_createFileName( const char* root, ... ) {
 
       if ( ( s[ 0 ] != filesep[ 0 ] ) &&
            ( previous[ strlen( previous ) - 1 ] != filesep[ 0 ] ) &&
-           !jst_appendPointer( (void***)(void*)&pathElements, &pathElementsSize, filesep ) ) goto end ;
+           !jst_appendPointer( (void***)(void*)&pathElements, &pathElementsSize, (void*)filesep ) ) goto end ; 
 
       if ( !jst_appendPointer( (void***)(void*)&pathElements, &pathElementsSize, s ) ) goto end ;
       previous = s ;
@@ -720,39 +720,42 @@ static char* getAppHomeFromEnvVar( const char* envVarName, int (*validator)( con
 
   char* appHome = getenv( envVarName ) ;
 
-  if ( appHome ) {
-#if defined( _WIN32 ) && defined( _cwcompat )
-    if ( CYGWIN_LOADED ) {
-      char convertedPath[ PATH_MAX + 1 ] ;
-      cygwin_posix2win_path( appHome, convertedPath ) ;
-      appHome = jst_strdup( convertedPath ) ;
-    }
-#endif
-    if ( validator ) {
-      int isvalid ;
-      errno = 0 ;
-      isvalid = validator( appHome ) ;
-      if ( errno ) { // TODO: debug messages
-#if defined( _WIN32 ) && defined( _cwcompat )
-        if ( CYGWIN_LOADED ) free( appHome ) ;
-#endif
-        return NULL ;
-      }
-      if ( !isvalid ) {
-#if defined( _WIN32 ) && defined( _cwcompat )
-        if ( CYGWIN_LOADED ) free( appHome ) ;
-#endif
-        appHome = NULL ;
-      }
-    }
+  if ( !appHome ) return NULL ;
 
-#if !( defined( _WIN32 ) && defined( _cwcompat ) )
-    if ( appHome ) appHome = jst_strdup( appHome ) ;
+#if defined( _WIN32 ) && defined( _cwcompat )
+  if ( CYGWIN_LOADED ) {
+    char convertedPath[ PATH_MAX + 1 ] ;
+    cygwin_posix2win_path( appHome, convertedPath ) ;
+    appHome = jst_strdup( convertedPath ) ;
+  }
 #endif
 
-    if ( appHome && _jst_debug ) fprintf( stderr, "debug: obtained app home from env var  %s, value: %s\n", envVarName, appHome ) ;
+  if ( validator ) {
+    int isvalid ;
+    errno = 0 ;
+    isvalid = validator( appHome ) ;
+    if ( errno ) { // TODO: debug messages
+#if defined( _WIN32 ) && defined( _cwcompat )
+      if ( CYGWIN_LOADED ) free( appHome ) ;
+#endif
+      return NULL ;
+    }
+    if ( !isvalid ) {
+#if defined( _WIN32 ) && defined( _cwcompat )
+      if ( CYGWIN_LOADED ) free( appHome ) ;
+#endif
+      return NULL ;
+    }
+
+    if ( _jst_debug ) fprintf( stderr, "debug: obtained app home from env var  %s, value: %s\n", envVarName, appHome ) ;
 
   }
+
+#if defined( _WIN32 ) && defined( _cwcompat ) 
+  if ( !CYGWIN_LOADED )
+#endif
+  appHome = jst_strdup( appHome ) ;
+
 
   return appHome ;
 
