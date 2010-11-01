@@ -22,6 +22,10 @@
 
 #if defined( _WIN32 ) && defined( _cwcompat )
 
+#if defined( _WIN64 )
+#  error "cygwin support can only be enabled in 32-bit builds (as there is no 64-bit cygwin)."
+#endif
+
 # include <Windows.h>
 
 #include <assert.h>
@@ -173,7 +177,7 @@
     delta = (size_t)g_pad->stackbase - (size_t)g_pad->end ;
 
     if ( delta ) {
-      g_pad->backup = malloc( delta ) ;
+      g_pad->backup = jst_malloc( delta ) ;
       if( !( g_pad->backup) ) {
         fprintf( stderr, "error: out of mem when copying stack state\n" ) ;
         return -1 ;
@@ -186,12 +190,14 @@
     // clean up the stack (is it necessary? we are exiting the program anyway...)
     if ( delta ) {
       memcpy( g_pad->end, g_pad->backup, delta ) ;
-      free( g_pad->backup ) ;
+      jst_free( g_pad->backup ) ;
     }
 
     return mainRval ;
 
   }
+
+
 #elif defined( _WIN32 )
 
 // this is here just to keep (ms cl) compiler from complaining about empty translation units
