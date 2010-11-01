@@ -23,6 +23,9 @@ import sys
 
 import nativelaunchertester
 
+sys.path.append ( 'tests' )
+import supportModule
+
 #  For Bamboo continuous integration, the test results need to be output as XML files.  Provide a command
 #  line option to switch the feature on.  Have to put the value into the shell environment so that its value
 #  is available in other Python code.  Because of this always use strings.
@@ -92,6 +95,8 @@ else :
     
 if ( width ) :    
     environmentInitializationPars[ 'Width' ] = width
+
+supportModule.width = width
 
 environment = Environment ( **environmentInitializationPars )
 
