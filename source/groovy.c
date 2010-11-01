@@ -585,12 +585,17 @@ end:
 #endif
 
 int main( int argc, char** argv ) {
+  int rval ;
 #if defined ( _WIN32 ) && defined ( _cwcompat )
   if ( jst_loadCygwinDll() )
-    return runCygwinCompatibly( argc, argv, startGroovy ) ;
+    rval = runCygwinCompatibly( argc, argv, startGroovy ) ;
   else
 #endif
-  return startGroovy( argc, argv ) ;
+  rval = startGroovy( argc, argv ) ;
+#if defined( _DEBUG ) && defined( _CRTDBG_MAP_ALLOC )
+  _CrtDumpMemoryLeaks() ;
+#endif
+  return rval ;
 }
 
 

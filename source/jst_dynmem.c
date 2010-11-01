@@ -15,7 +15,6 @@
 //  Author:  Antti Karanta (Antti dot Karanta (at) hornankuusi dot fi)
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
 #include <errno.h>

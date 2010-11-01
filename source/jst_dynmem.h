@@ -18,6 +18,17 @@
 #if !defined( _JST_DYNMEM_H_ )
 #  define _JST_DYNMEM_H_
 
+#include <stdlib.h>
+#if defined( _CRTDBG_MAP_ALLOC )
+#  if !defined( _MSC_VER )
+#    error "defining _CRTDBG_MAP_ALLOC only makes sense on ms compiler"
+#  endif
+#  if !defined( _DEBUG )
+#    error "_CRTDBG_MAP_ALLOC should only be defined in debug compilation"
+#  endif
+#  include <crtdbg.h>
+#endif
+
 #if defined( __cplusplus )
   extern "C" {
 #endif
