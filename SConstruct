@@ -56,13 +56,15 @@ toolchain = ARGUMENTS.get ( 'toolchain'   , False )
 msvsVersion = ARGUMENTS.get ( 'msvcversion' , False )
 width = int ( ARGUMENTS.get ( 'width' , 0 ) )
 
-environmentInitializationPars = { 'ENV' : os.environ }
- 
+environmentInitializationPars = { 'ENV' : os.environ, 'toolchain' : toolchain }
+
 if ( toolchain ) :
     environmentInitializationPars['tools'] = [ toolchain , 'swig' ] 
+
 if msvsVersion :
     environmentInitializationPars['MSVC_VERSION'] = msvsVersion 
-if ( unameResult[ 0 ] == 'Windows' and width ) : # FIXME - this does not work correctly yet - there is a strange exception from scons (might be our fault, though)
+if ( unameResult[ 0 ] == 'Windows' ) :
+    width = max( 32, width ) # it seems things go bad unless TARGET_ARCH is set explicitly  
     if   width == 64 :
         environmentInitializationPars['TARGET_ARCH'] = "x86_64"
     elif width == 32 :
@@ -70,11 +72,36 @@ if ( unameResult[ 0 ] == 'Windows' and width ) : # FIXME - this does not work co
     else :
         raise Exception ( 'Illegal width ' + str( width ) )
 
+#  A platform may support both 32-bit and 64-bit builds, e,g, Solaris builds on SPARC v9.  By default we
+#  assume a 32-bit build.  Use a command line parameter width to determine if a 64-bit build is to be
+#  attempted.
+
+if width == 64 or width == 32 :
+    pass
+elif not width :
+#    if environment['Architecture'] == 'Linux' :
+    if platform.platform().lower().find( 'linux' ) != -1 :
+        width = 64 if unameResult[4] == 'x86_64' else 32
+# FIXME - why do we default to 32 bit build? I think we should default according to the host os. 
+#         Scons defaults to this automatically on Windows/visual studio.
+    else :
+        width = 32
+else :
+    print 'Width must be 32 or 64. Value given was ' , width
+    Exit ( 1 )
+    
+if ( width ) :    
+    environmentInitializationPars[ 'Width' ] = width
+
 environment = Environment ( **environmentInitializationPars )
 
 environment['Architecture'] = unameResult[ 0 ]
+#print environment.Dump()
+#exit(1)
 
 Export ( 'environment' )
+
+
 
 #  Discovering the location of the header files and the library files for the Python installation is
 #  non-trivial -- it is not just a question of using sys.prefix or sys.exec_prefix.  The job is handled by
@@ -119,25 +146,6 @@ if environment['Architecture'] == 'Windows' :
     result = os.popen ( 'uname -s' ).read ( ).strip ( )
     if result != '' : environment['Architecture'] = result
 
-#  A platform may support both 32-bit and 64-bit builds, e,g, Solaris builds on SPARC v9.  By default we
-#  assume a 32-bit build.  Use a command line parameter width to determine if a 64-bit build is to be
-#  attempted.
-
-if width == 64 or width == 32 :
-    pass
-elif not width :
-    if environment['Architecture'] == 'Linux' :
-        width = 64 if unameResult[4] == 'x86_64' else 32
-# FIXME - why do we default to 32 bit build? I think we should default according to the host os. 
-#         Scons defaults to this automatically on Windows/visual studio.
-    else :
-        width = 32
-else :
-    print 'Width must be 32 or 64. Value given was' , width
-    Exit ( 1 )
-    
-if ( width ) :    
-    environment['Width'] = width
 
 #  The Client VM test in tests/groovyTest.py has to know whether this is a 32-bit or 64-bit VM test, so put
 #  the width value into the shell environment so that it can be picked up during the test.
@@ -185,7 +193,8 @@ else :
         #  See for example http://java.sun.com/docs/books/jni/html/start.html#27008 and
         #  http://java.sun.com/docs/books/jni/html/invoke.html#28755
         environment.Append ( CCFLAGS = [ '-MD' , '-Ox' , '-GF' ] , LINKFLAGS = [ '-opt:ref' ] )
-        if float( environment['MSVS_VERSION'] ) < 9.0 :
+        msvsVersion = float( environment['MSVS_VERSION'] ) 
+        if msvsVersion < 9.0 :
             environment.Append ( LINKFLAGS = [ '-opt:nowin98' ] )
         if not profile :
             #  Global optimization in msvc is incompatible w/ generating debug info (-Zi + friends).
@@ -286,14 +295,17 @@ if environment['CC'] == 'cl' or environment['CC'] == 'icl' :
         LIBS = [ 'advapi32' ] ,
         LINKFLAGS = [ '-incremental:no' ]
         )
-    if float( environment['MSVS_VERSION'] ) < 9.0 :
+    msvsVersion = float( environment['MSVS_VERSION'] ) 
+    if msvsVersion < 9.0 :
         environment.Append ( CCFLAGS = [ '-Wp64' ] )
-    else :
+    elif msvsVersion < 10.0 :
+# this was required on win xp 32 + visual studio 2008 but does not seem to be required on win7 amd64 visual studio 2008 / 2010
+# Or maybe this is due to the new scons version? At any rate, I'll leave it here in case it is needed in some combination...
         environment['SHLINKCOM'] = [ environment['SHLINKCOM'], 'mt -nologo -manifest ${TARGET}.manifest -outputresource:${TARGET};2' ]
         environment['LINKCOM'] = [ environment['LINKCOM'], 'mt -nologo -manifest ${TARGET}.manifest -outputresource:${TARGET};1' ]
         # does not work
         #Clean( '.', '*.manifest' )
-                            
+
     windowsEnvironment = environment.Clone ( )
     windowsEnvironment.Append ( LINKFLAGS = [ '-subsystem:windows' , '-entry:mainCRTStartup' ] )
     environment.Append ( LINKFLAGS = [ '-subsystem:console' ] )
@@ -408,3 +420,7 @@ are provided.  compile is the default.  Possible options are:
     msvcversion=<version> (to use specific version if several versions are installed)
     extramacros=<list-of-c-macro-definitions>
 ''' )
+
+# to see what is in the environment
+#print environment.Dump()
+#exit(1)
