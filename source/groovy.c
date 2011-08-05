@@ -58,6 +58,7 @@ static const char* groovyDefineParam[]     = { "-D", "--define",    NULL } ;
 static const char* groovyAutosplitParam[]  = { "-a", "--autosplit", NULL } ;
 static const char* groovyCharsetParam[]    = { "-c", "--encoding",  NULL } ;
 static const char* groovyDebugParam[]      = { "-d", "--debug",     NULL } ;
+static const char* groovyDisableOptimizationParam[]      = { "--disableopt",     NULL } ;
 static const char* groovyOnelinerParam[]   = { "-e", NULL } ;
 static const char* groovyHelpParam[]       = { "-h", "--help", NULL } ;
 static const char* groovyModinplaceParam[] = { "-i", NULL } ;
@@ -79,6 +80,7 @@ static const JstParamInfo groovyParameters[] = {
   { groovyAutosplitParam,  JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
   { groovyCharsetParam,    JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
   { groovyDebugParam,      JST_SINGLE_PARAM, JST_TO_LAUNCHEE },
+  { groovyDisableOptimizationParam, JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
   { groovyOnelinerParam,   JST_DOUBLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
   { groovyHelpParam,       JST_SINGLE_PARAM, JST_TO_LAUNCHEE | JST_TERMINATING },
   { groovyModinplaceParam, JST_DOUBLE_PARAM, JST_TO_LAUNCHEE },
@@ -557,8 +559,6 @@ int startGroovy( int argc, char** argv ) {
     "                                 instead of the one pointed to by JAVA_HOME\n"
     " --conf <conf file>              use the given groovy conf file\n"
     "\n"
-    " -cp,-classpath,--classpath <user classpath>\n"
-    "                                 the classpath to use\n"
     " -client/-server                 to use a client/server VM\n"
     "\n"
     "In addition, you can give any parameters accepted by the jvm you are using, e.g.\n"
@@ -579,9 +579,7 @@ end:
 
 
 #if defined ( _WIN32 ) && defined ( _cwcompat )
-
-#include "jst_cygwin_compatibility.h"
-
+#  include "jst_cygwin_compatibility.h"
 #endif
 
 int main( int argc, char** argv ) {
